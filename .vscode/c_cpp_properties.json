@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "AVR",
+            "includePath": [
+                "/opt/homebrew/opt/avr-gcc/avr/include",
+                "/opt/homebrew/Cellar/avr-gcc/*/avr/include",
+                "${workspaceFolder}",
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/lib"
+            ],
+            "defines": [
+                "F_CPU=4000000UL",
+                "__AVR_ATmega16__",
+                "__AVR__"
+            ],
+            "compilerPath": "/opt/homebrew/bin/avr-gcc",
+            "cppStandard": "c99",
+            "intelliSenseMode": "gcc-x64",
+            "compilerArgs": [
+                "-mmcu=atmega16",
+                "-DF_CPU=4000000UL"
+            ]
+        }
+    ],
+    "version": 4
+}

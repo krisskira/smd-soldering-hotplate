@@ -1,0 +1,93 @@
+#include "max31865.h"
+#include <util/delay.h>
+
+/* Reference resistor value (ohms) */
+#define RREF 430.0f
+
+/* RTD nominal resistance at 0°C (ohms) */
+#define RTD_NOMINAL 100.0f
+
+/* RTD temperature coefficient (ohms/°C) */
+#define RTD_A 0.0039083f
+#define RTD_B 0.0000005775f
+
+void max31865_init(void) {
+    /* Configure CS pin as output */
+    MAX31865_CS_DDR |= (1 << MAX31865_CS_PIN);
+    
+    /* Set CS high (inactive) */
+    MAX31865_CS_PORT |= (1 << MAX31865_CS_PIN);
+    
+    /* Configure MAX31865 for 2-wire RTD, automatic conversion */
+    uint8_t config = MAX31865_CONFIG_VBIAS | MAX31865_CONFIG_CONVERSION;
+    max31865_write_register(MAX31865_REG_CONFIG, config);
+    
+    _delay_ms(100);  /* Wait for voltage bias to stabilize */
+}
+
+uint8_t max31865_read_register(uint8_t reg) {
+    uint8_t result;
+    
+    avr_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    
+    /* Send read command (bit 7 = 0 for read) */
+    avr_spi_transmit(reg & 0x7F);
+    
+    /* Read data */
+    result = avr_spi_transmit(0xFF);
+    
+    avr_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    
+    return result;
+}
+
+void max31865_write_register(uint8_t reg, uint8_t value) {
+    avr_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    
+    /* Send write command (bit 7 = 1 for write) */
+    avr_spi_transmit(reg | 0x80);
+    
+    /* Send data */
+    avr_spi_transmit(value);
+    
+    avr_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+}
+
+uint16_t max31865_read_rtd(void) {
+    uint8_t msb, lsb;
+    
+    /* Read MSB */
+    msb = max31865_read_register(MAX31865_REG_RTD_MSB);
+    
+    /* Read LSB */
+    lsb = max31865_read_register(MAX31865_REG_RTD_LSB);
+    
+    /* Combine bytes (MSB has data in bits 0-6, LSB has data in bits 0-7) */
+    uint16_t rtd = ((uint16_t)(msb & 0x7F) << 8) | lsb;
+    
+    /* Check fault bit */
+    if (msb & 0x80) {
+        /* Fault detected - you might want to handle this */
+        return 0xFFFF;  /* Error indicator */
+    }
+    
+    return rtd;
+}
+
+float max31865_temperature(uint16_t rtd_value) {
+    if (rtd_value == 0xFFFF) {
+        return -999.0f;  /* Error temperature */
+    }
+    
+    /* Convert ADC value to resistance */
+    float resistance = (float)rtd_value * RREF / 32768.0f;
+    
+    /* Callendar-Van Dusen equation for temperature calculation */
+    float temp = (resistance - RTD_NOMINAL) / (RTD_NOMINAL * RTD_A);
+    
+    /* Add quadratic correction for better accuracy */
+    float temp_sq = temp * temp;
+    temp -= RTD_B * temp_sq;
+    
+    return temp;
+}

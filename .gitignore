@@ -1,0 +1,26 @@
+/build/*
+!build/.gitkeep
+*.o
+*.d
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.obj
+*.sym
+*.a
+*.lnk
+*.srec
+*.eep
+*.lss
+*.s
+*.s2e
+*.s19
+*.s28
+*.s37
+
+# Ignore Sistem Operrative files, like mac files
+.DS_Store
+Thumbs.db
+
