@@ -1,21 +1,52 @@
 #include "avr_spi.h"
 #include <util/delay.h>
 
-void avr_spi_master_init()
+void avr_spi_master_init(spi_clock_div_t div)
 {
-    /* safe master mode */
-    DDRB |= (1 << PB4);
-    PORTB |= (1 << PB4);
+    /* configurar pines */
+    DDRB |= (1 << PB4);      // SS como salida
+    PORTB |= (1 << PB4);     // mantener en alto
 
-    DDRB |= (1 << PB5) | (1 << PB7); // MOSI + SCK
-    DDRB &= ~(1 << PB6);             // MISO
+    DDRB |= (1 << PB5) | (1 << PB7); // MOSI + SCK salida
+    DDRB &= ~(1 << PB6);             // MISO entrada
 
-    SPCR =
-        (1 << SPE) |  // enable SPI
-        (1 << MSTR) | // master
-        (1 << SPR0);  // clk /16
+    uint8_t spcr = (1 << SPE) | (1 << MSTR);
+    uint8_t spsr = 0;
 
-    SPSR = (1 << SPI2X); // clk /8
+    switch (div)
+    {
+        case SPI_DIV_2:
+            spsr |= (1 << SPI2X);
+            break;
+
+        case SPI_DIV_4:
+            break;
+
+        case SPI_DIV_8:
+            spcr |= (1 << SPR0);
+            spsr |= (1 << SPI2X);
+            break;
+
+        case SPI_DIV_16:
+            spcr |= (1 << SPR0);
+            break;
+
+        case SPI_DIV_32:
+            spcr |= (1 << SPR1);
+            spsr |= (1 << SPI2X);
+            break;
+
+        case SPI_DIV_64:
+            spcr |= (1 << SPR1);
+            break;
+
+        case SPI_DIV_128:
+            spcr |= (1 << SPR1) | (1 << SPR0);
+            break;
+    }
+
+    SPCR = spcr;
+    SPSR = spsr;
 }
 
 /**

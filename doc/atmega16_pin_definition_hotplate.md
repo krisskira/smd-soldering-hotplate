@@ -1,230 +1,98 @@
+# Hot Plate Controller – ATmega16 Pin Definition
 
-# Hot Plate Controller – ATmega16 Pin Definition Document
+## Resumen
 
-## Overview
+Documento de referencia de pines del ATmega16 para la placa SMD Hot Plate. **La fuente de verdad es el código** (`config/board_pins.h` y las librerías en `lib/`).
 
-This document defines the pin usage, architecture decisions, and configuration strategy for the main microcontroller used in the SMD Hot Plate controller.
-
-Microcontroller: **ATmega16**
-
-The goal of this document is to provide a clear reference for firmware agents or developers so they understand:
-
-- Which pins are used
-- What each pin does
-- Why that pin was selected
-- How the pins should be configured in firmware
-
-The design philosophy is to **group pins by function** to simplify firmware and reduce configuration conflicts.
+- **MCU:** ATmega16
+- **Objetivo:** Pines por función, sin conflictos
 
 ---
 
-# Port Architecture Strategy
+## Estrategia por puerto
 
-| Port | Purpose |
-|-----|--------|
-PORTB | Communication buses (SPI + LCD serial control) |
-PORTD | User interface + UART + Power control |
-PORTA | Reserved for expansion |
-PORTC | Reserved for expansion / system control |
-
-This separation avoids configuration conflicts and keeps firmware simple.
+| Puerto  | Uso principal                          |
+|--------|----------------------------------------|
+| PORTB  | SPI hardware + Chip Selects (LCD, MAX31865) |
+| PORTD  | UART, encoder, buzzer, calefacción    |
+| PORTA  | Reservado expansión                    |
+| PORTC  | Reservado expansión                    |
 
 ---
 
-# PORTB – Communication and Display
+## PORTB – Comunicación y display
 
-PORTB is dedicated to communication protocols and display control.
+### Bus SPI hardware
 
-## LCD ST7920 (Software SPI / Bitbang)
+El **mismo bus SPI** (MOSI, MISO, SCK) se comparte entre LCD y MAX31865. Cada periférico tiene su propio **Chip Select (CS)**.
 
-The LCD uses a serial protocol similar to SPI but **not fully SPI compliant**, therefore it is driven using a **software SPI implementation**.
+| Pin  | Señal | Dirección | Descripción                    |
+|------|--------|-----------|--------------------------------|
+| PB3  | LCD_CS | Salida    | Chip Select display ST7920     |
+| PB4  | CS_MAX31865 | Salida | Chip Select MAX31865        |
+| PB5  | MOSI   | Salida    | SPI Master Out                 |
+| PB6  | MISO   | Entrada   | SPI Master In                  |
+| PB7  | SCK    | Salida    | Reloj SPI                      |
 
-| Pin | Signal | Direction | Description |
-|----|----|----|----|
-PB0 | LCD_RS | Output | LCD Register Select |
-PB1 | LCD_RW | Output | LCD Serial Data |
-PB2 | LCD_E  | Output | LCD Clock |
+### ST7920 (LCD 128x64)
 
-### Reason for Selection
+- **Interfaz:** Protocolo serie compatible con SPI (modo 8 bits), usando el **SPI hardware** del AVR.
+- **Conexiones:** LCD_CS=PB3, MOSI=PB5, SCK=PB7. MISO no usado para el LCD.
+- **RST:** No conectado; la inicialización por software es suficiente.
 
-- LCD serial interface is not true SPI
-- Prevents conflicts with hardware SPI
-- Allows precise timing control
-- Keeps SPI bus free for other peripherals
+### MAX31865 (sensor temperatura RTD)
 
----
+- **Conexiones:** CS=PB4, MOSI=PB5, MISO=PB6, SCK=PB7.
+- **DRDY:** No conectado; se usa modo polling.
 
-## Hardware SPI Bus
+### Notas
 
-Hardware SPI is used for high‑speed peripherals.
-
-| Pin | Signal | Direction | Description |
-|----|----|----|----|
-PB4 | CS_MAX31865 | Output | Chip select for MAX31865 |
-PB5 | MOSI | Output | SPI Master Out |
-PB6 | MISO | Input | SPI Master In |
-PB7 | SCK | Output | SPI Clock |
-
-### Hardware Notes
-
-- 330Ω series resistors are placed between MCU and MAX31865
-- SPI pins are also connected to the **ICSP programming header**
-- This allows in‑system programming without disconnecting peripherals
-
-### Reason for Selection
-
-- Matches ATmega16 hardware SPI pins
-- Allows reliable ISP programming
-- Keeps communication high speed and stable
+- Resistencias en serie (p. ej. 330 Ω) entre MCU y MAX31865 según diseño.
+- Pines SPI (PB4–PB7) suelen ir al conector ICSP para programación in-system.
 
 ---
 
-# PORTD – User Interface and Power Control
+## PORTD – Interfaz de usuario y potencia
 
-PORTD is dedicated to UI input, communication with the PC, and power control.
+| Pin  | Señal    | Dirección | Descripción           |
+|------|----------|-----------|------------------------|
+| PD0  | RX       | Entrada   | UART recepción         |
+| PD1  | TX       | Salida    | UART transmisión       |
+| PD2  | MENU_CLK | Entrada   | Encoder A              |
+| PD3  | MENU_DT  | Entrada   | Encoder B              |
+| PD4  | MENU_SW  | Entrada   | Pulsador del encoder   |
+| PD5  | BUZZER   | Salida    | Buzzer (PWM posible)   |
+| PD6  | PTC2     | Salida    | Calefactor 2           |
+| PD7  | PTC1     | Salida    | Calefactor 1           |
 
-## UART Communication
-
-Used for communication with the USB interface chip.
-
-| Pin | Signal | Direction | Description |
-|----|----|----|----|
-PD0 | RX | Input | UART receive |
-| PD1 | TX | Output | UART transmit |
-
-Connected to a USB‑UART bridge (CH340/CH430).
-
----
-
-## Encoder (Menu Navigation)
-
-The rotary encoder is used to control the interface.
-
-| Pin | Signal | Direction | Description |
-|----|----|----|----|
-PD2 | MENU_CLK | Input | Encoder A |
-PD3 | MENU_DT | Input | Encoder B |
-PD4 | MENU_SW | Input | Encoder push button |
-
-### Encoder Handling Strategy
-
-Interrupts are **not used**.
-
-Instead the firmware uses **polling**.
-
-### Reason
-
-- Simpler firmware
-- Avoids interrupt noise from encoder bounce
-- Polling at ~1kHz is sufficient for UI navigation
+- UART: puente USB (p. ej. CH340).
+- Encoder: sin interrupciones; polling a ~1 kHz.
 
 ---
 
-## Output Devices
+## PORTA y PORTC
 
-| Pin | Signal | Direction | Description |
-|----|----|----|----|
-PD5 | BUZZER | Output | Buzzer control (PWM capable) |
-PD6 | PTC2 | Output | Heater control channel 2 |
-PD7 | PTC1 | Output | Heater control channel 1 |
-
-### Purpose
-
-- BUZZER provides user feedback
-- PTC1 and PTC2 control heating elements
+Reservados para expansión (sensores, I²C, LEDs, etc.). Sin asignación en el código actual.
 
 ---
 
-# PORTA – Reserved Expansion
-
-PORTA is currently unused.
-
-Future possibilities:
-
-- Analog sensors
-- Voltage monitoring
-- Fan control
-- Additional buttons
-
-No configuration required yet.
-
----
-
-# PORTC – Reserved Expansion
-
-PORTC is also reserved.
-
-Possible future uses:
-
-- I²C sensors
-- External EEPROM
-- LCD reset line
-- System status LEDs
-
----
-
-# Firmware Initialization Example
-
-Example initialization code for ports.
+## Ejemplo de inicialización (referencia)
 
 ```c
-// PORTB
-DDRB =
-    (1<<PB0) |   // LCD_RS
-    (1<<PB1) |   // LCD_RW
-    (1<<PB2) |   // LCD_E
-    (1<<PB4) |   // CS_MAX31865
-    (1<<PB5) |   // MOSI
-    (1<<PB7);    // SCK
+// PORTB: SPI + CS
+DDRB |= (1 << PB3) | (1 << PB4) | (1 << PB5) | (1 << PB7);
+DDRB &= ~(1 << PB6);
+PORTB |= (1 << PB3) | (1 << PB4);  // CS en reposo alto
 
-PORTB = (1<<PB4); // MAX31865 CS idle
-
-// PORTD
-DDRD =
-    (1<<PD1) |   // TX
-    (1<<PD5) |   // BUZZER
-    (1<<PD6) |   // PTC2
-    (1<<PD7);    // PTC1
-
-PORTD =
-    (1<<PD2) |   // encoder pull‑ups
-    (1<<PD3) |
-    (1<<PD4);
+// PORTD: UART, encoder, salidas
+DDRD |= (1 << PD1) | (1 << PD5) | (1 << PD6) | (1 << PD7);
+PORTD |= (1 << PD2) | (1 << PD3) | (1 << PD4);  // pull-ups encoder
 ```
 
 ---
 
-# Encoder Polling Strategy
+## Resumen
 
-Recommended polling frequency:
-
-```
-1 kHz timer interrupt
-```
-
-Example loop:
-
-```
-main loop
-    read_encoder()
-    update_menu()
-    read_temperature()
-    run_pid()
-    update_display()
-    handle_usb()
-```
-
----
-
-# Summary
-
-Key design goals achieved:
-
-- Clear port separation
-- Dedicated hardware SPI bus
-- Software SPI for LCD
-- Reliable ISP programming
-- Clean UI input handling
-- Expansion capability
-
-This architecture keeps firmware simple and scalable while maximizing reliability.
+- LCD ST7920: **SPI hardware**, CS en **PB3**, RST no conectado.
+- MAX31865: **SPI hardware**, CS en **PB4**.
+- Pines y nombres deben coincidir con `config/board_pins.h` y con las librerías en `lib/`.

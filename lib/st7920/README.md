@@ -1,192 +1,86 @@
-# Librería ST7920 - Display LCD 128x64
+# ST7920 – Display LCD 128x64
 
-Control completo del display gráfico ST7920 128x64 mediante interfaz serial por software.
+Control del display gráfico ST7920 128x64 mediante **SPI hardware** y dibujo diferido (lista de comandos + `st7920_render()`). Sin framebuffer completo para ahorrar RAM.
 
-## 📋 Características
+## Hardware (según código)
 
-- ✅ **Display gráfico 128x64** píxeles
-- ✅ **Interfaz serial por software** - Compatible con protocolo ST7920
-- ✅ **Buffer gráfico completo** en RAM (1024 bytes)
-- ✅ **Funciones de dibujo** optimizadas
-- ✅ **Font ASCII 5x7** integrado
-- ✅ **SPI compartido** con otros dispositivos
+| Señal LCD | Pin ATmega16 | Notas        |
+|-----------|--------------|--------------|
+| CS        | PB3          | Chip Select  |
+| MOSI/SCK  | PB5, PB7     | SPI hardware |
+| RST       | No conectado | No usado     |
 
-## 🔧 Hardware
+Referencia: `config/board_pins.h`, `lib/st7920/st7920_config.c`.
 
-### Pines de Control (Software SPI)
-El display ST7920 utiliza una interfaz serial personalizada implementada por software, no compatible con SPI estándar.
-
-| Pin ST7920 | Pin ATmega16 | Función |
-|-----------|-------------|---------|
-| RS        | PB0         | Register Select |
-| RW        | PB1         | Read/Write (datos) |
-| E         | PB2         | Enable/Clock |
-| BLA       | +5V         | Backlight |
-| GND       | GND         | Tierra |
-| VDD       | +5V         | Alimentación |
-
-**Nota:** Esta implementación por software permite control preciso del protocolo serial del ST7920, que no es completamente compatible con SPI estándar.
-
-**Referencia:** Ver `doc/atmega16_pin_definition_hotplate.md` para detalles completos de asignación de pines.
-
-## 🚀 Uso Rápido
+## Uso básico
 
 ```c
 #include "lib/st7920/st7920.h"
+#include "lib/avr_spi/avr_spi.h"
 
 int main(void) {
+    avr_spi_master_init();
     st7920_init();
-    st7920_clear();
+    st7920_graphics_mode();
 
-    // Dibujar texto
-    st7920_draw_string(10, 10, "Hello World!");
+    st7920_draw_rect(10, 10, 100, 30);
+    st7920_draw_line(0, 0, 127, 0);
+    st7920_draw_text(5, 20, "Hola");
+    st7920_draw_progressbar(10, 45, 100, 10, 65);
+    st7920_render();  /* obligatorio: envía todos los comandos al LCD */
 
-    // Dibujar formas
-    st7920_draw_circle(64, 32, 15);
-    st7920_draw_line(0, 0, 127, 63);
-    st7920_draw_rectangle(20, 20, 50, 30);
-
-    // Mostrar en pantalla
-    st7920_update_display();
-
-    while(1);
-    return 0;
+    for (;;) {}
 }
 ```
 
-## 📚 API Reference
+## API
 
-### Inicialización
-- `st7920_init()` - Inicializar display
-- `st7920_clear()` - Limpiar pantalla
-- `st7920_display_on()` / `st7920_display_off()` - Control display
+### Configuración
+- `st7920_init()` – Inicializa el display.
+- `st7920_clear()` – Limpia RAM de texto (modo texto).
+- `st7920_graphics_mode()` – Modo gráfico y borrado de GDRAM.
 
-### Dibujo
-- `st7920_draw_pixel(x, y)` - Dibujar píxel
-- `st7920_clear_pixel(x, y)` - Borrar píxel
-- `st7920_draw_line(x0, y0, x1, y1)` - Línea (Bresenham)
-- `st7920_draw_circle(cx, cy, r)` - Círculo
-- `st7920_draw_filled_circle(cx, cy, r)` - Círculo relleno
-- `st7920_draw_rectangle(x, y, w, h)` - Rectángulo
-
-### Texto
-- `st7920_draw_char(x, y, c)` - Carácter individual
-- `st7920_draw_string(x, y, str)` - Cadena de texto
+### Dibujo (acumulan comandos; se envían con `st7920_render()`)
+- `st7920_draw_pixel(x, y)`
+- `st7920_draw_line(x0, y0, x1, y1)`
+- `st7920_draw_rect(x, y, w, h)`
+- `st7920_draw_progressbar(x, y, w, h, percent)`
+- `st7920_draw_text(x, y, str)`
+- `st7920_draw_bitmap(x, y, w, h, data)` – Carga y dibuja un mapa de bits (véase más abajo).
 
 ### Pantalla
-- `st7920_update_display()` - Actualizar pantalla física
+- `st7920_render()` – Interpreta la lista de comandos y envía todo al LCD. Borra la pantalla al inicio.
 
-## 🔧 SPI Compartido
+## Carga de mapas de bit
+
+`st7920_draw_bitmap(x, y, w, h, data)` añade un bitmap a la lista de comandos. En `st7920_render()` se dibuja en la posición `(x, y)` con tamaño `w`×`h` píxeles.
+
+- **Formato de `data`:** por filas, 1 bit por píxel. Cada fila tiene `(w + 7) / 8` bytes. Bit más significativo = píxel izquierdo. Orden: fila 0, fila 1, …
+- **Origen:** puntero a RAM. Para datos en flash (PROGMEM) hace falta copiarlos a un buffer en RAM antes de dibujar, o se puede añadir más adelante una variante `st7920_draw_bitmap_pgm`.
+
+Ejemplo (icono 8×8 en RAM):
 
 ```c
-// Inicializar SPI (una sola vez)
-avr_spi_master_init(1);
-
-// Inicializar ST7920
-st7920_init();
-
-// Usar otras funciones...
-st7920_draw_string(0, 0, "SPI Multi-Device!");
-st7920_update_display();
+const uint8_t icono[] = {
+    0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C
+};
+st7920_draw_bitmap(10, 20, 8, 8, icono);
+st7920_render();
 ```
 
-## 📊 Especificaciones
 
-- **Resolución:** 128x64 píxeles
-- **Memoria:** 1024 bytes buffer RAM
-- **Velocidad SPI:** 1 MHz
-- **Tamaño código:** ~3KB
-- **Modo:** Gráfico (no texto)
+## Memoria
 
-## 🎯 Algoritmos
+- Lista de comandos: 24 entradas × 7 bytes.
+- Buffer de una fila: 16 B.
 
-- **Líneas:** Algoritmo de Bresenham
-- **Círculos:** Midpoint circle algorithm
-- **Texto:** Font bitmap 5x7 ASCII
+## Estructura del código
 
-## 🐛 Troubleshooting
+- `st7920_config.c` – Init, comandos, GDRAM bajo nivel.
+- `st7920_draw.c` – Lista de comandos, render por filas, bitmap.
+- `st7920_font.c` – Fuente 5x7 en PROGMEM y texto para el render.
 
-### Pantalla negra
-- Verificar alimentación (+5V, GND)
-- Revisar backlight conectado
-- Verificar conexiones SPI
+## Coordenadas
 
-### Texto no aparece
-- Llamar `st7920_update_display()` después de dibujar
-- Verificar coordenadas (0-127 x, 0-63 y)
-- Revisar inicialización correcta
-
-### Formas distorsionadas
-- Verificar límites de pantalla
-- Revisar coordenadas válidas
-- Verificar buffer no corrupto
-
-## 📈 Optimizaciones
-
-- **Buffer único:** Todas las operaciones en RAM
-- **Actualización por bloques:** Escritura eficiente SPI
-- **Algoritmos optimizados:** Sin flotantes, enteros únicamente
-- **Font comprimido:** 96 caracteres en ~500 bytes
-
-## 🔍 Configuración Avanzada
-
-### Modificar pines
-```c
-// En st7920.h
-#define ST7920_CS_PIN    PB4  // Cambiar pin CS
-#define ST7920_SPI_CLK   PB7  // Cambiar pin SCK
-#define ST7920_SPI_MOSI  PB5  // Cambiar pin MOSI
-```
-
-### Buffer personalizado
-```c
-// Acceso directo al buffer
-extern uint8_t display_buffer[128 * 8];
-
-// Manipulación directa
-display_buffer[y * 128 + x] |= (1 << (y % 8));
-```
-
-## 📝 Notas Técnicas
-
-- **Coordenadas:** (0,0) = esquina superior izquierda
-- **Actualización:** Solo `st7920_update_display()` escribe a LCD
-- **SPI Mode:** 0 (CPOL=0, CPHA=0)
-- **Endianness:** MSB first
-- **Comandos:** 3 bytes por comando SPI
-
-## 🎨 Ejemplos
-
-### Barra de progreso
-```c
-void draw_progress_bar(uint8_t percent) {
-    uint8_t width = (percent * 100) / 100;
-    st7920_draw_rectangle(14, 30, width, 4);
-    st7920_draw_string(14, 20, "Progress:");
-    st7920_update_display();
-}
-```
-
-### Gráfico simple
-```c
-void draw_graph(uint8_t data[], uint8_t count) {
-    for (uint8_t i = 1; i < count; i++) {
-        uint8_t x1 = (i-1) * 2;
-        uint8_t y1 = 60 - (data[i-1] / 4);
-        uint8_t x2 = i * 2;
-        uint8_t y2 = 60 - (data[i] / 4);
-        st7920_draw_line(x1, y1, x2, y2);
-    }
-    st7920_update_display();
-}
-```
-
-## 📚 Referencias
-
-- [ST7920 Datasheet](https://www.crystalfontz.com/controllers/ST7920/)
-- [SPI Communication](https://en.wikipedia.org/wiki/Serial_Peripheral_Interface)
-- [Bresenham Algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm)
-
----
-
-**Parte del proyecto SMI Soldering Hot Plate** 🔧⚡
+- (0,0) = esquina superior izquierda.
+- x: 0–127, y: 0–63.

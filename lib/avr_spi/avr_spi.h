@@ -14,12 +14,24 @@
 
 /* Function prototypes for AVR hardware SPI */
 
+typedef enum
+{
+    SPI_DIV_2,
+    SPI_DIV_4,
+    SPI_DIV_8,
+    SPI_DIV_16,
+    SPI_DIV_32,
+    SPI_DIV_64,
+    SPI_DIV_128
+
+} spi_clock_div_t;
+
 /**
  * Initialize AVR SPI hardware in master mode
  * Call this once at system startup for all SPI devices
  * @param clock_divider SPI clock divider (SPR0, SPR1 bits)
  */
-void avr_spi_master_init();
+void avr_spi_master_init(spi_clock_div_t div);
 
 /**
  * Transmit one byte via SPI and return received byte

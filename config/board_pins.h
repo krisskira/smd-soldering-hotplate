@@ -18,10 +18,6 @@
 #define LCD_CS_DDR  DDRB
 #define LCD_CS_PIN  PB3
 
-#define LCD_RST_PORT PORTB
-#define LCD_RST_DDR  DDRB
-#define LCD_RST_PIN  PB2
-
 #define MAX31865_CS_PORT PORTB
 #define MAX31865_CS_DDR  DDRB
 #define MAX31865_CS_PIN  PB4
