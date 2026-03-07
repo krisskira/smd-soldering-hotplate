@@ -51,6 +51,41 @@ int main(void) {
 ### Pantalla
 - `st7920_render()` – Interpreta la lista de comandos y envía todo al LCD. Borra la pantalla al inicio.
 
+### Animaciones (frame 0 + diffs)
+- `st7920_write_frame_pgm(base_x, base_y, data_pgm, width, height, bytes_per_row)` – Escribe un frame completo en GDRAM desde PROGMEM. No borra la pantalla.
+- `st7920_apply_diff_pgm(base_x, base_y, buffer, bytes_per_row, offsets_pgm, values_pgm, count)` – Actualiza el buffer con los bytes indicados y escribe solo los bloques modificados en GDRAM. Datos en PROGMEM.
+- `st7920_draw_animation(x, y, anim, buffer, delay_ms)` – Ejecuta una animación en bucle: escribe el frame 0, luego aplica los diffs de los frames 1..N-1 con un retardo de `delay_ms` ms entre frames. **Bloqueante** (usa `_delay_ms`). Para varias animaciones o lógica concurrente, ver *Estrategia de animaciones no bloqueantes* más abajo.
+
+## Animaciones con descriptor
+
+Las animaciones se describen con la estructura `st7920_animation_t`:
+
+- **frame_0_pgm** – Puntero al frame completo en PROGMEM.
+- **diff_offsets_pgm** – Puntero al array en PROGMEM de punteros (cada uno apunta a los offsets del diff de ese frame). Índice 0 = frame 1.
+- **diff_values_pgm** – Puntero al array en PROGMEM de punteros a los valores del diff.
+- **diff_counts_pgm** – Puntero al array en PROGMEM de `uint16_t` (número de bytes por diff).
+- **width, height, bytes_per_row, bytes_per_frame, frame_count** – Dimensiones y número de frames.
+
+El llamador debe proporcionar un buffer en RAM de al menos `bytes_per_frame` bytes. Ejemplo de uso (bloqueante):
+
+```c
+static const st7920_animation_t plot_anim = {
+    .frame_0_pgm       = plot_frame_0,
+    .diff_offsets_pgm   = plot_diff_offsets,
+    .diff_values_pgm    = plot_diff_values,
+    .diff_counts_pgm    = plot_diff_counts,
+    .width              = PLOT_FRAME_WIDTH,
+    .height             = PLOT_FRAME_HEIGHT,
+    .bytes_per_row      = PLOT_BYTES_PER_ROW,
+    .bytes_per_frame    = PLOT_BYTES_PER_FRAME,
+    .frame_count       = PLOT_FRAME_COUNT,
+};
+static uint8_t plot_buffer[PLOT_BYTES_PER_FRAME];
+
+st7920_render();
+st7920_draw_animation(0, 0, &plot_anim, plot_buffer, 100);  /* no retorna; bloquea */
+```
+
 ## Carga de mapas de bit
 
 `st7920_draw_bitmap(x, y, w, h, data)` añade un bitmap a la lista de comandos. En `st7920_render()` se dibuja en la posición `(x, y)` con tamaño `w`×`h` píxeles.
@@ -84,3 +119,17 @@ st7920_render();
 
 - (0,0) = esquina superior izquierda.
 - x: 0–127, y: 0–63.
+
+## Estrategia de animaciones no bloqueantes
+
+`st7920_draw_animation()` usa `_delay_ms()` y no retorna, por lo que no permite ejecutar varias animaciones a la vez ni mezclar animación con otras tareas. Para evitar el bloqueo se plantea un motor basado en temporizador:
+
+- **Temporizador** (p. ej. Timer0 o Timer1) con interrupción periódica (cada 1 ms o similar) que actualiza un contador global de ticks (milisegundos).
+- **Estado por animación**: descriptor, buffer, posición (x, y), índice de frame actual, instante del último avance.
+- **API en dos partes**:  
+  - **Inicio**: función que escribe el frame 0, rellena el buffer e inicializa el estado (frame_idx = 1, last_tick = now).  
+  - **Paso (polling)**: función que el main loop llama periódicamente; si ha transcurrido el intervalo desde last_tick, aplica el diff del frame actual, avanza el frame y actualiza last_tick. No bloquea.
+
+Así se pueden tener varias animaciones (varios contextos) y en el main loop llamar a la función de paso de cada una; el “delay” lo marca el temporizador, no un delay fijo.
+
+Planteamiento detallado: [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md).

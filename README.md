@@ -4,7 +4,7 @@ Firmware para la placa de soldadura SMI basado en ATmega16. Incluye display LCD 
 
 ## Características
 
-- **Display LCD ST7920 128x64** – Modo gráfico, dibujo diferido (comandos + `st7920_render()`)
+- **Display LCD ST7920 128x64** – Modo gráfico, dibujo diferido (comandos + `st7920_render()`), animaciones por frame 0 + diffs (descriptor `st7920_animation_t`). Ver [lib/st7920/README.md](lib/st7920/README.md).
 - **SPI hardware** – Bus compartido: LCD (CS=PB3), MAX31865 (CS=PB4)
 - **Sin framebuffer completo** – Lista de comandos + buffer de una fila (~160 B RAM en draw)
 
@@ -52,6 +52,7 @@ st7920_render();   /* obligatorio al final */
 ├── doc/atmega16_pin_definition_hotplate.md
 ├── src/main.c
 ├── lib/
+│   ├── avr_delay/     # Temporización no bloqueante (timer)
 │   ├── avr_spi/
 │   ├── avr_uart/
 │   ├── st7920/        # LCD: config, draw, font
@@ -61,10 +62,15 @@ st7920_render();   /* obligatorio al final */
 
 ## Documentación por librería
 
+- [lib/avr_delay/README.md](lib/avr_delay/README.md)
 - [lib/avr_spi/README.md](lib/avr_spi/README.md)
 - [lib/avr_uart/README.md](lib/avr_uart/README.md)
 - [lib/st7920/README.md](lib/st7920/README.md)
 - [lib/max31865/README.md](lib/max31865/README.md)
+
+Documentación adicional:
+
+- [doc/animaciones_no_bloqueantes.md](doc/animaciones_no_bloqueantes.md) – Estrategia para animaciones no bloqueantes (timer + polling).
 
 ## Comandos Make
 

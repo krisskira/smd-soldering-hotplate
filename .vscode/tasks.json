@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "program",
+        "type": "shell",
+        "command": "make program",
+        "problemMatcher": []
+      },
+      {
+        "label": "clean",
+        "type": "shell",
+        "command": "make clean",
+        "problemMatcher": []
+      }
+    ]
+  }

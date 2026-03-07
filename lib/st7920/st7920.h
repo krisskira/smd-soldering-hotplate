@@ -65,8 +65,26 @@ typedef struct {
 } st7920_animation_t;
 
 /* Ejecuta la animación en (x,y): escribe frame 0, luego aplica diffs 1..N-1
- * en bucle. buffer debe tener al menos anim->bytes_per_frame bytes. */
+ * en bucle. buffer debe tener al menos anim->bytes_per_frame bytes. Bloqueante. */
 void st7920_draw_animation(uint8_t x, uint8_t y,
     const st7920_animation_t *anim, uint8_t *buffer, uint16_t delay_ms);
+
+/* Animación no bloqueante (usa delay_ms() de avr_delay). */
+typedef struct {
+    const st7920_animation_t *anim;
+    uint8_t *buffer;
+    uint8_t x, y;
+    uint16_t frame_idx;
+    uint16_t last_tick_ms;
+    uint16_t interval_ms;
+    uint8_t active;
+} st7920_animation_ctx_t;
+
+/** Inicia la animación: escribe frame 0, rellena buffer, inicializa ctx. interval_ms entre frames. */
+void st7920_animation_start(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
+    const st7920_animation_t *anim, uint8_t *buffer, uint16_t interval_ms);
+
+/** Si ha pasado interval_ms, aplica el siguiente diff y avanza. Llamar en el main loop. */
+void st7920_animation_tick(st7920_animation_ctx_t *ctx);
 
 #endif

@@ -6,6 +6,7 @@
  */
 #include "st7920.h"
 #include "st7920_private.h"
+#include "avr_delay/avr_delay.h"
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <stdint.h>
@@ -372,4 +373,51 @@ void st7920_draw_animation(uint8_t x, uint8_t y,
             frame_idx = 1u;
         _delay_ms(delay_ms);
     }
+}
+
+void st7920_animation_start(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
+    const st7920_animation_t *anim, uint8_t *buffer, uint16_t interval_ms)
+{
+    if (!ctx || !anim || !buffer || anim->frame_count < 1u)
+        return;
+
+    st7920_write_frame_pgm(x, y, anim->frame_0_pgm, anim->width, anim->height,
+                            anim->bytes_per_row);
+
+    for (uint16_t i = 0; i < anim->bytes_per_frame; i++)
+        buffer[i] = pgm_read_byte(anim->frame_0_pgm + i);
+
+    ctx->anim = anim;
+    ctx->buffer = buffer;
+    ctx->x = x;
+    ctx->y = y;
+    ctx->frame_idx = 1u;
+    ctx->last_tick_ms = delay_ms();
+    ctx->interval_ms = interval_ms;
+    ctx->active = 1;
+}
+
+void st7920_animation_tick(st7920_animation_ctx_t *ctx)
+{
+    if (!ctx || !ctx->active)
+        return;
+
+    uint16_t now = delay_ms();
+    if ((uint16_t)(now - ctx->last_tick_ms) < ctx->interval_ms)
+        return;
+
+    const st7920_animation_t *anim = ctx->anim;
+    const uint16_t *offsets_pgm = (const uint16_t *)(uint16_t)pgm_read_word(
+        (const uint16_t *)anim->diff_offsets_pgm + (ctx->frame_idx - 1u));
+    const uint8_t *values_pgm = (const uint8_t *)(uint16_t)pgm_read_word(
+        (const uint16_t *)anim->diff_values_pgm + (ctx->frame_idx - 1u));
+    uint16_t count = pgm_read_word(anim->diff_counts_pgm + (ctx->frame_idx - 1u));
+
+    st7920_apply_diff_pgm(ctx->x, ctx->y, ctx->buffer, anim->bytes_per_row,
+                          offsets_pgm, values_pgm, count);
+
+    ctx->frame_idx++;
+    if (ctx->frame_idx >= anim->frame_count)
+        ctx->frame_idx = 1u;
+    ctx->last_tick_ms = now;
 }
