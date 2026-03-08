@@ -64,13 +64,13 @@ static const st7920_animation_t temperature_anim = {
 
 int main(void)
 {
-    avr_spi_master_init(SPI_DIV_4);
+    avr_spi_master_init(SPI_DIV_4);  /* SPI hardware para LCD */
     st7920_init();
     st7920_graphics_mode();
     st7920_disable();
     ptc_init();
     buzzer_init();
-    max31865_init();
+    max31865_init();  /* SPI software en PA0/PA1/PA2 */
     delay_init();
 
 
@@ -101,44 +101,25 @@ int main(void)
     st7920_render();
 
     static float temperature = 0.0f;
-    static uint16_t rtd = 0;
-    static char temp_buf[6] = "---";
-    static uint8_t ready_to_read = 0;
     static const uint16_t temperature_sampling_time_ms = 1000u;
     static uint16_t temperature_time = 0;
 
     temperature_time = delay_ms();
 
-    /* Bus SPI compartido: F_CPU 4 MHz, SPI_DIV_4 → 1 MHz. Adecuado para ST7920 y MAX31865 (este último hasta ~5 MHz).
-     * Secuencia para leer temperatura: deseleccionar LCD → delay → seleccionar MAX → leer → deseleccionar MAX → delay → activar LCD. */
+    /* LCD y MAX31865 en buses distintos (SPI software vs hardware), sin conflicto. */
     while (1) {
         uint16_t now = delay_ms();
 
-        /* Cada temperature_sampling_time_ms: parar LCD, dar bus al MAX31865, marcar listo para leer */
         if ((uint16_t)(now - temperature_time) >= temperature_sampling_time_ms) {
-            st7920_disable();
-            _delay_ms(2);
-            max31865_enable();
             ptc_on();
-            ready_to_read = 1;
-            temperature_time = now;
-        }
-
-        /* Leer sensor (bus ya asignado al MAX), luego volver a activar LCD */
-        if (ready_to_read != 0) {
             max31865_prepare_for_read();
             uint16_t rtd = max31865_read_rtd();
             temperature = max31865_temperature(rtd);
-            // format_temp_c(temperature, temp_buf, sizeof(temp_buf));
-
             ptc_off();
-            max31865_disable();
-            _delay_ms(2);
-            st7920_enable();
-            ready_to_read = 0;
+            temperature_time = now;
         }
 
-        /* Actualizar animaciones y texto en pantalla (LCD activo) */
+        /* Actualizar animaciones y texto en pantalla */
         char buffer[20];
         char texto[40] = "Valor: ";
         dtostrf(temperature, 6, 2, buffer); 

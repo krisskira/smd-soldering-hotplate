@@ -1,6 +1,10 @@
 # Animaciones en el display ST7920 (no bloqueantes)
 
-Documentación sobre las animaciones en el LCD, el sistema de delays por timer y cómo combinar ambos para tener **una o varias animaciones** (o animación + otras tareas) **sin bloquear** la UI. Se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [doc/plan_maquina_estado_tick.md](plan_maquina_estado_tick.md)).
+Documentación sobre las animaciones en el LCD, el sistema de delays por timer y cómo combinar ambos para tener **una o varias animaciones** (o animación + otras tareas) **sin bloquear** la UI. Se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado**.
+
+**Documentación relacionada:**
+- [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) – Guía oficial de temporización (estilo millis)
+- [doc/atmega16_pin_definition_hotplate.md](atmega16_pin_definition_hotplate.md) – Pines, SPI hardware (LCD)
 
 ---
 
@@ -42,7 +46,7 @@ Para no bloquear hace falta un **reloj** que avance en una interrupción. El mó
 
 ### Patrón de uso
 
-Guardar el valor del reloj al iniciar el intervalo; en el loop, si `(delay_xx() - guardado) >= intervalo`, ejecutar la acción y actualizar el guardado. Ver [doc/delays_no_bloqueantes.md](delays_no_bloqueantes.md).
+Guardar el valor del reloj al iniciar el intervalo; en el loop, si `(delay_xx() - guardado) >= intervalo`, ejecutar la acción y actualizar el guardado. Ver [doc/optimizacion_temporizados.md](optimizacion_temporizados.md).
 
 ```c
 delay_init();
@@ -199,8 +203,7 @@ Con esto se pueden tener una o varias animaciones y otras tareas en paralelo sin
 
 ## 6. Documentación relacionada
 
-- [doc/delays_no_bloqueantes.md](delays_no_bloqueantes.md) – Cómo crear y usar delays no bloqueantes.
-- [doc/plan_quitar_animacion.md](plan_quitar_animacion.md) – Plan para quitar una animación tras N segundos (p. ej. 10 s).
-- [doc/plan_maquina_estado_tick.md](plan_maquina_estado_tick.md) – Principio configuración → primera ejecución (init) → ciclo temporizado; máquina de estados y casos de uso.
+- [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) – Guía oficial de temporización (estilo millis), ejemplo main.c, consumir gráficos y datos.
+- [doc/delays_no_bloqueantes.md](delays_no_bloqueantes.md) – Patrón de delays reutilizables.
 - [lib/avr_delay/README.md](../lib/avr_delay/README.md) – API del módulo de delay.
 - [lib/st7920/README.md](../lib/st7920/README.md) – API del display ST7920.

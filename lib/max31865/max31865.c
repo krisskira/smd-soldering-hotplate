@@ -16,6 +16,7 @@
 #define RTD_B   (-5.775e-7f)
 
 void max31865_init(void) {
+    avr_soft_spi_init();
     MAX31865_CS_DDR |= (1 << MAX31865_CS_PIN);
     MAX31865_CS_HIGH();
 
@@ -42,18 +43,18 @@ void max31865_prepare_for_read(void) {
 }
 
 uint8_t max31865_read_register(uint8_t reg) {
-    avr_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
-    avr_spi_transmit(reg & 0x7Fu);
-    uint8_t result = avr_spi_transmit(0xFF);
-    avr_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_transmit(reg & 0x7Fu);
+    uint8_t result = avr_soft_spi_transmit(0xFF);
+    avr_soft_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
     return result;
 }
 
 void max31865_write_register(uint8_t reg, uint8_t value) {
-    avr_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
-    avr_spi_transmit(reg | 0x80u);
-    avr_spi_transmit(value);
-    avr_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_transmit(reg | 0x80u);
+    avr_soft_spi_transmit(value);
+    avr_soft_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
 }
 
 /* Lee RTD en modo one-shot (como Adafruit): clear fault, bias on, 1-shot, 65 ms, leer, bias off. */
@@ -69,11 +70,11 @@ uint16_t max31865_read_rtd(void) {
     _delay_ms(65);
 
     /* Una transacción: enviar dirección 0x01 y leer 2 bytes (MSB, LSB) como Adafruit readRegister16 */
-    avr_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
-    avr_spi_transmit(MAX31865_REG_RTD_MSB & 0x7Fu);
-    uint8_t msb = avr_spi_transmit(0xFF);
-    uint8_t lsb = avr_spi_transmit(0xFF);
-    avr_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_select_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
+    avr_soft_spi_transmit(MAX31865_REG_RTD_MSB & 0x7Fu);
+    uint8_t msb = avr_soft_spi_transmit(0xFF);
+    uint8_t lsb = avr_soft_spi_transmit(0xFF);
+    avr_soft_spi_deselect_device(MAX31865_CS_PIN, &MAX31865_CS_PORT);
 
     /* Desactivar bias para reducir autocalentamiento (como Adafruit) */
     config = MAX31865_CONFIG_50HZ;

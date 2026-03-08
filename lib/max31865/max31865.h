@@ -3,15 +3,12 @@
 
 #include <stdint.h>
 #include <avr/io.h>
-#include "../avr_spi/avr_spi.h"  /* AVR hardware SPI library */
+#include "../avr_soft_spi/avr_soft_spi.h"  /* SPI software en PA0/PA1/PA2 */
 
-/* MAX31865 SPI Configuration - Hardware SPI bus shared with other devices */
-/* Based on atmega16_pin_definition_hotplate.md */
-#define MAX31865_SPI_DDR   DDRB
-#define MAX31865_SPI_PORT  PORTB
+/* MAX31865 Chip Select - PB1 */
 #define MAX31865_CS_DDR    DDRB
 #define MAX31865_CS_PORT   PORTB
-#define MAX31865_CS_PIN    PB1  /* Chip Select for MAX31865 (shared SPI bus) */
+#define MAX31865_CS_PIN    PB1
 
 /* MAX31865 Registers */
 #define MAX31865_REG_CONFIG         0x00

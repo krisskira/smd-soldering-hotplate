@@ -3,8 +3,7 @@
 
 #include <avr/io.h>
 
-/* SPI hardware */
-
+/* SPI hardware (LCD ST7920) - PORTB */
 #define SPI_PORT PORTB
 #define SPI_DDR  DDRB
 
@@ -12,9 +11,17 @@
 #define SPI_MISO PB6
 #define SPI_SCK  PB7
 
-/* Chip Selects (SPI compartido) */
+/* SPI software (MAX31865) - PORTA */
+#define SOFT_SPI_MOSI  PA0
+#define SOFT_SPI_MISO  PA1
+#define SOFT_SPI_SCK   PA2
+#define SOFT_SPI_DDR   DDRA
+#define SOFT_SPI_PORT  PORTA
+#define SOFT_SPI_PIN   PINA
 
-/* LCD ST7920: CS en PB3 (pin 4 de Port B = PB3; ver pinout ATmega16) */
+/* Chip Selects */
+
+/* LCD ST7920: CS en PB0 (SPI hardware) */
 #define LCD_CS_PORT PORTB
 #define LCD_CS_DDR  DDRB
 #define LCD_CS_PIN  PB0

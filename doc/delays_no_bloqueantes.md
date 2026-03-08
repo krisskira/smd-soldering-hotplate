@@ -1,5 +1,7 @@
 # Cómo crear y usar delays no bloqueantes
 
+**Guía oficial:** [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) – Ejemplo real de main.c (lectura sensor cada 1 s), consumir gráficos y datos en procesos asíncronos.
+
 Esta guía explica cómo temporizar acciones **sin bloquear** el programa, usando el módulo `avr_delay` (timer por interrupción) y el patrón “guardar instante inicial + comparar con el contador”.
 
 ## Por qué no usar `_delay_ms()`
@@ -115,7 +117,7 @@ Para reutilizar el mismo patrón en **flujos temporizados** (una o varias tareas
 3. **Ciclo = solo temporizado**  
    En el loop se llama una función de **tick** (o `tick_all` sobre el array). Esa función solo comprueba `(reloj_actual - last_tick) >= intervalo`; si toca, ejecuta la acción y actualiza `last_tick`. El loop no hace init cada vez.
 
-Así el main loop queda simple y escalable: añadir una tarea es añadir una entrada a la configuración (p. ej. un slot más) y, si aplica, incrementar el count en `tick_all`. Ver [doc/plan_maquina_estado_tick.md](plan_maquina_estado_tick.md) para casos de uso (una animación, varias animaciones, temporizador genérico, máquina de estados).
+Así el main loop queda simple y escalable: añadir una tarea es añadir una entrada a la configuración (p. ej. un slot más) y, si aplica, incrementar el count en `tick_all`. Ver [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) para ejemplos completos.
 
 ## Resumen
 

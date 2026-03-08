@@ -1,22 +1,23 @@
 /*
  * ST7920 - Configuración, comandos y modo texto.
+ * SPI hardware (PB5 MOSI, PB7 SCK).
  */
- #include "../../config/board_pins.h"
- #include "../avr_spi/avr_spi.h"
+#include "../../config/board_pins.h"
+#include "../avr_spi/avr_spi.h"
 #include "st7920.h"
 #include "st7920_private.h"
 #include <util/delay.h>
 
-#define LCD_CS_LOW()  LCD_CS_PORT &= ~(1 << LCD_CS_PIN) // Deselect LCD, the chip can't receive data
-#define LCD_CS_HIGH() LCD_CS_PORT |= (1 << LCD_CS_PIN) // Select LCD, the chip can receive data
+#define LCD_CS_LOW()  LCD_CS_PORT &= ~(1 << LCD_CS_PIN)
+#define LCD_CS_HIGH() LCD_CS_PORT |= (1 << LCD_CS_PIN)
 
 static void st7920_write(uint8_t data, uint8_t rs)
 {
     LCD_CS_HIGH();
     if (rs)
-    avr_spi_transmit(0xFA);
+        avr_spi_transmit(0xFA);
     else
-    avr_spi_transmit(0xF8);
+        avr_spi_transmit(0xF8);
 
     avr_spi_transmit(data & 0xF0);
     avr_spi_transmit((data << 4) & 0xF0);
@@ -35,7 +36,7 @@ void st7920_data(uint8_t data)
 
 void st7920_init(void)
 {
-    LCD_CS_DDR |= (1 << LCD_CS_PIN); // Set the pin as output
+    LCD_CS_DDR |= (1 << LCD_CS_PIN);
     LCD_CS_HIGH();
     _delay_ms(50);
 

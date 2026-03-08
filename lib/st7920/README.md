@@ -6,7 +6,7 @@ Control del display gráfico ST7920 128x64 mediante **SPI hardware** y dibujo di
 
 | Señal LCD | Pin ATmega16 | Notas        |
 |-----------|--------------|--------------|
-| CS        | PB3          | Chip Select  |
+| CS        | PB0          | Chip Select  |
 | MOSI/SCK  | PB5, PB7     | SPI hardware |
 | RST       | No conectado | No usado     |
 
@@ -19,7 +19,7 @@ Referencia: `config/board_pins.h`, `lib/st7920/st7920_config.c`.
 #include "lib/avr_spi/avr_spi.h"
 
 int main(void) {
-    avr_spi_master_init();
+    avr_spi_master_init(SPI_DIV_4);
     st7920_init();
     st7920_graphics_mode();
 

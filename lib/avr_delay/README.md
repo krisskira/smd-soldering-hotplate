@@ -96,7 +96,7 @@ Para flujos con una o varias tareas temporizadas (animaciones, máquinas de esta
 2. **Primera ejecución:** al arranque o primera vez que se entra en el flujo, hacer init (guardar `last_tick = delay_ms()`, activar, acción inicial). No repetir en el loop.
 3. **Ciclo:** en el loop solo llamar una función de tick (o `tick_all`); comprobar `(reloj - last_tick) >= intervalo` y, si toca, ejecutar acción y actualizar `last_tick`.
 
-Guía detallada: [doc/delays_no_bloqueantes.md](../../doc/delays_no_bloqueantes.md). Casos de uso y máquinas de estado: [doc/plan_maquina_estado_tick.md](../../doc/plan_maquina_estado_tick.md).
+Guía oficial: [doc/optimizacion_temporizados.md](../../doc/optimizacion_temporizados.md). Patrón: [doc/delays_no_bloqueantes.md](../../doc/delays_no_bloqueantes.md).
 
 ## Hardware
 
