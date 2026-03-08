@@ -4,7 +4,7 @@ Firmware para la placa de soldadura SMI basado en ATmega16. Incluye display LCD 
 
 ## Características
 
-- **Display LCD ST7920 128x64** – Modo gráfico, dibujo diferido (comandos + `st7920_render()`), animaciones por frame 0 + diffs (descriptor `st7920_animation_t`). Ver [lib/st7920/README.md](lib/st7920/README.md).
+- **Display LCD ST7920 128x64** – Modo gráfico, dibujo diferido (comandos + `st7920_render()`), animaciones por frame 0 + diffs (descriptor `st7920_animation_t`). Una o varias animaciones con `st7920_animation_run` / `st7920_animation_run_all(slots, n)`. Ver [lib/st7920/README.md](lib/st7920/README.md).
 - **SPI hardware** – Bus compartido: LCD (CS=PB3), MAX31865 (CS=PB4)
 - **Sin framebuffer completo** – Lista de comandos + buffer de una fila (~160 B RAM en draw)
 
@@ -70,7 +70,10 @@ st7920_render();   /* obligatorio al final */
 
 Documentación adicional:
 
-- [doc/animaciones_no_bloqueantes.md](doc/animaciones_no_bloqueantes.md) – Estrategia para animaciones no bloqueantes (timer + polling).
+- [doc/animaciones_no_bloqueantes.md](doc/animaciones_no_bloqueantes.md) – Animaciones no bloqueantes: una o varias con `run` / `run_all` y slots (ejemplos).
+- [doc/delays_no_bloqueantes.md](doc/delays_no_bloqueantes.md) – Cómo crear y usar delays no bloqueantes.
+- [doc/plan_maquina_estado_tick.md](doc/plan_maquina_estado_tick.md) – **Principio reutilizable:** definir configuración del flujo → primera ejecución (init) → ciclo temporizado. Aplica a animaciones, temporizador genérico y máquinas de estado. Casos de uso documentados.
+- [doc/plan_quitar_animacion.md](doc/plan_quitar_animacion.md) – Plan: quitar una animación tras N segundos (borrar o reemplazar zona).
 
 ## Comandos Make
 

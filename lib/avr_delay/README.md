@@ -88,6 +88,16 @@ for (;;) {
 
 El cast a `(uint16_t)` o `(uint8_t)` en la resta hace que el wrap del contador siga dando el intervalo correcto.
 
+## Patrón: configuración → primera ejecución (init) → ciclo temporizado
+
+Para flujos con una o varias tareas temporizadas (animaciones, máquinas de estado, etc.):
+
+1. **Configuración:** definir estructuras con intervalo, último tick y punteros a contexto/callback (o array de “slots”).
+2. **Primera ejecución:** al arranque o primera vez que se entra en el flujo, hacer init (guardar `last_tick = delay_ms()`, activar, acción inicial). No repetir en el loop.
+3. **Ciclo:** en el loop solo llamar una función de tick (o `tick_all`); comprobar `(reloj - last_tick) >= intervalo` y, si toca, ejecutar acción y actualizar `last_tick`.
+
+Guía detallada: [doc/delays_no_bloqueantes.md](../../doc/delays_no_bloqueantes.md). Casos de uso y máquinas de estado: [doc/plan_maquina_estado_tick.md](../../doc/plan_maquina_estado_tick.md).
+
 ## Hardware
 
 - **Timer0** en modo CTC (Compare Match), prescaler 64.

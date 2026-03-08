@@ -21,6 +21,11 @@ void st7920_draw_progressbar(uint8_t x, uint8_t y, uint8_t w, uint8_t h,
                              uint8_t percent);
 void st7920_draw_text(uint8_t x, uint8_t y, const char *str);
 
+/** Escribe texto directamente en GDRAM (sin lista de comandos). Para actualizar texto en el loop
+ * sin llamar a st7920_render() (que borra toda la pantalla y las animaciones).
+ * Sobrescribe solo las filas que ocupa el texto (fuente 5x7 → 7 filas); reservar esa zona sin animaciones. */
+void st7920_draw_text_gdram(uint8_t x, uint8_t y, const char *str);
+
 /* Carga y dibuja un mapa de bits en (x,y), tamaño w×h. data: por filas, 1 bit/píxel, (w+7)/8 bytes por fila, MSB = izquierda. */
 void st7920_draw_bitmap(uint8_t x, uint8_t y, uint8_t w, uint8_t h, const uint8_t *data);
 
@@ -42,6 +47,15 @@ void st7920_write_frame(uint8_t base_x, uint8_t base_y, const uint8_t *data,
 /* Igual que plot_write_frame pero data está en PROGMEM. */
 void st7920_write_frame_pgm(uint8_t base_x, uint8_t base_y, const uint8_t *data_pgm,
                                  uint8_t width, uint8_t height, uint8_t bytes_per_row);
+
+/* Borra una región rectangular en GDRAM (escribe 0). Coordenadas en píxeles (0..127 x, 0..63 y).
+ * Se redondea a bloques completos del ST7920 (16 px ancho × 2 px alto). */
+void st7920_clear_region(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
+
+/* Escribe un bitmap en la región (x,y) de tamaño w×h en GDRAM. bitmap_pgm: (w+7)/8 bytes por fila,
+ * (h+1)/2 filas (cada fila = 2 píxeles verticales, mismo formato que los frames de animación). */
+void st7920_draw_region_pgm(uint8_t x, uint8_t y, const uint8_t *bitmap_pgm,
+                                uint8_t w, uint8_t h);
 
 /* Igual que plot_apply_diff pero offsets y values están en PROGMEM. */
 void st7920_apply_diff_pgm(uint8_t base_x, uint8_t base_y, uint8_t *buffer,
@@ -80,11 +94,22 @@ typedef struct {
     uint8_t active;
 } st7920_animation_ctx_t;
 
-/** Inicia la animación: escribe frame 0, rellena buffer, inicializa ctx. interval_ms entre frames. */
-void st7920_animation_start(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
+/** Parámetros de una animación (punteros); para usar en array y run_all. */
+typedef struct {
+    st7920_animation_ctx_t *ctx;
+    uint8_t x, y;
+    const st7920_animation_t *anim;
+    uint8_t *buffer;
+    uint16_t interval_ms;
+} st7920_animation_slot_t;
+
+/** Una función + máquina de estados: si ctx no está activo y anim/buffer no NULL, inicia
+ * (frame 0 + buffer); si ya está activo, hace tick. Llamar en el loop con los mismos
+ * parámetros; la primera vez hace start, las siguientes tick. */
+void st7920_animation_run(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
     const st7920_animation_t *anim, uint8_t *buffer, uint16_t interval_ms);
 
-/** Si ha pasado interval_ms, aplica el siguiente diff y avanza. Llamar en el main loop. */
-void st7920_animation_tick(st7920_animation_ctx_t *ctx);
+/** Ejecuta run() para cada slot. Evita reescribir el loop al añadir animaciones. */
+void st7920_animation_run_all(const st7920_animation_slot_t *slots, uint8_t count);
 
 #endif

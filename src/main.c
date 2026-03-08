@@ -49,19 +49,28 @@ int main(void)
     static st7920_animation_ctx_t plot_ctx;
     static st7920_animation_ctx_t temperature_ctx;
 
+    static const st7920_animation_slot_t animation_slots1[] = {
+        { &plot_ctx,        2, 16, &plot_anim,        plot_buffer,        100 },
+    };
+
+    static const st7920_animation_slot_t animation_slots2[] = {
+        { &temperature_ctx, 48, 16, &temperature_anim, temperature_buffer, 100 },
+    };
+    #define ANIMATION_SLOT_COUNT1  (sizeof(animation_slots1) / sizeof(animation_slots1[0]))
+    #define ANIMATION_SLOT_COUNT2  (sizeof(animation_slots2) / sizeof(animation_slots2[0]))
+
     st7920_clear_commands();
     st7920_draw_rect(0, 0, 12, 12);
     st7920_draw_bitmap(2, 2, 8, 8, icono);
     st7920_draw_rect(46, 14, 34, 34);
-    st7920_draw_text(0, 57, "Hello");
     st7920_render();
 
-    st7920_animation_start(&plot_ctx, 2, 16, &plot_anim, plot_buffer, 100);
-    st7920_animation_start(&temperature_ctx, 48, 16, &temperature_anim, temperature_buffer, 100);
+    const char *text = "2026";
 
-    while (1) 
-    {
-        st7920_animation_tick(&plot_ctx);
-        st7920_animation_tick(&temperature_ctx);
+    while (1) {
+        st7920_animation_run_all(animation_slots1, (uint8_t)ANIMATION_SLOT_COUNT1);
+        st7920_animation_run_all(animation_slots2, (uint8_t)ANIMATION_SLOT_COUNT2);
+        /* Texto directo en GDRAM: no usa render() y no borra las animaciones. */
+        st7920_draw_text_gdram(35, 57, text);
     }
 }

@@ -45,7 +45,8 @@ int main(void) {
 - `st7920_draw_line(x0, y0, x1, y1)`
 - `st7920_draw_rect(x, y, w, h)`
 - `st7920_draw_progressbar(x, y, w, h, percent)`
-- `st7920_draw_text(x, y, str)`
+- `st7920_draw_text(x, y, str)` – Añade texto a la lista de comandos (se envía con `st7920_render()`).
+- **`st7920_draw_text_gdram(x, y, str)`** – Escribe texto **directo en GDRAM** (sin lista de comandos). Usar en el loop cuando combines texto variable y animaciones; así no hace falta llamar a `st7920_render()` de nuevo. Sobrescribe las 7 filas de píxel que ocupa el texto (fuente 5x7).
 - `st7920_draw_bitmap(x, y, w, h, data)` – Carga y dibuja un mapa de bits (véase más abajo).
 
 ### Pantalla
@@ -54,6 +55,8 @@ int main(void) {
 ### Animaciones (frame 0 + diffs)
 - `st7920_write_frame_pgm(base_x, base_y, data_pgm, width, height, bytes_per_row)` – Escribe un frame completo en GDRAM desde PROGMEM. No borra la pantalla.
 - `st7920_apply_diff_pgm(base_x, base_y, buffer, bytes_per_row, offsets_pgm, values_pgm, count)` – Actualiza el buffer con los bytes indicados y escribe solo los bloques modificados en GDRAM. Datos en PROGMEM.
+- **`st7920_clear_region(x, y, w, h)`** – Borra una región rectangular en GDRAM (escribe 0). Coordenadas en píxeles; útil para “quitar” una animación o limpiar una zona.
+- **`st7920_draw_region_pgm(x, y, bitmap_pgm, w, h)`** – Escribe un bitmap en la región (x,y) de tamaño w×h en GDRAM. Formato del bitmap: `(w+7)/8` bytes por fila, `(h+1)/2` filas (2 px por fila, igual que los frames de animación). Útil para reemplazar una animación por un icono estático.
 - `st7920_draw_animation(x, y, anim, buffer, delay_ms)` – Ejecuta una animación en bucle: escribe el frame 0, luego aplica los diffs de los frames 1..N-1 con un retardo de `delay_ms` ms entre frames. **Bloqueante** (usa `_delay_ms`). Para varias animaciones o lógica concurrente, ver *Estrategia de animaciones no bloqueantes* más abajo.
 
 ## Animaciones con descriptor
@@ -120,16 +123,22 @@ st7920_render();
 - (0,0) = esquina superior izquierda.
 - x: 0–127, y: 0–63.
 
-## Estrategia de animaciones no bloqueantes
+## Animaciones no bloqueantes
 
-`st7920_draw_animation()` usa `_delay_ms()` y no retorna, por lo que no permite ejecutar varias animaciones a la vez ni mezclar animación con otras tareas. Para evitar el bloqueo se plantea un motor basado en temporizador:
+`st7920_draw_animation()` es bloqueante. Para **una o varias** animaciones sin bloquear se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [doc/plan_maquina_estado_tick.md](../../doc/plan_maquina_estado_tick.md)):
 
-- **Temporizador** (p. ej. Timer0 o Timer1) con interrupción periódica (cada 1 ms o similar) que actualiza un contador global de ticks (milisegundos).
-- **Estado por animación**: descriptor, buffer, posición (x, y), índice de frame actual, instante del último avance.
-- **API en dos partes**:  
-  - **Inicio**: función que escribe el frame 0, rellena el buffer e inicializa el estado (frame_idx = 1, last_tick = now).  
-  - **Paso (polling)**: función que el main loop llama periódicamente; si ha transcurrido el intervalo desde last_tick, aplica el diff del frame actual, avanza el frame y actualiza last_tick. No bloquea.
+- **Una animación:** `st7920_animation_run(ctx, x, y, anim, buffer, interval_ms)` – Una función con máquina de estados: la primera llamada hace start (frame 0 + init ctx); las siguientes hacen tick. Llamar siempre en el loop con los mismos parámetros.
+- **Varias animaciones:** definir un array de **slots** (`st7920_animation_slot_t`), cada uno con punteros a ctx, anim, buffer y (x, y, interval_ms). En el loop solo **`st7920_animation_run_all(slots, count)`**. Añadir una animación = añadir un slot al array; no hace falta reescribir el loop.
 
-Así se pueden tener varias animaciones (varios contextos) y en el main loop llamar a la función de paso de cada una; el “delay” lo marca el temporizador, no un delay fijo.
+Documentación completa (una vs varias animaciones, ejemplos, delays): [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md).
 
-Planteamiento detallado: [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md).
+## Texto + animaciones (sin volver a llamar render)
+
+`st7920_render()` **borra toda la GDRAM** y luego dibuja la lista de comandos. Si en el loop llamas otra vez a `render()` para actualizar texto, se pierden las animaciones (que se dibujan directo en GDRAM).
+
+**Uso recomendado cuando hay texto variable y animaciones:**
+
+1. **Al inicio:** `st7920_clear_commands()`, añadir rectángulos, bitmap estático, etc., luego **`st7920_render()`** una sola vez.
+2. **En el loop:** animaciones con `st7920_animation_run_all(...)` y **`st7920_draw_text_gdram(x, y, str)`** para el texto que cambia (p. ej. año, temperatura). No llames a `st7920_render()` en el loop.
+
+Así el texto se escribe directo en GDRAM y las animaciones siguen visibles. La zona del texto (7 filas de píxel con fuente 5x7) se sobrescribe por completo en cada llamada; no pongas ahí otras cosas que quieras conservar.
