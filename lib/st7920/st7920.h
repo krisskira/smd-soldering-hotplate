@@ -112,4 +112,7 @@ void st7920_animation_run(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
 /** Ejecuta run() para cada slot. Evita reescribir el loop al añadir animaciones. */
 void st7920_animation_run_all(const st7920_animation_slot_t *slots, uint8_t count);
 
+void st7920_disable(void);
+void st7920_enable(void);
+
 #endif

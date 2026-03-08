@@ -11,7 +11,7 @@
 #define MAX31865_SPI_PORT  PORTB
 #define MAX31865_CS_DDR    DDRB
 #define MAX31865_CS_PORT   PORTB
-#define MAX31865_CS_PIN    PB4  /* Chip Select for MAX31865 (shared SPI bus) */
+#define MAX31865_CS_PIN    PB1  /* Chip Select for MAX31865 (shared SPI bus) */
 
 /* MAX31865 Registers */
 #define MAX31865_REG_CONFIG         0x00
@@ -37,5 +37,20 @@ uint16_t max31865_read_rtd(void);
 float max31865_temperature(uint16_t rtd_value);
 uint8_t max31865_read_register(uint8_t reg);
 void max31865_write_register(uint8_t reg, uint8_t value);
+
+/** Lee el registro de fault (0x07). 0 = sin fallo. */
+uint8_t max31865_read_fault_status(void);
+
+/** Escribe config con FAULT_CLEAR para limpiar fallos; delay interno. Llamar con el bus libre (LCD deseleccionado). */
+void max31865_clear_fault(void);
+
+/** Limpia fallos y espera a que el chip esté estable. Llamar antes de read_rtd con el bus libre. */
+void max31865_prepare_for_read(void);
+
+/** Deselecciona el MAX31865. */
+void max31865_disable(void);
+
+/** Selecciona el MAX31865. */
+void max31865_enable(void);
 
 #endif /* MAX31865_H */

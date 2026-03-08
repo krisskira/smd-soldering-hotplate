@@ -1,6 +1,7 @@
 #include "avr_spi.h"
 #include <util/delay.h>
 
+/* Con F_CPU 4 MHz: DIV_4 → 1 MHz (usado en esta placa; válido para ST7920 y MAX31865). */
 void avr_spi_master_init(spi_clock_div_t div)
 {
     /* configurar pines */

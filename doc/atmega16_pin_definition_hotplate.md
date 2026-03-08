@@ -28,7 +28,8 @@ El **mismo bus SPI** (MOSI, MISO, SCK) se comparte entre LCD y MAX31865. Cada pe
 
 | Pin  | Señal | Dirección | Descripción                    |
 |------|--------|-----------|--------------------------------|
-| PB3  | LCD_CS | Salida    | Chip Select display ST7920     |
+| PB2  | LCD_CS | Salida    | Chip Select display ST7920 (ver `config/board_pins.h`) |
+| PB3  | —      | —         | Libre si LCD está en PB2 |
 | PB4  | CS_MAX31865 | Salida | Chip Select MAX31865        |
 | PB5  | MOSI   | Salida    | SPI Master Out                 |
 | PB6  | MISO   | Entrada   | SPI Master In                  |

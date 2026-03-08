@@ -54,7 +54,8 @@ MAIN = main
 BUILD = build
 
 SRC := $(shell find src -name "*.c" -o -name "*.cpp")
-LIB_SRC := $(shell find lib -name "*.c" -o -name "*.cpp")
+# Excluir libs de referencia (Arduino/Adafruit) que no se compilan en este proyecto
+LIB_SRC := $(shell find lib -name "*.c" -o -name "*.cpp" | grep -v adafruit)
 
 ALL_SRC := $(SRC) $(LIB_SRC)
 

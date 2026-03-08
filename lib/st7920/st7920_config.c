@@ -1,27 +1,25 @@
 /*
  * ST7920 - Configuración, comandos y modo texto.
  */
+ #include "../../config/board_pins.h"
+ #include "../avr_spi/avr_spi.h"
 #include "st7920.h"
 #include "st7920_private.h"
-#include "../avr_spi/avr_spi.h"
 #include <util/delay.h>
 
-#define LCD_CS_LOW()  PORTB &= ~(1 << PB3)
-#define LCD_CS_HIGH() PORTB |= (1 << PB3)
+#define LCD_CS_LOW()  LCD_CS_PORT &= ~(1 << LCD_CS_PIN) // Deselect LCD, the chip can't receive data
+#define LCD_CS_HIGH() LCD_CS_PORT |= (1 << LCD_CS_PIN) // Select LCD, the chip can receive data
 
 static void st7920_write(uint8_t data, uint8_t rs)
 {
-    LCD_CS_LOW();
-
+    LCD_CS_HIGH();
     if (rs)
-        avr_spi_transmit(0xFA);
+    avr_spi_transmit(0xFA);
     else
-        avr_spi_transmit(0xF8);
+    avr_spi_transmit(0xF8);
 
     avr_spi_transmit(data & 0xF0);
     avr_spi_transmit((data << 4) & 0xF0);
-
-    LCD_CS_HIGH();
     _delay_us(10);
 }
 
@@ -33,6 +31,35 @@ void st7920_cmd(uint8_t cmd)
 void st7920_data(uint8_t data)
 {
     st7920_write(data, 1);
+}
+
+void st7920_init(void)
+{
+    LCD_CS_DDR |= (1 << LCD_CS_PIN); // Set the pin as output
+    LCD_CS_HIGH();
+    _delay_ms(50);
+
+    st7920_cmd(0x30);
+    _delay_ms(10);
+    st7920_cmd(0x30);
+    _delay_us(110);
+    st7920_cmd(0x0C);
+    _delay_us(110);
+    st7920_cmd(0x01);
+    _delay_ms(12);
+    st7920_cmd(0x06);
+    _delay_us(110);
+    LCD_CS_LOW();
+}
+
+void st7920_disable(void)
+{
+    LCD_CS_LOW();
+}
+
+void st7920_enable(void)
+{
+    LCD_CS_HIGH();
 }
 
 void st7920_set_gdram(uint8_t x, uint8_t y)
@@ -81,24 +108,6 @@ void st7920_clear_gdram(void)
             st7920_data(0x00);
         }
     }
-}
-
-void st7920_init(void)
-{
-    DDRB |= (1 << PB2);
-    PORTB |= (1 << PB2);
-    _delay_ms(50);
-
-    st7920_cmd(0x30);
-    _delay_ms(10);
-    st7920_cmd(0x30);
-    _delay_us(110);
-    st7920_cmd(0x0C);
-    _delay_us(110);
-    st7920_cmd(0x01);
-    _delay_ms(12);
-    st7920_cmd(0x06);
-    _delay_us(110);
 }
 
 void st7920_clear(void)

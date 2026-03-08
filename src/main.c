@@ -1,12 +1,42 @@
 #define F_CPU 4000000UL
 
 #include <avr/io.h>
-#include "lib/st7920/st7920.h"
+#include <avr/pgmspace.h>
+#include <stdint.h>
+#include "../config/board_pins.h"
+#include "lib/ports/ports.h"
 #include "lib/avr_spi/avr_spi.h"
 #include "lib/avr_delay/avr_delay.h"
+#include "lib/st7920/st7920.h"
+#include "lib/max31865/max31865.h"
 #include "icons/animated/plot.c"
 #include "icons/animated/temperature.c"
+#include <util/delay.h>
+#include <stdio.h>
+#include <stdlib.h>
 
+/** Convierte temperatura °C a cadena "XXX" o "ERR". buf al menos 5 bytes. */
+static void format_temp_c(float temp_c, char *buf, uint8_t buf_size)
+{
+    if (buf_size < 4u)
+        return;
+    if (temp_c < -99.0f || temp_c > 999.0f) {
+        buf[0] = 'E'; buf[1] = 'R'; buf[2] = 'R'; buf[3] = '\0';
+        return;
+    }
+    int16_t n = (int16_t)(temp_c >= 0.0f ? temp_c + 0.5f : temp_c - 0.5f);
+    uint8_t i = 0;
+    if (n < 0) {
+        buf[i++] = '-';
+        n = (int16_t)(-(int32_t)n);
+    }
+    if (n >= 100)
+        buf[i++] = (char)('0' + (n / 100));
+    if (n >= 10)
+        buf[i++] = (char)('0' + ((n / 10) % 10));
+    buf[i++] = (char)('0' + (n % 10));
+    buf[i] = '\0';
+}
 
 static const st7920_animation_t plot_anim = {
     .frame_0_pgm       = plot_frame_0,
@@ -37,7 +67,12 @@ int main(void)
     avr_spi_master_init(SPI_DIV_4);
     st7920_init();
     st7920_graphics_mode();
+    st7920_disable();
+    ptc_init();
+    buzzer_init();
+    max31865_init();
     delay_init();
+
 
     const uint8_t icono[] PROGMEM = {
         0x3C, 0x42, 0xA5, 0x81, 0xA5, 0x99, 0x42, 0x3C
@@ -65,12 +100,51 @@ int main(void)
     st7920_draw_rect(46, 14, 34, 34);
     st7920_render();
 
-    const char *text = "2026";
+    static float temperature = 0.0f;
+    static uint16_t rtd = 0;
+    static char temp_buf[6] = "---";
+    static uint8_t ready_to_read = 0;
+    static const uint16_t temperature_sampling_time_ms = 1000u;
+    static uint16_t temperature_time = 0;
 
+    temperature_time = delay_ms();
+
+    /* Bus SPI compartido: F_CPU 4 MHz, SPI_DIV_4 → 1 MHz. Adecuado para ST7920 y MAX31865 (este último hasta ~5 MHz).
+     * Secuencia para leer temperatura: deseleccionar LCD → delay → seleccionar MAX → leer → deseleccionar MAX → delay → activar LCD. */
     while (1) {
+        uint16_t now = delay_ms();
+
+        /* Cada temperature_sampling_time_ms: parar LCD, dar bus al MAX31865, marcar listo para leer */
+        if ((uint16_t)(now - temperature_time) >= temperature_sampling_time_ms) {
+            st7920_disable();
+            _delay_ms(2);
+            max31865_enable();
+            ptc_on();
+            ready_to_read = 1;
+            temperature_time = now;
+        }
+
+        /* Leer sensor (bus ya asignado al MAX), luego volver a activar LCD */
+        if (ready_to_read != 0) {
+            max31865_prepare_for_read();
+            uint16_t rtd = max31865_read_rtd();
+            temperature = max31865_temperature(rtd);
+            // format_temp_c(temperature, temp_buf, sizeof(temp_buf));
+
+            ptc_off();
+            max31865_disable();
+            _delay_ms(2);
+            st7920_enable();
+            ready_to_read = 0;
+        }
+
+        /* Actualizar animaciones y texto en pantalla (LCD activo) */
+        char buffer[20];
+        char texto[40] = "Valor: ";
+        dtostrf(temperature, 6, 2, buffer); 
+        strcat(texto, buffer); // concatenar el buffer al texto
         st7920_animation_run_all(animation_slots1, (uint8_t)ANIMATION_SLOT_COUNT1);
         st7920_animation_run_all(animation_slots2, (uint8_t)ANIMATION_SLOT_COUNT2);
-        /* Texto directo en GDRAM: no usa render() y no borra las animaciones. */
-        st7920_draw_text_gdram(35, 57, text);
+        st7920_draw_text_gdram(35, 57, texto);
     }
 }

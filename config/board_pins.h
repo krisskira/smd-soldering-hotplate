@@ -12,14 +12,15 @@
 #define SPI_MISO PB6
 #define SPI_SCK  PB7
 
-/* Chip Selects */
+/* Chip Selects (SPI compartido) */
 
+/* LCD ST7920: CS en PB3 (pin 4 de Port B = PB3; ver pinout ATmega16) */
 #define LCD_CS_PORT PORTB
 #define LCD_CS_DDR  DDRB
-#define LCD_CS_PIN  PB3
+#define LCD_CS_PIN  PB0
 
 #define MAX31865_CS_PORT PORTB
 #define MAX31865_CS_DDR  DDRB
-#define MAX31865_CS_PIN  PB4
+#define MAX31865_CS_PIN  PB1
 
 #endif
