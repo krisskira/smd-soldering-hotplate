@@ -1,37 +1,32 @@
 # AVR SPI – SPI hardware ATmega16
 
-Control del módulo SPI hardware del ATmega16. Usado por el LCD ST7920 y el MAX31865 en el mismo bus, con CS independientes.
+SPI hardware del ATmega16 usado **solo por el LCD ST7920**.
+El MAX31865 usa SPI **software** independiente en PORTA.
 
-## Hardware (según código)
+## Hardware (según `config/board_pins.h`)
 
 | Pin ATmega16 | Función | Descripción |
 |--------------|---------|-------------|
 | PB7 | SCK  | Reloj SPI |
-| PB6 | MISO | Maestro entrada |
+| PB6 | MISO | Maestro entrada (LCD no lo usa) |
 | PB5 | MOSI | Maestro salida |
-| PB3 | LCD_CS | Chip Select ST7920 (en `st7920_config.c`) |
-| PB4 | CS    | Otro CS (p. ej. MAX31865); alto en reposo |
+| PB0 | LCD_CS | Chip Select ST7920 (activo alto en modo serie) |
+| PB1 | MAX_CS | Chip Select MAX31865 (SPI software, no este bus) |
 
-Referencia: `config/board_pins.h` y `doc/atmega16_pin_definition_hotplate.md`.
+F_CPU oficial: **8 MHz**. Divisor típico en app: `SPI_DIV_8` → 1 MHz.
 
 ## Uso
 
 ```c
 #include "lib/avr_spi/avr_spi.h"
 
-// Una vez al inicio (sin argumentos en la API actual)
-avr_spi_master_init();
-
-// Envío de un byte (los dispositivos bajan su CS antes de transmitir)
+avr_spi_master_init(SPI_DIV_8);
 uint8_t r = avr_spi_transmit(0x55);
 ```
 
 ## API
 
-- `avr_spi_master_init()` – Inicializa SPI maestro (reloj f_cpu/16 con SPI2X).
+- `avr_spi_master_init(spi_clock_div_t div)` – SPI maestro.
 - `avr_spi_transmit(uint8_t data)` – Envía un byte y devuelve el recibido.
-- `avr_spi_select_device(cs_pin, cs_port)` – Pone CS en bajo.
-- `avr_spi_deselect_device(cs_pin, cs_port)` – Pone CS en alto.
-- `avr_spi_set_clock(divider)` – Cambia el divisor de reloj.
-
-El LCD ST7920 y el MAX31865 gestionan su propio CS internamente; no hace falta llamar select/deselect desde la aplicación para el flujo normal.
+- `avr_spi_select_device` / `avr_spi_deselect_device` – CS genérico (el ST7920 gestiona el suyo).
+- `avr_spi_set_clock(divider)` – Cambia el divisor.

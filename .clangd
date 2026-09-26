@@ -1,0 +1,16 @@
+# IntelliSense / clangd para firmware AVR (no afecta a make/avr-gcc).
+CompileFlags:
+  Add:
+    - -D__AVR__
+    - -D__AVR_ATmega16__
+    - -DF_CPU=8000000UL
+    - -DUI_NO_ICONS
+    - -isystem
+    - /opt/homebrew/opt/avr-gcc/avr/include
+    - -I/Users/david/Projects/electronica/smi-soldering-hot-plate/firmware/avr
+    - -I/Users/david/Projects/electronica/smi-soldering-hot-plate/firmware/avr/src
+    - -I/Users/david/Projects/electronica/smi-soldering-hot-plate/firmware/avr/src/ui
+    - -I/Users/david/Projects/electronica/smi-soldering-hot-plate/firmware/avr/src/ui/core
+    - -I/Users/david/Projects/electronica/smi-soldering-hot-plate/firmware/avr/lib
+  Remove:
+    - -mmcu=*

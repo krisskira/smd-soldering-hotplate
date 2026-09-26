@@ -24,3 +24,5 @@
 .DS_Store
 Thumbs.db
 
+# Iconos animados regenerados bajo demanda (ver tools/gif_to_st7920_anim.py)
+icons/animated/

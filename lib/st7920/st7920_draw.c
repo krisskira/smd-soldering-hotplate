@@ -6,9 +6,7 @@
  */
 #include "st7920.h"
 #include "st7920_private.h"
-#include "avr_delay/avr_delay.h"
 #include <avr/pgmspace.h>
-#include <util/delay.h>
 #include <stdint.h>
 
 #define LCD_WIDTH  128
@@ -22,7 +20,7 @@
 #define CMD_BITMAP      5
 
 #define CMD_SIZE        7   /* tipo (1) + 6 params (bitmap necesita x,y,w,h,ptr_lo,ptr_hi) */
-#define CMD_MAX         24
+#define CMD_MAX         8   /* frame: clear+rect+title; filas van por GDRAM directo */
 
 /* Lista de comandos */
 static uint8_t cmd_buf[CMD_MAX * CMD_SIZE];
@@ -38,6 +36,15 @@ void st7920_row_set_pixel(uint16_t *row_buf, uint8_t x)
     uint8_t block = x / 16;
     uint8_t bit  = 15 - (x % 16);
     row_buf[block] |= (uint16_t)(1 << bit);
+}
+
+void st7920_row_clear_pixel(uint16_t *row_buf, uint8_t x)
+{
+    if (x >= LCD_WIDTH)
+        return;
+    uint8_t block = x / 16;
+    uint8_t bit  = 15 - (x % 16);
+    row_buf[block] &= (uint16_t)~(1u << bit);
 }
 
 void st7920_clear_gdram_buffer(void)
@@ -173,21 +180,30 @@ void st7920_draw_text(uint8_t x, uint8_t y, const char *str)
     push_cmd(CMD_TEXT, params);
 }
 
+void st7920_draw_text_gdram_styled(uint8_t x, uint8_t y, uint8_t h,
+                                   const char *str, uint8_t scale,
+                                   uint8_t flags)
+{
+    st7920_span_t s;
+    uint8_t bx = (uint8_t)(x & 0xF0u);
+
+    s.f = &FONT_5X7;
+    s.str = str;
+    s.x = x;
+    s.scale = scale;
+    s.bold = (uint8_t)((flags & ST7920_TEXT_BOLD) ? 1u : 0u);
+    st7920_draw_band(bx, (uint8_t)(LCD_WIDTH - bx), y, h, &s, 1u,
+                     (uint8_t)((flags & ST7920_TEXT_INV) ? 1u : 0u));
+}
+
 void st7920_draw_text_gdram(uint8_t x, uint8_t y, const char *str)
 {
-    if (!str)
-        return;
-    /* Fuente 5x7: 7 filas de píxel. Escribir solo esas filas en GDRAM. */
-    for (uint8_t row_y = y; row_y < y + 7u && row_y < LCD_HEIGHT; row_y++)
-    {
-        for (uint8_t b = 0; b < 8u; b++)
-            row_buf[b] = 0u;
-        st7920_text_fill_row(row_buf, row_y, x, y, str);
-        for (uint8_t block = 0; block < 8u; block++)
-            st7920_write_gdram(block, row_y,
-                              (uint8_t)(row_buf[block] >> 8),
-                              (uint8_t)(row_buf[block] & 0xFFu));
-    }
+    st7920_draw_text_gdram_styled(x, y, 8u, str, 1u, 0u);
+}
+
+void st7920_draw_text_gdram_inv(uint8_t x, uint8_t y, uint8_t h, const char *str)
+{
+    st7920_draw_text_gdram_styled(x, y, h, str, 1u, ST7920_TEXT_INV);
 }
 
 static void add_bitmap_to_row(uint16_t *row, uint8_t row_y,
@@ -244,8 +260,9 @@ void st7920_render(void)
             else if (type == CMD_PROGRESSBAR)
                 add_rect_to_row(row_buf, y, c[1], c[2], c[3], c[4], c[5]);
             else if (type == CMD_TEXT)
-                st7920_text_fill_row(row_buf, y, c[1], c[2],
-                                    (const char *)(uintptr_t)(c[3] | (c[4] << 8)));
+                st7920_font_row(row_buf, y, &FONT_5X7, c[1], c[2],
+                                (const char *)(uintptr_t)(c[3] | (c[4] << 8)),
+                                1u, 0u);
             else if (type == CMD_PIXEL && c[2] == y)
                 st7920_row_set_pixel(row_buf, c[1]);
             else if (type == CMD_BITMAP)
@@ -257,28 +274,6 @@ void st7920_render(void)
             st7920_write_gdram(block, y,
                               (uint8_t)(row_buf[block] >> 8),
                               (uint8_t)(row_buf[block] & 0xFF));
-    }
-}
-
-/* Escribe frame completo en GDRAM por bloques (2 bytes = 16 píxeles por bloque). */
-void st7920_write_frame(uint8_t base_x, uint8_t base_y, const uint8_t *data,
-                             uint8_t width, uint8_t height, uint8_t bytes_per_row)
-{
-    if (!data)
-        return;
-    uint8_t num_blocks = (bytes_per_row + 1u) / 2u;
-    uint8_t block_base = (uint8_t)(base_x / 16u);
-    for (uint8_t row = 0; row < height; row++)
-    {
-        uint16_t row_off = (uint16_t)row * bytes_per_row;
-        for (uint8_t b = 0; b < num_blocks; b++)
-        {
-            uint8_t left  = data[row_off + (uint16_t)b * 2u];
-            uint8_t right = (b * 2u + 1u < bytes_per_row)
-                ? data[row_off + (uint16_t)b * 2u + 1u]
-                : 0u;
-            st7920_write_gdram(block_base + b, base_y + row, left, right);
-        }
     }
 }
 
@@ -303,186 +298,28 @@ void st7920_write_frame_pgm(uint8_t base_x, uint8_t base_y, const uint8_t *data_
     }
 }
 
-/* ST7920 GDRAM: 16 columnas (bloques de 16 px), 32 filas (2 px por fila). */
 void st7920_clear_region(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
+    uint8_t block_lo;
+    uint8_t block_hi;
+    uint8_t py;
+    uint8_t b;
+    uint8_t y_end;
+
     if (w == 0u || h == 0u)
         return;
 
-    uint8_t block_lo = (uint8_t)(x / 16u);
-    uint8_t block_hi = (uint8_t)((uint16_t)(x + w - 1u) / 16u);
-    uint8_t row_lo   = (uint8_t)(y / 2u);
-    uint8_t row_hi   = (uint8_t)((uint16_t)(y + h - 1u) / 2u);
+    block_lo = (uint8_t)(x / 16u);
+    block_hi = (uint8_t)((uint16_t)(x + w - 1u) / 16u);
+    if (block_hi > 7u)
+        block_hi = 7u;
 
-    if (block_hi > 15u)
-        block_hi = 15u;
-    if (row_hi > 31u)
-        row_hi = 31u;
+    y_end = (uint8_t)(y + h);
+    if (y_end > 64u)
+        y_end = 64u;
 
-    for (uint8_t row = row_lo; row <= row_hi; row++)
-    {
-        for (uint8_t block = block_lo; block <= block_hi; block++)
-            st7920_write_gdram(block, row, 0u, 0u);
+    for (py = y; py < y_end; py++) {
+        for (b = block_lo; b <= block_hi; b++)
+            st7920_write_gdram(b, py, 0u, 0u);
     }
-}
-
-void st7920_draw_region_pgm(uint8_t x, uint8_t y, const uint8_t *bitmap_pgm,
-                                uint8_t w, uint8_t h)
-{
-    if (!bitmap_pgm || w == 0u || h == 0u)
-        return;
-    uint8_t bytes_per_row = (uint8_t)((w + 7u) / 8u);
-    uint8_t num_rows = (uint8_t)((h + 1u) / 2u);
-    st7920_write_frame_pgm(x, y, bitmap_pgm, w, num_rows, bytes_per_row);
-}
-
-void st7920_apply_diff(uint8_t base_x, uint8_t base_y, uint8_t *buffer,
-    uint16_t bytes_per_row, const uint16_t *offsets,
-    const uint8_t *values, uint16_t count)
-{
-    if (!buffer || !offsets || !values)
-        return;
-    for (uint16_t i = 0; i < count; i++)
-    {
-        uint16_t off = offsets[i];
-        uint8_t val = values[i];
-        buffer[off] = val;
-        uint8_t row      = (uint8_t)(off / bytes_per_row);
-        uint8_t col_byte = (uint8_t)(off % bytes_per_row);
-        uint8_t block_x  = (uint8_t)((base_x + (uint16_t)col_byte * 8u) / 16u);
-        uint8_t left, right;
-        if ((col_byte & 1u) == 0u)
-        {
-            left  = val;
-            right = (col_byte + 1u < bytes_per_row) ? buffer[off + 1] : 0u;
-        }
-        else
-        {
-            left  = buffer[off - 1];
-            right = val;
-        }
-        st7920_write_gdram(block_x, base_y + row, left, right);
-    }
-}
-
-void st7920_apply_diff_pgm(uint8_t base_x, uint8_t base_y, uint8_t *buffer,
-                                uint16_t bytes_per_row, const uint16_t *offsets_pgm,
-                                const uint8_t *values_pgm, uint16_t count)
-{
-    if (!buffer || !offsets_pgm || !values_pgm)
-        return;
-    for (uint16_t i = 0; i < count; i++)
-    {
-        uint16_t off = pgm_read_word(offsets_pgm + i);
-        uint8_t val  = pgm_read_byte(values_pgm + i);
-        buffer[off] = val;
-        uint8_t row      = (uint8_t)(off / bytes_per_row);
-        uint8_t col_byte = (uint8_t)(off % bytes_per_row);
-        uint8_t block_x  = (uint8_t)((base_x + (uint16_t)col_byte * 8u) / 16u);
-        uint8_t left, right;
-        if ((col_byte & 1u) == 0u)
-        {
-            left  = val;
-            right = (col_byte + 1u < bytes_per_row) ? buffer[off + 1] : 0u;
-        }
-        else
-        {
-            left  = buffer[off - 1];
-            right = val;
-        }
-        st7920_write_gdram(block_x, base_y + row, left, right);
-    }
-}
-
-void st7920_draw_animation(uint8_t x, uint8_t y,
-    const st7920_animation_t *anim, uint8_t *buffer, uint16_t delay_ms)
-{
-    if (!anim || !buffer || anim->frame_count < 1u)
-        return;
-
-    st7920_write_frame_pgm(x, y, anim->frame_0_pgm, anim->width, anim->height,
-                            anim->bytes_per_row);
-
-    for (uint16_t i = 0; i < anim->bytes_per_frame; i++)
-        buffer[i] = pgm_read_byte(anim->frame_0_pgm + i);
-
-    uint16_t frame_idx = 1u;
-    for (;;)
-    {
-        const uint16_t *offsets_pgm = (const uint16_t *)(uint16_t)pgm_read_word(
-            (const uint16_t *)anim->diff_offsets_pgm + (frame_idx - 1u));
-        const uint8_t *values_pgm = (const uint8_t *)(uint16_t)pgm_read_word(
-            (const uint16_t *)anim->diff_values_pgm + (frame_idx - 1u));
-        uint16_t count = pgm_read_word(anim->diff_counts_pgm + (frame_idx - 1u));
-
-        st7920_apply_diff_pgm(x, y, buffer, anim->bytes_per_row,
-                              offsets_pgm, values_pgm, count);
-
-        frame_idx++;
-        if (frame_idx >= anim->frame_count)
-            frame_idx = 1u;
-        _delay_ms(delay_ms);
-    }
-}
-
-/* Máquina de estados: una sola función run hace start la primera vez (ctx inactivo)
- * y tick en adelante. Así el main solo llama run (o run_all) en el loop. */
-
-void st7920_animation_run(st7920_animation_ctx_t *ctx, uint8_t x, uint8_t y,
-    const st7920_animation_t *anim, uint8_t *buffer, uint16_t interval_ms)
-{
-    if (!ctx)
-        return;
-
-    if (!ctx->active)
-    {
-        /* Estado: parado → si tenemos anim y buffer, iniciar (start). */
-        if (!anim || !buffer || anim->frame_count < 1u)
-            return;
-
-        st7920_write_frame_pgm(x, y, anim->frame_0_pgm, anim->width, anim->height,
-                                anim->bytes_per_row);
-
-        for (uint16_t i = 0; i < anim->bytes_per_frame; i++)
-            buffer[i] = pgm_read_byte(anim->frame_0_pgm + i);
-
-        ctx->anim = anim;
-        ctx->buffer = buffer;
-        ctx->x = x;
-        ctx->y = y;
-        ctx->frame_idx = 1u;
-        ctx->last_tick_ms = delay_ms();
-        ctx->interval_ms = interval_ms;
-        ctx->active = 1;
-        return;
-    }
-
-    /* Estado: activo → tick (aplicar siguiente diff si ha pasado interval_ms). */
-    uint16_t now = delay_ms();
-    if ((uint16_t)(now - ctx->last_tick_ms) < ctx->interval_ms)
-        return;
-
-    anim = ctx->anim;
-    const uint16_t *offsets_pgm = (const uint16_t *)(uint16_t)pgm_read_word(
-        (const uint16_t *)anim->diff_offsets_pgm + (ctx->frame_idx - 1u));
-    const uint8_t *values_pgm = (const uint8_t *)(uint16_t)pgm_read_word(
-        (const uint16_t *)anim->diff_values_pgm + (ctx->frame_idx - 1u));
-    uint16_t count = pgm_read_word(anim->diff_counts_pgm + (ctx->frame_idx - 1u));
-
-    st7920_apply_diff_pgm(ctx->x, ctx->y, ctx->buffer, anim->bytes_per_row,
-                          offsets_pgm, values_pgm, count);
-
-    ctx->frame_idx++;
-    if (ctx->frame_idx >= anim->frame_count)
-        ctx->frame_idx = 1u;
-    ctx->last_tick_ms = now;
-}
-
-void st7920_animation_run_all(const st7920_animation_slot_t *slots, uint8_t count)
-{
-    if (!slots)
-        return;
-    for (uint8_t i = 0; i < count; i++)
-        st7920_animation_run(slots[i].ctx, slots[i].x, slots[i].y,
-                             slots[i].anim, slots[i].buffer, slots[i].interval_ms);
 }

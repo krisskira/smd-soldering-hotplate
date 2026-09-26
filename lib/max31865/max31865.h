@@ -31,7 +31,7 @@
 /* Function prototypes */
 void max31865_init(void);
 uint16_t max31865_read_rtd(void);
-float max31865_temperature(uint16_t rtd_value);
+int16_t max31865_temperature_x10(uint16_t rtd_value);
 uint8_t max31865_read_register(uint8_t reg);
 void max31865_write_register(uint8_t reg, uint8_t value);
 

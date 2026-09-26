@@ -4,10 +4,12 @@
     "/opt/homebrew/opt/avr-gcc/avr/include",
     "${workspaceFolder}",
     "${workspaceFolder}/src",
+    "${workspaceFolder}/src/ui",
+    "${workspaceFolder}/src/ui/core",
     "${workspaceFolder}/lib"
   ],
   "C_Cpp.default.defines": [
-    "F_CPU=4000000UL",
+    "F_CPU=8000000UL",
     "__AVR_ATmega16__",
     "__AVR__"
   ],
@@ -16,6 +18,6 @@
   "C_Cpp.default.intelliSenseMode": "gcc-x64",
   "C_Cpp.default.compilerArgs": [
     "-mmcu=atmega16",
-    "-DF_CPU=4000000UL",
-  ],
+    "-DF_CPU=8000000UL"
+  ]
 }

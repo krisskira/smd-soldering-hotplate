@@ -1,10 +1,31 @@
 # Animaciones en el display ST7920 (no bloqueantes)
 
+El reproductor no se enlaza. El fuente está en `features/parked/st7920_animation.c`. Esta guía queda para cuando una vista (el gráfico de autotune) lo recupere.
+
 Documentación sobre las animaciones en el LCD, el sistema de delays por timer y cómo combinar ambos para tener **una o varias animaciones** (o animación + otras tareas) **sin bloquear** la UI. Se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado**.
 
 **Documentación relacionada:**
 - [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) – Guía oficial de temporización (estilo millis)
 - [doc/atmega16_pin_definition_hotplate.md](atmega16_pin_definition_hotplate.md) – Pines, SPI hardware (LCD)
+- Skill/agente: `.cursor/skills/st7920-animated-icons/`, `.cursor/agents/st7920-animated-icons.md`
+- Generador: `tools/gif_to_st7920_anim.py`
+
+---
+
+## 0. Importar un icono animado (GIF → C)
+
+Los GIFs de origen viven en `icons/source/` (raíz del repo). Los `.c` generados **no** se versionan en el firmware de producto (ahorro de árbol); regenerarlos cuando hagan falta:
+
+```bash
+cd firmware/avr
+pip install Pillow
+python3 tools/gif_to_st7920_anim.py \
+  ../../icons/source/icons8-temperature.gif \
+  -o icons/animated/temperature.c \
+  --name temperature --size 32
+```
+
+Salida: `NAME_frame_0` + diffs por frame + tablas `NAME_diff_offsets/values/counts` (PROGMEM), listas para `st7920_animation_t`. Ver skill `st7920-animated-icons` para el descriptor y el loop.
 
 ---
 
@@ -118,11 +139,12 @@ Para **varias animaciones** se define un **array de slots** (`st7920_animation_s
 #include "lib/st7920/st7920.h"
 #include "lib/avr_spi/avr_spi.h"
 #include "lib/avr_delay/avr_delay.h"
+/* Tras generar con tools/gif_to_st7920_anim.py: */
 #include "icons/animated/plot.c"
 #include "icons/animated/temperature.c"
 
-static const st7920_animation_t plot_anim = { ... };
-static const st7920_animation_t temperature_anim = { ... };
+static const st7920_animation_t plot_anim = { /* plot_frame_0, plot_diff_* … */ };
+static const st7920_animation_t temperature_anim = { /* temperature_* … */ };
 
 int main(void)
 {

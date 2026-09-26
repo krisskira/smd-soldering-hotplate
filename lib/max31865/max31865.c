@@ -1,19 +1,12 @@
 #include "max31865.h"
 #include <util/delay.h>
-#include <math.h>
 
 #define MAX31865_CS_LOW()  MAX31865_CS_PORT &= ~(1 << MAX31865_CS_PIN)
 #define MAX31865_CS_HIGH() MAX31865_CS_PORT |= (1 << MAX31865_CS_PIN)
 
-/* Reference resistor (ohms), típico 430 para PT100 */
-#define RREF 430.0f
+/* Reference resistor (ohms × 1), típico 430 para PT100 */
+#define RREF_OHMS 430u
 
-/* PT100 nominal a 0 °C (ohms) */
-#define RTD_NOMINAL 100.0f
-
-/* Callendar-Van Dusen (como Adafruit AN709): RTD_A 3.9083e-3, RTD_B -5.775e-7 */
-#define RTD_A   (3.9083e-3f)
-#define RTD_B   (-5.775e-7f)
 
 void max31865_init(void) {
     avr_soft_spi_init();
@@ -80,48 +73,31 @@ uint16_t max31865_read_rtd(void) {
     config = MAX31865_CONFIG_50HZ;
     max31865_write_register(MAX31865_REG_CONFIG, config);
 
+    /* El bit de fallo es D0 del registro LSB (el valor RTD son los 15 bits
+     * altos). Antes se miraba msb & 0x80, que es un bit de datos: cualquier
+     * lectura alta —o un bus sin respuesta, que da 0xFF— se tomaba por fallo. */
     uint16_t rtd = ((uint16_t)msb << 8) | lsb;
-    if (msb & 0x80u)
+    if (rtd & 0x0001u)
         return 0xFFFFu;
-    rtd >>= 1;
-    return rtd;
+    return (uint16_t)(rtd >> 1);
 }
 
-/* Fórmula temperatura según Adafruit / AN709: C-V con sqrt (T>=0) y polinomio (T<0). */
-float max31865_temperature(uint16_t rtd_value) {
+/* Temperatura PT100 en °C×10 (fixed-point). Sin soft-float.
+ * Rt = ADC/32768 * RREF; T ≈ (Rt - 100) / 0.385
+ * T_x10 = 10*(rt_x100/100 - 100)/0.385 = (rt_x100 - 10000)*100/385 */
+int16_t max31865_temperature_x10(uint16_t rtd_value) {
+    int32_t rt_x100;
+    int32_t t_x10;
+
     if (rtd_value == 0xFFFFu)
-        return -999.0f;
+        return -9990;
 
-    float Rt = (float)rtd_value / 32768.0f * RREF;
-    float Z1, Z2, Z3, Z4, temp;
-
-    Z1 = -RTD_A;
-    Z2 = RTD_A * RTD_A - 4.0f * RTD_B;
-    Z3 = 4.0f * RTD_B / RTD_NOMINAL;
-    Z4 = 2.0f * RTD_B;
-
-    temp = Z2 + (Z3 * Rt);
-    temp = (sqrtf(temp) + Z1) / Z4;
-
-    if (temp >= 0.0f)
-        return temp;
-
-    /* Para T < 0: polinomio como Adafruit */
-    Rt /= RTD_NOMINAL;
-    Rt *= 100.0f;
-    float rpoly = Rt;
-    temp = -242.02f;
-    temp += 2.2228f * rpoly;
-    rpoly *= Rt;
-    temp += 2.5859e-3f * rpoly;
-    rpoly *= Rt;
-    temp -= 4.8260e-6f * rpoly;
-    rpoly *= Rt;
-    temp -= 2.8183e-8f * rpoly;
-    rpoly *= Rt;
-    temp += 1.5243e-10f * rpoly;
-    return temp;
+    rt_x100 = (int32_t)(((uint32_t)rtd_value * (uint32_t)RREF_OHMS * 100u) / 32768u);
+    t_x10 = ((rt_x100 - 10000L) * 100L) / 385L;
+    return (int16_t)t_x10;
 }
+
+/* Remove float wrapper to keep soft-float out of the link. */
 
 /* CS bajo = seleccionado (recibe datos); CS alto = deseleccionado. */
 void max31865_disable(void) {

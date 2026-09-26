@@ -21,7 +21,7 @@ Documento de referencia de pines del ATmega16 para la placa SMD Hot Plate. **La 
 | PORTB  | SPI hardware (LCD) + Chip Selects (LCD, MAX31865) |
 | PORTA  | SPI software (MAX31865)                |
 | PORTD  | UART, encoder, buzzer, calefacción    |
-| PORTC  | Reservado expansión                    |
+| PORTC  | Bomba de aire (PC0) + reserva          |
 
 ---
 
@@ -73,17 +73,23 @@ Documento de referencia de pines del ATmega16 para la placa SMD Hot Plate. **La 
 | PD3  | MENU_DT  | Entrada   | Encoder B              |
 | PD4  | MENU_SW  | Entrada   | Pulsador del encoder   |
 | PD5  | BUZZER   | Salida    | Buzzer (PWM posible)   |
-| PD6  | PTC2     | Salida    | Calefactor 2           |
-| PD7  | PTC1     | Salida    | Calefactor 1           |
+| PD6  | PTC2     | Salida    | Calefactor 2 (pin 20)  |
+| PD7  | PTC1     | Salida    | Calefactor 1 (pin 21)  |
 
 - UART: puente USB (p. ej. CH340).
-- Encoder: sin interrupciones; polling a ~1 kHz.
+- Encoder: sin interrupciones; polling. Semántica oficial: horario = cursor baja
+  (`ENC_CW_IS_POSITIVE` en `config/board_pins.h`).
+- Cristal / F_CPU: el firmware se compila a **8 MHz** (`Makefile`).
 
 ---
 
-## PORTC
+## PORTC – Potencia
 
-Reservado para expansión (sensores, I²C, LEDs, etc.).
+| Pin  | Señal | Dirección | Descripción                          |
+|------|-------|-----------|--------------------------------------|
+| PC0  | FAN   | Salida    | Bomba de aire / ventilador (P_FAN)   |
+
+Resto de PORTC reservado para expansión (sensores, I²C, LEDs, etc.).
 
 ---
 

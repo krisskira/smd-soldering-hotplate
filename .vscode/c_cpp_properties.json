@@ -4,22 +4,29 @@
             "name": "AVR",
             "includePath": [
                 "/opt/homebrew/opt/avr-gcc/avr/include",
-                "/opt/homebrew/Cellar/avr-gcc/*/avr/include",
                 "${workspaceFolder}",
                 "${workspaceFolder}/src",
-                "${workspaceFolder}/lib"
+                "${workspaceFolder}/src/ui",
+                "${workspaceFolder}/src/ui/core",
+                "${workspaceFolder}/lib",
+                "${workspaceFolder}/firmware/avr",
+                "${workspaceFolder}/firmware/avr/src",
+                "${workspaceFolder}/firmware/avr/src/ui",
+                "${workspaceFolder}/firmware/avr/src/ui/core",
+                "${workspaceFolder}/firmware/avr/lib"
             ],
             "defines": [
-                "F_CPU=4000000UL",
+                "F_CPU=8000000UL",
                 "__AVR_ATmega16__",
                 "__AVR__"
             ],
             "compilerPath": "/opt/homebrew/bin/avr-gcc",
-            "cppStandard": "c99",
+            "cStandard": "c99",
+            "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64",
             "compilerArgs": [
                 "-mmcu=atmega16",
-                "-DF_CPU=4000000UL"
+                "-DF_CPU=8000000UL"
             ]
         }
     ],

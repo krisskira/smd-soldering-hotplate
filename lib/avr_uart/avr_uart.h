@@ -28,72 +28,33 @@
 #define AVR_UART_UCSZ1   UCSZ1
 #define AVR_UART_UCSZ0   UCSZ0
 
-/* Function prototypes for AVR UART */
+#define AVR_UART_RX_RING_SIZE  32u
 
 /**
- * Initialize AVR UART hardware
- * @param baud_rate Desired baud rate (e.g., 9600, 115200)
- * @param data_bits Data bits (5-9, typically 8)
- * @param stop_bits Stop bits (1 or 2)
- * @param parity Parity mode ('N'=none, 'E'=even, 'O'=odd)
+ * Initialize AVR UART hardware and enable RX interrupt (RXCIE).
+ * Caller should enable global interrupts with sei() after init.
  */
 void avr_uart_init(uint32_t baud_rate, uint8_t data_bits, uint8_t stop_bits, char parity);
 
-/**
- * Transmit a single character
- * @param data Character to transmit
- */
 void avr_uart_transmit_char(char data);
-
-/**
- * Transmit a null-terminated string
- * @param str String to transmit
- */
 void avr_uart_transmit_string(const char *str);
-
-/**
- * Transmit a buffer of data
- * @param buffer Pointer to data buffer
- * @param length Number of bytes to transmit
- */
+/** Transmit null-terminated string from PROGMEM (flash). */
+void avr_uart_transmit_pstr(const char *pstr);
 void avr_uart_transmit_buffer(const uint8_t *buffer, uint16_t length);
 
 /**
- * Receive a single character
- * @param timeout_ms Timeout in milliseconds (0 = no timeout)
- * @return Received character, or -1 if timeout/error
+ * Non-blocking: pop one byte from RX ring.
+ * @return byte 0..255, or -1 if empty
  */
-int16_t avr_uart_receive_char(uint16_t timeout_ms);
+int16_t avr_uart_rx_pop(void);
 
 /**
- * Receive a line (until \n or \r)
- * @param buffer Buffer to store the line
- * @param max_length Maximum buffer length
- * @param timeout_ms Timeout per character in milliseconds
- * @return Number of characters received, or -1 if timeout
- */
-int16_t avr_uart_receive_line(char *buffer, uint16_t max_length, uint16_t timeout_ms);
-
-/**
- * Check if data is available to read
- * @return Number of bytes available in receive buffer
+ * @return number of bytes waiting in RX ring
  */
 uint8_t avr_uart_data_available(void);
 
-/**
- * Flush the UART receive buffer
- */
 void avr_uart_flush_rx(void);
-
-/**
- * Flush the UART transmit buffer (wait for completion)
- */
 void avr_uart_flush_tx(void);
-
-/**
- * Set UART baud rate dynamically
- * @param baud_rate New baud rate
- */
 void avr_uart_set_baud_rate(uint32_t baud_rate);
 
 #endif /* AVR_UART_H */

@@ -119,8 +119,10 @@ void st7920_clear(void)
 
 void st7920_graphics_mode(void)
 {
-    st7920_cmd(0x34);
-    st7920_cmd(0x36);
+    /* GDRAM ON: necesario para fuente 5x7, invertido, formas y gráficas.
+     * El modo texto DDRAM del ST7920 no permite dibujo por píxel. */
+    st7920_cmd(0x34); /* extended */
+    st7920_cmd(0x36); /* graphics ON */
     st7920_clear_gdram();
     st7920_clear_gdram_buffer();
 }

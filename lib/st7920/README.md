@@ -53,6 +53,9 @@ int main(void) {
 - `st7920_render()` – Interpreta la lista de comandos y envía todo al LCD. Borra la pantalla al inicio.
 
 ### Animaciones (frame 0 + diffs)
+
+El reproductor no está en el driver. Vive en `firmware/avr/features/parked/` y no se enlaza. `st7920_write_frame_pgm` y `st7920_clear_region` sí siguen en el binario (icono USB).
+
 - `st7920_write_frame_pgm(base_x, base_y, data_pgm, width, height, bytes_per_row)` – Escribe un frame completo en GDRAM desde PROGMEM. No borra la pantalla.
 - `st7920_apply_diff_pgm(base_x, base_y, buffer, bytes_per_row, offsets_pgm, values_pgm, count)` – Actualiza el buffer con los bytes indicados y escribe solo los bloques modificados en GDRAM. Datos en PROGMEM.
 - **`st7920_clear_region(x, y, w, h)`** – Borra una región rectangular en GDRAM (escribe 0). Coordenadas en píxeles; útil para “quitar” una animación o limpiar una zona.
@@ -125,7 +128,7 @@ st7920_render();
 
 ## Animaciones no bloqueantes
 
-`st7920_draw_animation()` es bloqueante. Para **una o varias** animaciones sin bloquear se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [doc/plan_maquina_estado_tick.md](../../doc/plan_maquina_estado_tick.md)):
+`st7920_draw_animation()` es bloqueante. Para **una o varias** animaciones sin bloquear se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md)):
 
 - **Una animación:** `st7920_animation_run(ctx, x, y, anim, buffer, interval_ms)` – Una función con máquina de estados: la primera llamada hace start (frame 0 + init ctx); las siguientes hacen tick. Llamar siempre en el loop con los mismos parámetros.
 - **Varias animaciones:** definir un array de **slots** (`st7920_animation_slot_t`), cada uno con punteros a ctx, anim, buffer y (x, y, interval_ms). En el loop solo **`st7920_animation_run_all(slots, count)`**. Añadir una animación = añadir un slot al array; no hace falta reescribir el loop.
