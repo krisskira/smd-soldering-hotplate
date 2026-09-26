@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "ui_icons.h"
+#include "../../app/app_state.h"
 
 typedef enum {
     UI_COMP_NORMAL = 0,
@@ -13,13 +14,17 @@ typedef enum {
 /** Cabecera invertida (negrita) + icono opcional. ICO_COUNT = sin icono. */
 void ui_comp_draw_header(const char *title, ui_icon_id_t ico);
 
-/* Pie de vista: banda de todo el ancho, y 54–63. */
+/* Pie de vista: banda y 54–63. */
 #define UI_FOOT_Y 54u
 #define UI_FOOT_H 10u
 #define UI_FOOT_X 4u
 
-/** Pie "label ↵". inv = 1 cuando el pie tiene el foco (en USB, siempre). */
-void ui_comp_draw_footer(const char *label, uint8_t inv);
+/** Pie "label ↵" desde x. inv = 1 cuando el pie tiene el foco. */
+void ui_comp_draw_footer(uint8_t x, const char *label, uint8_t inv);
+
+/** Temperatura 8×12 + "C" en banda [band_x..127], texto en text_x. */
+void ui_comp_draw_temp(uint8_t band_x, uint8_t text_x, uint8_t y, uint8_t h,
+                       const sensor_reading_t *r);
 
 /** Formatea fila LINE_LEN: botón de menú / volver. */
 void ui_comp_format_menu(char *buf, const char *label, ui_comp_state_t st);
@@ -27,12 +32,5 @@ void ui_comp_format_menu(char *buf, const char *label, ui_comp_state_t st);
 /** Formatea fila: label + ON/OFF a la derecha. */
 void ui_comp_format_toggle(char *buf, const char *label, uint8_t on,
                            ui_comp_state_t st);
-
-/** Formatea fila: label + valor (+ '*' si EDITING). */
-void ui_comp_format_number(char *buf, const char *label, const char *value,
-                           ui_comp_state_t st);
-
-/** Formatea CTA: "[ LABEL ]". */
-void ui_comp_format_action(char *buf, const char *label, ui_comp_state_t st);
 
 #endif

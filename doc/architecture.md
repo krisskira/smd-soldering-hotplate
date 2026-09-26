@@ -14,7 +14,7 @@ firmware/avr/
   src/app/app_state.h        vistas, fases, programas, campos de estado
   src/app/app_config.h       límites, índices de menú, EEPROM v3
   src/ui/ui_router.c         despacha HOME o USB
-  src/ui/home_view.c         menú HOME (hoy solo Modo USB)
+  src/ui/home_view.c         menú HOME (Ajustes)
   src/ui/usb_view.c          estado de la sesión USB
   src/ui/core/               window, filas, cabecera, texto (sin pantallas)
   src/services/program/      máquina de fases
@@ -118,28 +118,25 @@ Seguridad, en dos sitios:
 
 ## Navegación
 
-Tres vistas. HOME tiene una página: el menú con **Modo USB** y **Ajustes**.
+Tres vistas. HOME es de dos columnas (barra STOP_IN / START_IN / Ajustes + panel). USB solo por AT.
 
 ```mermaid
 flowchart TD
-    boot["Boot"] --> menu["HOME / MENU"]
-    menu -->|"PRESS Modo USB y equipo libre"| usb["VIEW_USB"]
-    menu -->|"PRESS Modo USB y ocupado"| beep["Beep de alarma y se queda"]
-    beep --> menu
-    usb -->|"PRESS"| menu
-    menu -->|"PRESS Ajustes"| set["VIEW_SETTINGS / MAIN"]
-    set -->|"Rampas"| ramps["VIEW_SETTINGS / RAMPS"]
+    boot["Boot"] --> home["HOME dos columnas"]
+    home -->|"PRESS Ajustes"| set["VIEW_SETTINGS"]
+    home -->|"PRESS programa"| run["HOME en marcha + pie Salir"]
+    run -->|"PRESS Salir"| home
+    set -->|"pie Salir"| home
+    set -->|"Rampas"| ramps["SET_PAGE_RAMPS"]
     ramps -->|"pie Salir"| set
-    set -->|"pie Salir"| menu
-    atUsb["AT+DEVICEMODE=USB"] --> usb
-    atMan["AT+DEVICEMODE=MANUAL"] --> menu
+    atUsb["AT+DEVICEMODE=USB"] --> usb["VIEW_USB"]
+    usb -->|"PRESS"| home
+    atMan["AT+DEVICEMODE=MANUAL"] --> home
 ```
 
-`home_view_on_event`: el encoder rota entre las dos filas; PRESS en Modo USB llama `device_session_enter_usb`, en Ajustes abre `VIEW_SETTINGS`.
+`home_view.c`: barra x0–31 (divisoria en x=31), panel x32–127. Dirty bits `HOME_DIRTY_*`. En marcha, `device_session_safe_stop`.
 
-Ajustes (`settings_view.c`): cabecera, ventana de 4 filas de 9 px (y 16–51) y pie compartido `ui_comp_draw_footer` (y 54–63). El pie es la última posición del cursor e invierte solo con foco. `row_dirty` usa bits 0–3 para filas y bit 4 para el pie. Toggles → `cfg_save_global`; escalones → `cfg_save_ramps`.
-
-La marcha no se pinta en HOME. Un ciclo lanzado por AT se sigue en la vista USB. `program_stop` y el ACK siguen en el dominio; la pantalla local que los confirmaba vuelve con las vistas siguientes.
+Ajustes (`settings_view.c`): Rampas | Sonido | Precalentar | Aire final. Sin fila USB.
 
 Los flujos de cada programa (qué fase sigue a cuál) están en [product_features.md](product_features.md).
 
@@ -152,20 +149,15 @@ stateDiagram-v2
     [*] --> IDLE
     IDLE --> DELAY: START_IN con delay
     IDLE --> PREHEAT: PREHEAT, o pipeline con preheat_en
-    IDLE --> HOLD: START_IN sin preheat y sin rampas
-    IDLE --> RUN: STOP_IN sin preheat y sin rampas, o escalón RAMPS
+    IDLE --> RUN: pipeline sin preheat, escalón 1
     DELAY --> PREHEAT: cuenta a 0 y preheat_en
-    DELAY --> HOLD: cuenta a 0, START sin preheat ni rampas
-    DELAY --> RUN: cuenta a 0, STOP sin preheat ni rampas
+    DELAY --> RUN: cuenta a 0 sin preheat
     PREHEAT --> STABILIZE: dentro de banda
     STABILIZE --> PREHEAT: sale de banda
     STABILIZE --> ALARM: estable el tiempo pedido
-    STABILIZE --> HOLD: pipeline START sin rampas
-    STABILIZE --> RUN: pipeline STOP o escalón
+    STABILIZE --> RUN: pipeline, escalón 1
     RUN --> RUN: siguiente escalón
-    RUN --> HOLD: START y se acabaron escalones
-    RUN --> ALARM: STOP o último escalón → FIN
-    HOLD --> ALARM: STOP de usuario → FIN
+    RUN --> ALARM: último escalón → FIN
     ALARM --> DONE: ACK o timeout, PREHEAT standalone
     ALARM --> COOLDOWN: ACK o timeout, FIN y aún caliente
     ALARM --> DONE: ACK o timeout, FIN ya frío o sin aire
@@ -179,7 +171,7 @@ stateDiagram-v2
 
 STOP no siempre aborta:
 
-- En `START_IN` o `STOP_IN`, durante `DELAY`, `PREHEAT`, `STABILIZE`, `HOLD` o `RUN`, `program_stop` entra a FIN (`PH_ALARM` sin calor y bomba si `cooldown_air_en`).
+- En `START_IN` o `STOP_IN`, durante `DELAY`, `PREHEAT`, `STABILIZE` o `RUN`, `program_stop` entra a FIN (`PH_ALARM` sin calor y bomba si `cooldown_air_en`).
 - En PREHEAT standalone, en cooldown, o un segundo STOP ya en alarma, apaga todo y pasa a `PH_IDLE`.
 - El PRESS de la vista USB es aborto de sesión: para el programa y fuerza salidas OFF.
 

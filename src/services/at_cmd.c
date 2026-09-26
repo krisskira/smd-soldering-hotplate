@@ -265,8 +265,9 @@ static void handle_line(app_state_t *st, char *line)
     }
 
     if (strncmp_P(line, PSTR("AT+RAMPS="), 9) == 0) {
-        if (parse_01(line + 9, &v) == 0) {
-            st->ramps_en = v;
+        /* Las rampas van siempre activas. =0 no es válido. */
+        if (parse_01(line + 9, &v) == 0 && v == 1u) {
+            st->ramps_en = 1u;
             cfg_save_global(st);
             st->telem_dirty = 1u;
             reply_ok(st);

@@ -50,10 +50,9 @@ void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
     }
 }
 
-/* extra = píxeles añadidos al avance (la negrita ocupa una columna más). */
 static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                          uint8_t tx, uint8_t ty, const char *str,
-                         uint8_t scale, uint8_t clear, uint8_t extra)
+                         uint8_t scale, uint8_t clear)
 {
     uint16_t x = tx;
     uint8_t c;
@@ -65,7 +64,7 @@ static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
             continue;
         st7920_glyph_row(row_buf, row_y, f, font_glyph(f, c), (uint8_t)x, ty,
                          scale, clear);
-        x += (uint16_t)(f->advance + extra) * scale;
+        x += (uint16_t)f->advance * scale;
     }
 }
 
@@ -73,29 +72,7 @@ void st7920_font_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                      uint8_t tx, uint8_t ty, const char *str, uint8_t scale,
                      uint8_t clear)
 {
-    font_row_adv(row_buf, row_y, f, tx, ty, str, scale, clear, 0u);
-}
-
-uint16_t st7920_span_width(const st7920_span_t *s)
-{
-    uint16_t n = 0;
-    const char *p;
-    uint8_t scale;
-
-    if (!s || !s->f || !s->str)
-        return 0;
-    for (p = s->str; *p; p++) {
-        if ((uint8_t)*p != FONT_UTF8_C2)
-            n++;
-    }
-    if (n == 0u)
-        return 0;
-    scale = s->scale ? s->scale : 1u;
-    if (!s->bold)
-        return font_text_width(s->f, s->str, scale);
-    /* Avance +1 por glifo y la columna extra del último. */
-    return (uint16_t)((n * (s->f->advance + 1u)
-                       - (uint8_t)(s->f->advance - s->f->w)) * scale);
+    font_row_adv(row_buf, row_y, f, tx, ty, str, scale, clear);
 }
 
 void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,
@@ -124,11 +101,7 @@ void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,
             ty = (uint8_t)(y + (h > gh ? (uint8_t)((h - gh) / 2u) : 0u));
             if (row_y < ty || row_y >= (uint8_t)(ty + gh))
                 continue;
-            font_row_adv(row, row_y, s->f, s->x, ty, s->str, scale, inv,
-                         s->bold);
-            if (s->bold)
-                font_row_adv(row, row_y, s->f, (uint8_t)(s->x + 1u), ty,
-                             s->str, scale, inv, 1u);
+            font_row_adv(row, row_y, s->f, s->x, ty, s->str, scale, inv);
         }
         for (b = b0; b < b1; b++)
             st7920_write_gdram(b, row_y,

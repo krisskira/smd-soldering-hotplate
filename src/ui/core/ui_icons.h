@@ -5,6 +5,9 @@
 
 typedef enum {
     ICO_ENTER = 0,
+    ICO_START,
+    ICO_TIMER,
+    ICO_CFG,
     ICO_COUNT
 } ui_icon_id_t;
 

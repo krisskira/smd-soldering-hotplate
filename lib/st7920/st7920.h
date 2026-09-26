@@ -58,19 +58,14 @@ void st7920_draw_text_gdram_styled(uint8_t x, uint8_t y, uint8_t h,
 void st7920_draw_font_gdram(const font_t *f, uint8_t x, uint8_t y, uint8_t h,
                             const char *str, uint8_t scale, uint8_t inv);
 
-/** Una pieza dentro de una banda. bold = trazo +1 columna (negrita sintética)
- * y avance +1, para que los glifos anchos (M, O, D…) no se toquen.
- * Se centra en vertical en la banda según el alto de su fuente. */
+/** Una pieza dentro de una banda. Se centra en vertical según su fuente. */
 typedef struct {
     const font_t *f;
     const char *str;
     uint8_t x;
     uint8_t scale;
-    uint8_t bold;
+    uint8_t bold; /* reservado; la negrita sintética se quitó por flash */
 } st7920_span_t;
-
-/** Ancho de tinta de la pieza en px, con la negrita incluida. */
-uint16_t st7920_span_width(const st7920_span_t *s);
 
 /**
  * Reescribe el rectángulo [x, x+w) × [y, y+h) con el fondo (inv = ON) y las

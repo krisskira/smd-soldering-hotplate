@@ -108,11 +108,12 @@ typedef struct {
     process_phase_t phase;
     uint16_t        t_set_c;       /* 30..200 active setpoint */
     uint16_t        t_remain_s;    /* live countdown */
+    uint16_t        t_elapsed_s;   /* segundos desde process_start */
     uint16_t        delay_s;       /* START_IN delay / STOP_IN run_s */
     uint16_t        run_s;         /* STOP_IN hold duration */
     uint8_t         duty_pct;      /* 0..100 from PID or MAN */
     uint8_t         preheat_en;    /* START_IN / STOP_IN: fase preheat */
-    uint8_t         ramps_en;      /* START_IN / STOP_IN: fase rampas tras preheat */
+    uint8_t         ramps_en;      /* siempre 1: START_IN / STOP_IN entran en rampas */
     uint16_t        stabilize_s;   /* hold time at setpoint for preheat OK */
     uint16_t        stabilize_left;
 

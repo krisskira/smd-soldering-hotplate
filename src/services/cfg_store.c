@@ -94,7 +94,7 @@ uint8_t cfg_load_global(app_state_t *st)
     st->buzz_nav_reps = (b.buzz_nav_reps >= 1u && b.buzz_nav_reps <= 4u)
         ? b.buzz_nav_reps : 1u;
     st->preheat_en = b.preheat_en ? 1u : 0u;
-    st->ramps_en = b.ramps_en ? 1u : 0u;
+    st->ramps_en = 1u;
     st->stabilize_s = b.stabilize_s ? b.stabilize_s : PREHEAT_STABLE_S_DEFAULT;
     st->alarm_duration_s = b.alarm_duration_s
         ? b.alarm_duration_s : ALARM_DURATION_S_DEFAULT;
@@ -120,7 +120,7 @@ void cfg_save_global(const app_state_t *st)
     b.buzz_nav_en = st->buzz_nav_en;
     b.buzz_nav_reps = st->buzz_nav_reps;
     b.preheat_en = st->preheat_en;
-    b.ramps_en = st->ramps_en;
+    b.ramps_en = 1u;
     b.stabilize_s = st->stabilize_s;
     b.alarm_duration_s = st->alarm_duration_s;
     b.alarm_period_s = st->alarm_period_s;
@@ -218,6 +218,20 @@ void cfg_save_program(const app_state_t *st, program_id_t prog)
     }
 }
 
+/* El paso 1 no se apaga: siempre hay temperatura y un tiempo > 0. */
+static void ramp_keep_step0(app_state_t *st)
+{
+    if (st->ramp_n < 1u)
+        st->ramp_n = 1u;
+    if (st->ramp_n > RAMP_STEPS_MAX)
+        st->ramp_n = RAMP_STEPS_MAX;
+    if (st->ramp_step[0].temp_c < TEMP_MIN_SET_C
+        || st->ramp_step[0].temp_c > TEMP_MAX_SET_C)
+        st->ramp_step[0].temp_c = 100u;
+    if (st->ramp_step[0].hold_s == 0u || st->ramp_step[0].hold_s > TIMER_MAX_S)
+        st->ramp_step[0].hold_s = TIMER_STEP_S;
+}
+
 void cfg_load_ramps(app_state_t *st)
 {
     cfg_ramp_t b;
@@ -238,6 +252,7 @@ void cfg_load_ramps(app_state_t *st)
             st->ramp_step[i].hold_s = 60;
         }
     }
+    ramp_keep_step0(st);
 }
 
 void cfg_save_ramps(const app_state_t *st)
@@ -255,6 +270,10 @@ void cfg_save_ramps(const app_state_t *st)
         b.t[i] = st->ramp_step[i].temp_c;
         b.s[i] = st->ramp_step[i].hold_s;
     }
+    if (b.t[0] < TEMP_MIN_SET_C || b.t[0] > TEMP_MAX_SET_C)
+        b.t[0] = 100u;
+    if (b.s[0] == 0u || b.s[0] > TIMER_MAX_S)
+        b.s[0] = TIMER_STEP_S;
     b.cs = CS(b);
     eeprom_update_block(&b, ee_ramp, sizeof(b));
 }

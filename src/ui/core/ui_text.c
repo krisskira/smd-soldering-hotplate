@@ -43,14 +43,6 @@ void ui_u16_to_str(uint16_t v, char *dst)
     dst[i] = '\0';
 }
 
-void ui_hex8_to_str(uint8_t v, char *dst)
-{
-    static const char hex[] = "0123456789ABCDEF";
-    dst[0] = hex[v >> 4];
-    dst[1] = hex[v & 0x0F];
-    dst[2] = '\0';
-}
-
 void ui_temp_to_str(const sensor_reading_t *r, char *dst)
 {
     int16_t t10;
@@ -96,32 +88,4 @@ void ui_mmss_to_str(uint16_t sec, char *dst)
     dst[3] = (char)('0' + (s / 10u));
     dst[4] = (char)('0' + (s % 10u));
     dst[5] = '\0';
-}
-
-void ui_gain_to_str(int16_t x10, char *dst)
-{
-    uint8_t neg = 0;
-    uint16_t v;
-
-    if (x10 < 0) {
-        neg = 1;
-        x10 = (int16_t)(-x10);
-    }
-    v = (uint16_t)x10;
-    if (neg) {
-        dst[0] = '-';
-        dst++;
-    }
-    if (v >= 100u) {
-        dst[0] = (char)('0' + (v / 100u));
-        dst[1] = (char)('0' + ((v / 10u) % 10u));
-        dst[2] = '.';
-        dst[3] = (char)('0' + (v % 10u));
-        dst[4] = '\0';
-    } else {
-        dst[0] = (char)('0' + (v / 10u));
-        dst[1] = '.';
-        dst[2] = (char)('0' + (v % 10u));
-        dst[3] = '\0';
-    }
 }

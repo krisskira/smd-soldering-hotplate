@@ -28,17 +28,25 @@
 #define OUTPUT_COUNT      3u
 
 /*
- * HOME: Modo USB y Ajustes.
- * Marcha y el resto de ítems vuelven como vistas nuevas.
+ * HOME de dos columnas: STOP_IN | START_IN | AJUSTES.
+ * Modo USB solo por AT+DEVICEMODE=USB.
  */
-#define HOME_COUNT        2u
-#define HOME_IDX_USB      0u
-#define HOME_IDX_SETTINGS 1u
+#define HOME_COUNT         3u
+#define HOME_IDX_STOP_IN   0u
+#define HOME_IDX_START_IN  1u
+#define HOME_IDX_SETTINGS  2u
 
-/* Subpágina visible hoy. RUN se reintroduce con su vista. */
+/* Subpágina visible hoy. */
 #define HOME_PAGE_MENU     0u
 
-/* Ajustes: Rampas | Sonido menú | Precalentar | Aire al final (+ pie Salir) */
+/* Dirty bits propios del Home de dos columnas */
+#define HOME_DIRTY_SIDE    0x01u
+#define HOME_DIRTY_TEMP    0x02u
+#define HOME_DIRTY_BODY    0x04u
+#define HOME_DIRTY_FOOT    0x08u
+#define HOME_DIRTY_ALL     0x0Fu
+
+/* Ajustes: Rampas | Sonido | Precalentar | Aire (+ pie Salir) */
 #define SET_PAGE_MAIN     0u
 #define SET_PAGE_RAMPS    1u
 #define SETTINGS_COUNT    4u
@@ -47,14 +55,16 @@
 #define SET_IDX_PREHEAT   2u
 #define SET_IDX_AIR       3u
 
-/* Página Rampas: Activar | Paso 1..4 (+ pie Salir) */
-#define SET_RAMPS_COUNT   (1u + RAMP_STEPS_MAX)
-#define SET_IDX_RAMP_EN   0u
+/* Página Rampas: Paso 1..4 (+ pie Salir). El paso 1 no se apaga. */
+#define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 
 #define SET_EDIT_NONE     0u
 #define SET_EDIT_TEMP     1u
 #define SET_EDIT_TIME     2u
 #define RAMP_TEMP_STEP_C  5u
+#define START_DELAY_MIN_S 60u
+#define START_DELAY_MAX_S TIMER_MAX_S
+#define START_DELAY_STEP_S 60u
 
 /* USB view: DETENER | VOLVER */
 #define USB_SEL_COUNT     2u

@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define I18N_TITLE_HOME ((uint8_t)0u)
-#define I18N_NAV_USB ((uint8_t)1u)
+#define I18N_PANEL_RAMP ((uint8_t)1u)
 #define I18N_TITLE_USB ((uint8_t)2u)
 
 #define I18N_PHASE_IDLE ((uint8_t)3u)
@@ -35,11 +35,13 @@
 #define I18N_SET_PREHEAT ((uint8_t)23u)
 #define I18N_SET_AIR ((uint8_t)24u)
 #define I18N_TITLE_RAMPS ((uint8_t)25u)
-#define I18N_RAMP_ENABLE ((uint8_t)26u)
-#define I18N_RAMP_STEP ((uint8_t)27u)
-#define I18N_ON ((uint8_t)28u)
-#define I18N_OFF ((uint8_t)29u)
+#define I18N_RAMP_STEP ((uint8_t)26u)
+#define I18N_ON ((uint8_t)27u)
+#define I18N_OFF ((uint8_t)28u)
+#define I18N_PANEL_ELAPSED ((uint8_t)29u)
+#define I18N_PANEL_SET ((uint8_t)30u)
+#define I18N_PANEL_OPEN ((uint8_t)31u)
 
-#define I18N_PRODUCT_COUNT ((uint8_t)30u)
+#define I18N_PRODUCT_COUNT ((uint8_t)32u)
 
 #endif

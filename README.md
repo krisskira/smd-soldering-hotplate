@@ -19,8 +19,8 @@ Un solo firmware (sin perfiles PANEL/USB). Gates de flash en Makefile:
 
 ## Características
 
-- HOME → Precalentar | Comenzar en | Parar en | Rampas | PID | Ajustes | Modo USB
+- HOME → Ajustes (Modo USB, Rampas, sonido, precalentar, aire)
 - MODO USB: sesión exclusiva `AT+DEVICEMODE=USB|MANUAL`
 - Programas: PREHEAT, START_IN, STOP_IN (+ PID_TUNE cuando haya flash/UI)
-- Pipeline: preheat? → rampas|tiempo → FIN (alarma + aire)
+- Pipeline: preheat? → rampas → FIN (alarma + aire)
 - Corte ≥ 200 °C; salidas OFF al boot; banco PTC unificado

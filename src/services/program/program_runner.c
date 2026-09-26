@@ -148,13 +148,6 @@ static void alarm_on_second(app_state_t *st)
         after_alarm(st);
 }
 
-static void enter_hold(app_state_t *st)
-{
-    st->phase = PH_HOLD;
-    hold_enter(st);
-    TELEM_DIRTY(st);
-}
-
 static void enter_run_timed(app_state_t *st, uint16_t sec)
 {
     st->t_remain_s = sec;
@@ -185,15 +178,9 @@ static void enter_ramp_step(app_state_t *st)
 static void after_preheat_pipeline(app_state_t *st)
 {
     cfg_load_ramps(st);
-    if (st->ramps_en && st->ramp_n >= 1u) {
-        st->ramp_idx = 0;
-        enter_ramp_step(st);
-        return;
-    }
-    if (st->program == PROG_START_IN)
-        enter_hold(st);
-    else
-        enter_run_timed(st, st->run_s ? st->run_s : st->delay_s);
+    st->ramps_en = 1u;
+    st->ramp_idx = 0;
+    enter_ramp_step(st);
 }
 
 static void on_preheat_standalone(app_state_t *st, uint8_t result)
@@ -230,6 +217,7 @@ void program_init(app_state_t *st)
     st->delay_s = 60;
     st->run_s = 300;
     st->t_remain_s = 0;
+    st->t_elapsed_s = 0;
     st->duty_pct = 0;
     st->preheat_en = 1;
     st->ramps_en = 1;
@@ -378,6 +366,7 @@ void program_stop(app_state_t *st, ctrl_src_t src)
     st->out_state[OUT_FAN] = 0;
     st->phase = PH_IDLE;
     st->t_remain_s = 0;
+    st->t_elapsed_s = 0;
     st->duty_pct = 0;
     st->ctrl_src = src;
     TELEM_DIRTY(st);
@@ -414,6 +403,7 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
     cfg_load_program(st, st->program);
 
     st->ctrl_src = src;
+    st->t_elapsed_s = 0;
     s_last_sec = delay_ms();
 
     switch (st->program) {
@@ -474,6 +464,9 @@ static void on_second(app_state_t *st)
 {
     process_phase_t prev = st->phase;
 
+    if (program_is_active(st) && st->t_elapsed_s < 0xFFFFu)
+        st->t_elapsed_s++;
+
     if (st->phase == PH_ALARM) {
         alarm_on_second(st);
         goto done;
@@ -490,16 +483,8 @@ static void on_second(app_state_t *st)
         if (st->t_remain_s > 0)
             st->t_remain_s--;
         if (st->t_remain_s == 0) {
-            if (st->ramps_en && st->ramp_n >= 1u
-                && st->ramp_idx < st->ramp_n) {
-                st->ramp_idx++;
-                enter_ramp_step(st);
-            } else if (st->program == PROG_STOP_IN) {
-                enter_finish(st);
-            } else {
-                /* START_IN sin más escalones: hold */
-                enter_hold(st);
-            }
+            st->ramp_idx++;
+            enter_ramp_step(st);
         }
     } else if (st->phase == PH_COOLDOWN) {
         int16_t target = (int16_t)(st->cooldown_target_c * 10);

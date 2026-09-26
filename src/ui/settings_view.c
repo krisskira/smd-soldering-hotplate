@@ -17,7 +17,7 @@
  *   y 54–63   pie "Salir ↵"; invertido solo cuando tiene el foco
  *
  * El pie es la última posición del cursor (settings_sel == número de
- * ítems). Rampas tiene 5 ítems y desplaza la ventana de 4 filas.
+ * ítems). Rampas muestra Paso 1..4; el paso 1 siempre está activo.
  *
  * Fila de escalón: "  Paso 1  150°C 01:30"; '*' marca el campo en edición.
  */
@@ -55,7 +55,7 @@ static void build_step(const app_state_t *st, uint8_t i, char *buf)
 {
     const ramp_step_t *r = &st->ramp_step[i];
     uint8_t editing = (uint8_t)(st->edit_armed != SET_EDIT_NONE
-                                && st->settings_sel == (uint8_t)(i + 1u));
+                                && st->settings_sel == i);
     char v[6];
 
     ui_line_put(buf, 2, i18n_tr_hash(I18N_RAMP_STEP));
@@ -78,11 +78,7 @@ static void build_step(const app_state_t *st, uint8_t i, char *buf)
 static void build_item(const app_state_t *st, uint8_t idx, char *buf)
 {
     if (st->settings_page == SET_PAGE_RAMPS) {
-        if (idx == SET_IDX_RAMP_EN)
-            ui_comp_format_toggle(buf, i18n_tr_hash(I18N_RAMP_ENABLE),
-                                  st->ramps_en, UI_COMP_NORMAL);
-        else
-            build_step(st, (uint8_t)(idx - 1u), buf);
+        build_step(st, idx, buf);
         return;
     }
     switch (idx) {
@@ -97,9 +93,11 @@ static void build_item(const app_state_t *st, uint8_t idx, char *buf)
         ui_comp_format_toggle(buf, i18n_tr_hash(I18N_SET_PREHEAT),
                               st->preheat_en, UI_COMP_NORMAL);
         break;
-    default:
+    case SET_IDX_AIR:
         ui_comp_format_toggle(buf, i18n_tr_hash(I18N_SET_AIR),
                               st->cooldown_air_en, UI_COMP_NORMAL);
+        break;
+    default:
         break;
     }
 }
@@ -136,7 +134,7 @@ static void toggle(app_state_t *st, uint8_t *flag)
 
 static void edit_value(app_state_t *st, int8_t dir)
 {
-    ramp_step_t *r = &st->ramp_step[st->settings_sel - 1u];
+    ramp_step_t *r = &st->ramp_step[st->settings_sel];
     int16_t v;
 
     if (st->edit_armed == SET_EDIT_TEMP) {
@@ -160,7 +158,7 @@ static void edit_value(app_state_t *st, int8_t dir)
  * Tiempo 0 corta la lista en ese escalón (mínimo uno activo). */
 static void press_step(app_state_t *st)
 {
-    uint8_t i = (uint8_t)(st->settings_sel - 1u);
+    uint8_t i = st->settings_sel;
     ramp_step_t *r = &st->ramp_step[i];
 
     if (st->edit_armed == SET_EDIT_NONE) {
@@ -205,16 +203,13 @@ static void on_press(app_state_t *st)
         return;
     }
     if (st->settings_page == SET_PAGE_RAMPS) {
-        if (st->settings_sel == SET_IDX_RAMP_EN)
-            toggle(st, &st->ramps_en);
-        else
-            press_step(st);
+        press_step(st);
         return;
     }
     switch (st->settings_sel) {
     case SET_IDX_RAMPS:
         cfg_load_ramps(st);
-        open_page(st, SET_PAGE_RAMPS, SET_IDX_RAMP_EN);
+        open_page(st, SET_PAGE_RAMPS, 0u);
         buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         break;
     case SET_IDX_SOUND:
@@ -223,8 +218,10 @@ static void on_press(app_state_t *st)
     case SET_IDX_PREHEAT:
         toggle(st, &st->preheat_en);
         break;
-    default:
+    case SET_IDX_AIR:
         toggle(st, &st->cooldown_air_en);
+        break;
+    default:
         break;
     }
 }
@@ -259,7 +256,7 @@ void settings_view_refresh(app_state_t *st)
             draw_row(st, r, top);
     }
     if (st->row_dirty & SET_FOOT_BIT)
-        ui_comp_draw_footer(i18n_tr_hash(I18N_USB_EXIT),
+        ui_comp_draw_footer(0u, i18n_tr_hash(I18N_USB_EXIT),
                             (uint8_t)(st->settings_sel >= item_count(st)));
     st->row_dirty = 0;
 }

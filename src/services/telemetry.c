@@ -97,6 +97,12 @@ void telemetry_tick(const app_state_t *st)
     telemetry_emit(st);
 }
 
+#ifdef NO_PID_ATUNE
+void telemetry_plot(const app_state_t *st)
+{
+    (void)st;
+}
+#else
 void telemetry_plot(const app_state_t *st)
 {
     /* Solo el autotune en sesión USB. Entrar a USB o correr otro programa
@@ -124,3 +130,4 @@ void telemetry_plot(const app_state_t *st)
     put_i16_x10(st->atune_peak_lo_x10);
     avr_uart_transmit_pstr(PSTR("\r\n"));
 }
+#endif

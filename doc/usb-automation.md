@@ -2,7 +2,7 @@
 
 UART 9600 8N1. Sesión exclusiva MANUAL/USB (`AT+DEVICEMODE`).
 
-Entrada a sesión: `AT+DEVICEMODE=USB` **o** menú HOME → Modo USB (si el equipo está libre).
+Entrada a sesión: solo `AT+DEVICEMODE=USB` (si el equipo está libre). El PRESS de la vista USB vuelve a HOME.
 
 ## Comandos (requieren USB salvo DEVICEMODE/STATUS)
 
@@ -12,15 +12,14 @@ Entrada a sesión: `AT+DEVICEMODE=USB` **o** menú HOME → Modo USB (si el equi
 | `AT+TEMP=<30..200>` | Setpoint | `cfg_save_program` |
 | `AT+DELAY=<0..3600>` | Delay (START) / run_s (STOP) | `cfg_save_program` |
 | `AT+PREHEAT=0\|1` | Fase preheat en START/STOP | `cfg_save_global` |
-| `AT+RAMPS=0\|1` | Fase rampas tras preheat | `cfg_save_global` |
+| `AT+RAMPS=1` | Confirma rampas siempre activas. `=0` → `ERROR:INVALID-PARAMETER` | `cfg_save_global` |
 | `AT+RAMP=<i>,<temp>,<sec>` | Escalón i=0..3 | `cfg_save_ramps` |
 | `AT+START` / `AT+STOP` | Arranca / pide FIN o abort | — |
 
 ## Secuencia START/STOP
 
 ```
-[DELAY si START_IN] → [PREHEAT si preheat_en] → [RAMPS si ramps_en]
-  → sin rampas: HOLD (START) o RUN(run_s) (STOP)
+[DELAY si START_IN] → [PREHEAT si preheat_en] → RAMPS (paso 1 siempre; 2–4 opcionales)
   → FIN: ALARM:CYCLE-DONE (timeout o PRESS) + bomba ~cooldown_target_c
 ```
 

@@ -10,8 +10,7 @@
 
 #define BUF_LEN 24u
 
-static const char S_T_HOME[] PROGMEM = "INICIO";
-static const char S_NAV_USB[] PROGMEM = "Modo USB";
+static const char S_PANEL_RAMP[] PROGMEM = "RAMPA:";
 static const char S_T_USB[] PROGMEM = "MODO USB";
 static const char S_PH_IDLE[] PROGMEM = "IDLE";
 static const char S_PH_WAIT[] PROGMEM = "ESPERA";
@@ -32,19 +31,20 @@ static const char S_P_PID[] PROGMEM = "PID";
 static const char S_NAV_SET[] PROGMEM = "Ajustes";
 static const char S_T_SET[] PROGMEM = "AJUSTES";
 static const char S_SET_RAMPS[] PROGMEM = "Rampas";
-static const char S_SET_SOUND[] PROGMEM = "Sonido menu";
+static const char S_SET_SOUND[] PROGMEM = "Sonido";
 static const char S_SET_PRE[] PROGMEM = "Precalentar";
-static const char S_SET_AIR[] PROGMEM = "Aire al final";
+static const char S_SET_AIR[] PROGMEM = "Aire final";
 static const char S_T_RAMPS[] PROGMEM = "RAMPAS";
-static const char S_RAMP_EN[] PROGMEM = "Activar";
 static const char S_RAMP_STEP[] PROGMEM = "Paso";
 static const char S_ON[] PROGMEM = "ON";
 static const char S_OFF[] PROGMEM = "OFF";
+static const char S_PANEL_ELAP[] PROGMEM = "T.TRAN:";
+static const char S_PANEL_SET[] PROGMEM = "SET:";
 static const char S_NULL[] PROGMEM = "?";
 
 static const char *const TABLE[] PROGMEM = {
-    S_T_HOME,
-    S_NAV_USB,
+    S_NULL, /* TITLE_HOME unused (Home sin cabecera) */
+    S_PANEL_RAMP,
     S_T_USB,
     S_PH_IDLE,
     S_PH_WAIT,
@@ -69,10 +69,12 @@ static const char *const TABLE[] PROGMEM = {
     S_SET_PRE,
     S_SET_AIR,
     S_T_RAMPS,
-    S_RAMP_EN,
     S_RAMP_STEP,
     S_ON,
     S_OFF,
+    S_PANEL_ELAP,
+    S_PANEL_SET,
+    S_NULL, /* PANEL_OPEN unused */
 };
 
 static char s_buf[BUF_LEN];

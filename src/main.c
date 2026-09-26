@@ -1,6 +1,6 @@
 /*
- * Firmware único: HOME (solo Modo USB) + sesión AT + sensor + PID.
- * Entrada USB: menú HOME o AT+DEVICEMODE=USB. Ver doc/usb-automation.md.
+ * Firmware único: HOME dos columnas, Ajustes, sesión AT, sensor y PID.
+ * Entrada USB: solo AT+DEVICEMODE=USB. Ver doc/usb-automation.md.
  */
 
 #include <avr/io.h>
@@ -31,7 +31,9 @@
 static app_state_t g_state;
 static process_phase_t s_prev_phase;
 static atune_phase_t s_prev_atune;
+#ifndef NO_PID_ATUNE
 static uint8_t s_plot_due;
+#endif
 
 int main(void)
 {
@@ -97,9 +99,11 @@ int main(void)
                     }
 
                     telemetry_tick(&g_state);
+#ifndef NO_PID_ATUNE
                     if (device_session_is_usb(&g_state)
                         && pid_atune_active(&g_state))
                         s_plot_due = 1u;
+#endif
                     ui_router_on_sensor_update(&g_state);
 
                     if (g_state.phase == PH_HOLD && s_prev_phase != PH_HOLD)
@@ -117,10 +121,12 @@ int main(void)
             }
 
             process_tick(&g_state);
+#ifndef NO_PID_ATUNE
             if (s_plot_due) {
                 s_plot_due = 0;
                 telemetry_plot(&g_state);
             }
+#endif
             if (g_state.telem_dirty)
                 telemetry_tick(&g_state);
             buzzer_seq_tick();

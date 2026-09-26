@@ -65,10 +65,10 @@ HOME usa `{16,28,40,52}`. Al añadir vistas, **no** solapar bandas: `y[i+1] >= y
 2. Fila con foco: `st7920_draw_text_gdram_inv` (o `ui_display_refresh_icons` con `inv=1`).
 3. Iconos 8×8: en cabecera (siempre que quepa) y **en la fila con foco** en listas con `ui_display_refresh_icons`. Resto de filas: solo texto.
 4. El binario actual define `UI_NO_ICONS`: cabecera centrada sin icono 8×8; filas vía `ui_display_refresh_focus` (texto 5×7). `ui_display_refresh_icons` no se compila.
-5. MODO USB: cabecera negrita (`ST7920_TEXT_BOLD`+INV) **sin** icono 8×8;
-   tridente `usb_icon_32` a la izquierda (x 0–31); temperatura 8×12 + `C`
-   5×7, programa y fase desde x 32; pie invertido `Salir ↵`. Cada zona es
-   una banda (`st7920_draw_band`); no compartir bloques de 16 px entre zonas.
+5. MODO USB: solo `AT+DEVICEMODE=USB`. HOME: barra STOP_IN/START_IN/Ajustes.
+   Cabecera negrita solo en Ajustes/USB; Home no usa cabecera de título.
+   Temperatura 8×12 en el panel; pie `Salir ↵` en marcha (x≥32) y en USB.
+   Divisoria Home en x=31. Cada zona es una banda; no compartir bloques de 16 px.
 
 No inventar sombras, bordes dobles ni chips redondeados: el LCD no los soporta.
 
