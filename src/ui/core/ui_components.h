@@ -13,6 +13,14 @@ typedef enum {
 /** Cabecera invertida (negrita) + icono opcional. ICO_COUNT = sin icono. */
 void ui_comp_draw_header(const char *title, ui_icon_id_t ico);
 
+/* Pie de vista: banda de todo el ancho, y 54–63. */
+#define UI_FOOT_Y 54u
+#define UI_FOOT_H 10u
+#define UI_FOOT_X 4u
+
+/** Pie "label ↵". inv = 1 cuando el pie tiene el foco (en USB, siempre). */
+void ui_comp_draw_footer(const char *label, uint8_t inv);
+
 /** Formatea fila LINE_LEN: botón de menú / volver. */
 void ui_comp_format_menu(char *buf, const char *label, ui_comp_state_t st);
 

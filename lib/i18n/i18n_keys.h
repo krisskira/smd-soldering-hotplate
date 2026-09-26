@@ -28,6 +28,18 @@
 #define I18N_PROG_PREHEAT ((uint8_t)17u)
 #define I18N_PROG_PID_TUNE ((uint8_t)18u)
 
-#define I18N_PRODUCT_COUNT ((uint8_t)19u)
+#define I18N_NAV_SETTINGS ((uint8_t)19u)
+#define I18N_TITLE_SETTINGS ((uint8_t)20u)
+#define I18N_SET_RAMPS ((uint8_t)21u)
+#define I18N_SET_SOUND ((uint8_t)22u)
+#define I18N_SET_PREHEAT ((uint8_t)23u)
+#define I18N_SET_AIR ((uint8_t)24u)
+#define I18N_TITLE_RAMPS ((uint8_t)25u)
+#define I18N_RAMP_ENABLE ((uint8_t)26u)
+#define I18N_RAMP_STEP ((uint8_t)27u)
+#define I18N_ON ((uint8_t)28u)
+#define I18N_OFF ((uint8_t)29u)
+
+#define I18N_PRODUCT_COUNT ((uint8_t)30u)
 
 #endif

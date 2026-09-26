@@ -19,24 +19,45 @@ El calor lo regula un **PID por ventana de tiempo** sobre el banco PTC1+PTC2 (lo
 
 ## Cómo se navega
 
-Hay dos pantallas: **HOME** y **USB**. HOME, en esta iteración, solo muestra **Modo USB**. Marcha, ajustes y el resto de ítems del menú vuelven como vistas nuevas; el dominio (programas, rampas, PID) sigue accesible por AT.
+Hay tres pantallas: **HOME**, **USB** y **Ajustes**. HOME muestra **Modo USB** y **Ajustes**. La marcha local vuelve como vista nueva; los programas siguen accesibles por AT.
 
-El encoder horario baja el cursor cuando la lista tiene más de una fila. Hoy la lista tiene una.
+El encoder horario baja el cursor.
 
 ```mermaid
 flowchart TD
-    menu["Menú HOME: Modo USB"]
+    menu["Menú HOME: Modo USB, Ajustes"]
     usb["Modo USB"]
+    set["Ajustes"]
+    ramps["Rampas"]
 
     menu -->|"equipo libre"| usb
     usb -->|"PRESS aborta"| menu
+    menu --> set
+    set -->|"Rampas"| ramps
+    ramps -->|"Salir"| set
+    set -->|"Salir"| menu
 ```
 
 | Ítem del menú | Qué hace hoy |
 |---------------|--------------|
 | Modo USB | Entra si no hay programa ni salidas activas. Si está ocupado, beep |
+| Ajustes | Abre la vista de Ajustes |
 
-Ajustes, precalentar, comenzar, parar, rampas y calibrar PID no tienen fila en HOME. Esos valores se editan por AT y se guardan en EEPROM. La marcha de un ciclo USB se ve en la pantalla USB.
+Comenzar, parar y calibrar PID no tienen fila en HOME: se lanzan por AT. La marcha de un ciclo USB se ve en la pantalla USB.
+
+### Ajustes
+
+Mismo esqueleto que MODO USB: cabecera invertida, 4 filas 5×7 y pie `Salir ↵`. El cursor recorre las filas y termina en el pie; lo invertido es lo que tiene el foco. Cada cambio se guarda en EEPROM al momento.
+
+| Fila | PRESS |
+|------|-------|
+| Rampas | Abre la página RAMPAS |
+| Sonido menu | ON/OFF del beep de navegación (`buzz_nav_en`). La alarma nunca se silencia |
+| Precalentar | ON/OFF de la fase preheat en START_IN / STOP_IN (`preheat_en`) |
+| Aire al final | ON/OFF de la bomba en el enfriamiento (`cooldown_air_en`) |
+| Salir (pie) | Vuelve a HOME |
+
+Página RAMPAS: `Activar` (ON/OFF de `ramps_en`) y `Paso 1..4`, que muestra `150°C 01:30` o `OFF` si el escalón no está en uso. PRESS en un paso edita la temperatura (±5 °C, 30–200), otro PRESS pasa al tiempo (±30 s, 0–60:00) y el tercero guarda. `*` marca el campo en edición. Tiempo 0 corta la lista en ese paso; editar un paso apagado lo añade. El pie vuelve a Ajustes.
 
 En marcha, cuando exista de nuevo la pantalla local, PRESS significa:
 
@@ -141,9 +162,9 @@ EEPROM versión 3 (`CFG_EEPROM_VER` en `app_config.h`). Código: `src/services/c
 
 | Bloque | Qué guarda | Cómo se edita ahora |
 |--------|------------|---------------------|
-| Global | Ganancias PID, `preheat_en`, `ramps_en`, beep, tiempos de alarma, `stabilize_s`, aire, objetivo de enfriamiento, límite | Por AT (`AT+PREHEAT`, `AT+RAMPS`). El resto, si ya está en EEPROM o por defecto de fábrica. La vista de Ajustes vuelve después |
+| Global | Ganancias PID, `preheat_en`, `ramps_en`, beep, tiempos de alarma, `stabilize_s`, aire, objetivo de enfriamiento, límite | Ajustes (sonido, precalentar, aire, rampas ON/OFF) o AT (`AT+PREHEAT`, `AT+RAMPS`). El resto, si ya está en EEPROM o por defecto de fábrica |
 | Por programa | Consigna y delay/run de PREHEAT, START_IN, STOP_IN y el bloque de PID_TUNE | `AT+TEMP`, `AT+DELAY`. No hay editor en pantalla |
-| Rampas | Número de escalones y cada par temperatura/tiempo | `AT+RAMP` |
+| Rampas | Número de escalones y cada par temperatura/tiempo | Ajustes → Rampas o `AT+RAMP` |
 
 Arrancar un programa vuelve a leer su bloque (`cfg_load_program`) antes de salir.
 
@@ -183,4 +204,4 @@ Fuera del binario a propósito: perfil PANEL, vistas de marcha y ajustes (vuelve
 
 Los textos de pantalla viven en flash (`lib/i18n/i18n.c`), no en EEPROM. EEPROM queda para la configuración (66 / 512 bytes). Copiar el catálogo a EEPROM no libera flash: o el texto sigue en la imagen para grabarlo, o la UI se queda sin textos si la EEPROM se borra. El diccionario C++ (clase, segundo idioma, doble buffer) sí se quitó.
 
-Flash medido el 2026-09-26, con la vista USB por bandas, 8×12 e icono ENTER enlazados: **14612 / 16384 (89.2%)**. Margen libre: 1772 bytes. Volver a medir con `make size` si cambia el enlace.
+Flash medido el 2026-09-26, con Ajustes + Rampas y `-mcall-prologues -mrelax -fno-inline-small-functions`: **15640 / 16384 (95.5%)**. Margen libre: 744 bytes. Volver a medir con `make size` si cambia el enlace.

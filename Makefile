@@ -29,11 +29,19 @@ PORT := $(shell ls /dev/cu.usbserial* 2>/dev/null | head -n 1)
 # Flash gates: NO_PID_ATUNE, UI_NO_ICONS (sin iconos en filas), sin font6x8
 ############################################
 
+# Con LTO el código se genera al enlazar: OPTFLAGS va también en LDFLAGS.
+# -mcall-prologues / -mrelax / -fno-inline-small-functions: ~800 B menos.
+OPTFLAGS = \
+-Os \
+-flto \
+-mcall-prologues \
+-mrelax \
+-fno-inline-small-functions
+
 CFLAGS = \
 -mmcu=$(MCU) \
 -DF_CPU=$(F_CPU) \
--Os \
--flto \
+$(OPTFLAGS) \
 -Wall \
 -ffunction-sections \
 -fdata-sections \
@@ -51,6 +59,7 @@ CXXFLAGS = $(CFLAGS) -std=c++11 -fno-exceptions -fno-rtti
 
 LDFLAGS = \
 -mmcu=$(MCU) \
+$(OPTFLAGS) \
 -Wl,--gc-sections \
 -Wl,-Map=build/firmware.map
 
@@ -69,6 +78,7 @@ SRC := \
 	src/ui/core/ui_display.c \
 	src/ui/home_view.c \
 	src/ui/usb_view.c \
+	src/ui/settings_view.c \
 	src/ui/ui_router.c \
 	src/services/buzzer_seq.c \
 	src/services/outputs.c \

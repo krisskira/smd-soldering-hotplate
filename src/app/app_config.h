@@ -28,17 +28,33 @@
 #define OUTPUT_COUNT      3u
 
 /*
- * HOME, iteración actual: solo Modo USB.
- * Marcha, ajustes y el resto de ítems vuelven como vistas nuevas.
+ * HOME: Modo USB y Ajustes.
+ * Marcha y el resto de ítems vuelven como vistas nuevas.
  */
-#define HOME_COUNT        1u
+#define HOME_COUNT        2u
 #define HOME_IDX_USB      0u
+#define HOME_IDX_SETTINGS 1u
 
-/* Subpágina visible hoy. RUN y SETTINGS se reintroducen con sus vistas. */
+/* Subpágina visible hoy. RUN se reintroduce con su vista. */
 #define HOME_PAGE_MENU     0u
 
-/* Ajustes: beep | preheat | ramps | cooldown | VOLVER */
-#define SETTINGS_COUNT    5u
+/* Ajustes: Rampas | Sonido menú | Precalentar | Aire al final (+ pie Salir) */
+#define SET_PAGE_MAIN     0u
+#define SET_PAGE_RAMPS    1u
+#define SETTINGS_COUNT    4u
+#define SET_IDX_RAMPS     0u
+#define SET_IDX_SOUND     1u
+#define SET_IDX_PREHEAT   2u
+#define SET_IDX_AIR       3u
+
+/* Página Rampas: Activar | Paso 1..4 (+ pie Salir) */
+#define SET_RAMPS_COUNT   (1u + RAMP_STEPS_MAX)
+#define SET_IDX_RAMP_EN   0u
+
+#define SET_EDIT_NONE     0u
+#define SET_EDIT_TEMP     1u
+#define SET_EDIT_TIME     2u
+#define RAMP_TEMP_STEP_C  5u
 
 /* USB view: DETENER | VOLVER */
 #define USB_SEL_COUNT     2u

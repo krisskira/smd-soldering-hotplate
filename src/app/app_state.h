@@ -4,10 +4,11 @@
 #include <stdint.h>
 #include "app_config.h"
 
-/* View: solo HOME + MODO USB (producto CORE). */
+/* View: HOME, MODO USB y Ajustes. */
 typedef enum {
     VIEW_HOME = 0,
-    VIEW_USB
+    VIEW_USB,
+    VIEW_SETTINGS
 } view_t;
 
 /* App event */
@@ -97,9 +98,10 @@ typedef struct {
     /* UI selection */
     uint8_t  home_sel;
     uint8_t  home_page;      /* HOME_PAGE_* */
-    uint8_t  settings_sel;
+    uint8_t  settings_sel;   /* == número de ítems: foco en el pie */
+    uint8_t  settings_page;  /* SET_PAGE_* */
     uint8_t  usb_sel;
-    uint8_t  edit_armed;
+    uint8_t  edit_armed;     /* Ajustes: SET_EDIT_* del escalón en edición */
 
     /* Active program */
     program_id_t    program;

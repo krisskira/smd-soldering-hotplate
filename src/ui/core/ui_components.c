@@ -4,6 +4,7 @@
 #include "lib/st7920/st7920.h"
 #include "lib/st7920/st7920_private.h"
 #include "lib/fonts/font.h"
+#include "i18n/i18n_c.h"
 
 /* Impar: 7 px de glifo + 4 px arriba y 4 abajo. */
 #define UI_TITLE_H 15u
@@ -56,15 +57,33 @@ void ui_comp_format_menu(char *buf, const char *label, ui_comp_state_t st)
     ui_line_put(buf, 2, label);
 }
 
-/* ON/OFF y '*' van literales: estas filas no se pintan todavía y no
- * deben dejar cadenas en el catálogo. Al volver Ajustes, pasarlas a I18N_*. */
+void ui_comp_draw_footer(const char *label, uint8_t inv)
+{
+    static const char enter[2] = { (char)(ICO_ENTER + 1u), '\0' };
+    st7920_span_t s[2];
+    uint8_t n = ui_str_len(label);
+
+    s[0].f = &FONT_5X7;
+    s[0].str = label;
+    s[0].x = UI_FOOT_X;
+    s[0].scale = 1;
+    s[0].bold = 0;
+    s[1].f = &FONT_ICONS;
+    s[1].str = enter;
+    s[1].x = (uint8_t)(UI_FOOT_X + (n + 1u) * FONT_5X7.advance);
+    s[1].scale = 1;
+    s[1].bold = 0;
+    st7920_draw_band(0, 128u, UI_FOOT_Y, UI_FOOT_H, s, 2u, inv);
+}
+
+/* label ya está copiado en buf antes de pedir ON/OFF al catálogo. */
 void ui_comp_format_toggle(char *buf, const char *label, uint8_t on,
                            ui_comp_state_t st)
 {
     ui_line_clear(buf);
     (void)st;
     ui_line_put(buf, 2, label);
-    ui_line_put_right(buf, on ? "ON" : "OFF");
+    ui_line_put_right(buf, i18n_tr_hash(on ? I18N_ON : I18N_OFF));
 }
 
 void ui_comp_format_number(char *buf, const char *label, const char *value,

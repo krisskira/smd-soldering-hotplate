@@ -70,8 +70,10 @@ Una `static app_state_t g_state` en `main.c`. Definición en `src/app/app_state.
 
 | Campo | Valores | Dónde se usa |
 |-------|---------|--------------|
-| `view` | `VIEW_HOME`, `VIEW_USB` | El router. No hay más vistas. |
-| `home_page` | `MENU` | Subpágina de HOME. Marcha y ajustes no están en esta iteración. |
+| `view` | `VIEW_HOME`, `VIEW_USB`, `VIEW_SETTINGS` | El router. |
+| `home_page` | `MENU` | Subpágina de HOME. La marcha local no está en esta iteración. |
+| `settings_page` / `settings_sel` | `SET_PAGE_MAIN`, `SET_PAGE_RAMPS` / 0..n (n = pie) | `settings_view.c` |
+| `edit_armed` | `SET_EDIT_NONE`, `TEMP`, `TIME` | Campo del escalón en edición |
 | `program` | `PREHEAT`, `START_IN`, `STOP_IN`, `PID_TUNE` | RAMPS no es un `program_id_t`. |
 | `phase` | ver máquina de fases | La pinta RUN y la trama `$HP` (`ACTION`) |
 | `device_mode` | `DEVICE_MANUAL`, `DEVICE_USB` | Exclusivos. USB solo con equipo libre. |
@@ -116,7 +118,7 @@ Seguridad, en dos sitios:
 
 ## Navegación
 
-Solo dos vistas. HOME tiene una página: el menú con **Modo USB**.
+Tres vistas. HOME tiene una página: el menú con **Modo USB** y **Ajustes**.
 
 ```mermaid
 flowchart TD
@@ -125,13 +127,19 @@ flowchart TD
     menu -->|"PRESS Modo USB y ocupado"| beep["Beep de alarma y se queda"]
     beep --> menu
     usb -->|"PRESS"| menu
+    menu -->|"PRESS Ajustes"| set["VIEW_SETTINGS / MAIN"]
+    set -->|"Rampas"| ramps["VIEW_SETTINGS / RAMPS"]
+    ramps -->|"pie Salir"| set
+    set -->|"pie Salir"| menu
     atUsb["AT+DEVICEMODE=USB"] --> usb
     atMan["AT+DEVICEMODE=MANUAL"] --> menu
 ```
 
-`home_view_on_event` solo atiende PRESS en esa fila: `device_session_enter_usb`. El encoder no cambia de ítem mientras `HOME_COUNT` sea 1.
+`home_view_on_event`: el encoder rota entre las dos filas; PRESS en Modo USB llama `device_session_enter_usb`, en Ajustes abre `VIEW_SETTINGS`.
 
-La marcha y los ajustes no se pintan en HOME. Un ciclo lanzado por AT se sigue en la vista USB. `program_stop` y el ACK siguen en el dominio; la pantalla local que los confirmaba vuelve con las vistas siguientes.
+Ajustes (`settings_view.c`): cabecera, ventana de 4 filas de 9 px (y 16–51) y pie compartido `ui_comp_draw_footer` (y 54–63). El pie es la última posición del cursor e invierte solo con foco. `row_dirty` usa bits 0–3 para filas y bit 4 para el pie. Toggles → `cfg_save_global`; escalones → `cfg_save_ramps`.
+
+La marcha no se pinta en HOME. Un ciclo lanzado por AT se sigue en la vista USB. `program_stop` y el ACK siguen en el dominio; la pantalla local que los confirmaba vuelve con las vistas siguientes.
 
 Los flujos de cada programa (qué fase sigue a cuál) están en [product_features.md](product_features.md).
 

@@ -1,7 +1,6 @@
 #include "usb_view.h"
 #include "ui_text.h"
 #include "ui_router.h"
-#include "ui_icons.h"
 #include "ui_components.h"
 #include "i18n/i18n_c.h"
 #include "assets/usb_icon_32.h"
@@ -34,9 +33,6 @@
 #define USB_PROG_Y    34u
 #define USB_ACTION_Y  44u
 #define USB_LINE_H    10u
-#define USB_FOOT_Y    54u
-#define USB_FOOT_H    10u
-#define USB_FOOT_X    4u
 
 /* Columnas de 6 px que caben desde USB_TEXT_X hasta el borde. */
 #define USB_BODY_COLS ((128u - USB_TEXT_X) / 6u)
@@ -68,23 +64,6 @@ static void draw_line(uint8_t y, const char *str)
 
     span_set(&s, &FONT_5X7, str, USB_TEXT_X);
     st7920_draw_band(USB_BODY_X, USB_BODY_W, y, USB_LINE_H, &s, 1u, 0u);
-}
-
-static void draw_footer(void)
-{
-    static const char enter[2] = { (char)(ICO_ENTER + 1u), '\0' };
-    char label[LINE_LEN + 1];
-    st7920_span_t s[2];
-    uint8_t n;
-
-    ui_line_clear(label);
-    ui_line_put(label, 0, i18n_tr_hash(I18N_USB_EXIT));
-    n = ui_str_len(i18n_tr_hash(I18N_USB_EXIT));
-    label[n] = '\0';
-    span_set(&s[0], &FONT_5X7, label, USB_FOOT_X);
-    span_set(&s[1], &FONT_ICONS, enter,
-             (uint8_t)(USB_FOOT_X + (n + 1u) * FONT_5X7.advance));
-    st7920_draw_band(0, 128u, USB_FOOT_Y, USB_FOOT_H, s, 2u, 1u);
 }
 
 static void draw_temp(const sensor_reading_t *r)
@@ -155,7 +134,7 @@ void usb_view_refresh(app_state_t *st)
         ui_comp_draw_header(i18n_tr_hash(I18N_TITLE_USB), ICO_COUNT);
         st7920_write_frame_pgm(USB_ICON_X, USB_ICON_Y, usb_icon_32,
                                USB_ICON_W, USB_ICON_H, USB_ICON_BPR);
-        draw_footer();
+        ui_comp_draw_footer(i18n_tr_hash(I18N_USB_EXIT), 1u);
         st->frame_dirty = 0;
         st->row_dirty = ROW_ALL;
     }

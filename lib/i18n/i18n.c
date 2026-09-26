@@ -29,6 +29,17 @@ static const char S_P_START[] PROGMEM = "Inicio";
 static const char S_P_STOP[] PROGMEM = "Parar";
 static const char S_P_PRE[] PROGMEM = "Precal";
 static const char S_P_PID[] PROGMEM = "PID";
+static const char S_NAV_SET[] PROGMEM = "Ajustes";
+static const char S_T_SET[] PROGMEM = "AJUSTES";
+static const char S_SET_RAMPS[] PROGMEM = "Rampas";
+static const char S_SET_SOUND[] PROGMEM = "Sonido menu";
+static const char S_SET_PRE[] PROGMEM = "Precalentar";
+static const char S_SET_AIR[] PROGMEM = "Aire al final";
+static const char S_T_RAMPS[] PROGMEM = "RAMPAS";
+static const char S_RAMP_EN[] PROGMEM = "Activar";
+static const char S_RAMP_STEP[] PROGMEM = "Paso";
+static const char S_ON[] PROGMEM = "ON";
+static const char S_OFF[] PROGMEM = "OFF";
 static const char S_NULL[] PROGMEM = "?";
 
 static const char *const TABLE[] PROGMEM = {
@@ -51,6 +62,17 @@ static const char *const TABLE[] PROGMEM = {
     S_P_STOP,
     S_P_PRE,
     S_P_PID,
+    S_NAV_SET,
+    S_T_SET,
+    S_SET_RAMPS,
+    S_SET_SOUND,
+    S_SET_PRE,
+    S_SET_AIR,
+    S_T_RAMPS,
+    S_RAMP_EN,
+    S_RAMP_STEP,
+    S_ON,
+    S_OFF,
 };
 
 static char s_buf[BUF_LEN];

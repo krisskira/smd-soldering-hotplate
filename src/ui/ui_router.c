@@ -1,6 +1,7 @@
 #include "ui_router.h"
 #include "home_view.h"
 #include "usb_view.h"
+#include "settings_view.h"
 
 void ui_enter_view(app_state_t *st, view_t v)
 {
@@ -15,6 +16,9 @@ void ui_enter_view(app_state_t *st, view_t v)
     switch (v) {
     case VIEW_USB:
         usb_view_enter(st);
+        break;
+    case VIEW_SETTINGS:
+        settings_view_enter(st);
         break;
     case VIEW_HOME:
     default:
@@ -32,6 +36,7 @@ void ui_router_init(app_state_t *st)
     st->home_sel = 0;
     st->home_page = HOME_PAGE_MENU;
     st->settings_sel = 0;
+    st->settings_page = SET_PAGE_MAIN;
     ui_enter_view(st, VIEW_HOME);
 }
 
@@ -43,6 +48,9 @@ void ui_router_refresh(app_state_t *st)
     switch (st->view) {
     case VIEW_USB:
         usb_view_refresh(st);
+        break;
+    case VIEW_SETTINGS:
+        settings_view_refresh(st);
         break;
     case VIEW_HOME:
     default:
@@ -59,6 +67,9 @@ void ui_router_on_event(app_state_t *st, app_event_t evt)
     switch (st->view) {
     case VIEW_USB:
         usb_view_on_event(st, evt);
+        break;
+    case VIEW_SETTINGS:
+        settings_view_on_event(st, evt);
         break;
     case VIEW_HOME:
     default:
