@@ -11,6 +11,9 @@
 
 static int16_t  s_peak_hi;
 static int16_t  s_peak_lo;
+static int16_t  s_kp;
+static int16_t  s_ki;
+static int16_t  s_kd;
 static uint16_t s_half_sum;
 static uint8_t  s_half_n;
 static uint16_t s_t0;
@@ -22,26 +25,28 @@ static void heaters_off(app_state_t *st)
     st->atune_relay_on = 0;
 }
 
-static void publish_peaks(app_state_t *st)
-{
-    st->atune_peak_hi_x10 = s_peak_hi;
-    st->atune_peak_lo_x10 = s_peak_lo;
-}
-
 void pid_atune_init(app_state_t *st)
 {
+    s_kp = 0;
+    s_ki = 0;
+    s_kd = 0;
     if (!st)
         return;
     st->atune_phase = ATUNE_IDLE;
     st->atune_cycles = 0;
     st->atune_relay_on = 0;
     st->atune_elapsed_s = 0;
-    st->atune_kp_x10 = 0;
-    st->atune_ki_x10 = 0;
-    st->atune_kd_x10 = 0;
-    st->atune_peak_hi_x10 = 0;
-    st->atune_peak_lo_x10 = 0;
     at_cmd_set_stream(st, 0);
+}
+
+void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd)
+{
+    if (kp)
+        *kp = s_kp;
+    if (ki)
+        *ki = s_ki;
+    if (kd)
+        *kd = s_kd;
 }
 
 void pid_atune_cancel(app_state_t *st)
@@ -82,8 +87,9 @@ uint8_t pid_atune_start(app_state_t *st)
     t = st->sensor.temp_c_x10;
     s_peak_hi = t;
     s_peak_lo = t;
-    st->atune_peak_hi_x10 = t;
-    st->atune_peak_lo_x10 = t;
+    s_kp = 0;
+    s_ki = 0;
+    s_kd = 0;
     s_half_sum = 0;
     s_half_n = 0;
     s_t0 = delay_ms();
@@ -122,10 +128,9 @@ static void finish_ok(app_state_t *st, uint16_t tu_ms, int16_t amp)
     if (kd > 999)
         kd = 999;
 
-    st->atune_kp_x10 = (int16_t)kp;
-    st->atune_ki_x10 = (int16_t)ki;
-    st->atune_kd_x10 = (int16_t)kd;
-    publish_peaks(st);
+    s_kp = (int16_t)kp;
+    s_ki = (int16_t)ki;
+    s_kd = (int16_t)kd;
     st->atune_phase = ATUNE_DONE;
     heaters_off(st);
 }
@@ -162,7 +167,6 @@ void pid_atune_on_sample(app_state_t *st)
         s_peak_hi = t;
     if (t < s_peak_lo)
         s_peak_lo = t;
-    publish_peaks(st);
 
     now = delay_ms();
     dt = (uint16_t)(now - s_t0);
@@ -204,9 +208,9 @@ void pid_atune_apply(app_state_t *st)
 {
     if (!st || st->atune_phase != ATUNE_DONE)
         return;
-    st->pid_kp_x10 = st->atune_kp_x10;
-    st->pid_ki_x10 = st->atune_ki_x10;
-    st->pid_kd_x10 = st->atune_kd_x10;
+    st->pid_kp_x10 = s_kp;
+    st->pid_ki_x10 = s_ki;
+    st->pid_kd_x10 = s_kd;
     st->pid_loop = PID_AUTO;
     st->atune_phase = ATUNE_IDLE;
     pid_reset(st);

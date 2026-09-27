@@ -28,11 +28,10 @@ BOM / datasheets: `smd-soldering-hotplate-pcb/smd-soldering-hotplate-pcb.csv` (B
 | `preheat_pct` | sí | igual | 50..100, default 80. Tope del precalentado de HEAT |
 | Rampas | bloque `ee_ramp` | `ramp_n`, `ramp_step[]` | No es programa |
 | HEAT `delay_s` | `ee_heat` | `delay_s` | 0 = arranque inmediato |
-| PREHEAT `t_set_c` | `ee_pre` | `t_set_c` | Solo AT |
-| PID_TUNE `t_set_c` | `ee_tune` | `t_set_c` | Setpoint de oscilación |
+| PID_TUNE `t_set_c` | `ee_tune` | `t_set_c` | Setpoint de oscilación (`AT+RUN=2`) |
 
 Fase viva (`phase`, `t_remain_s`, `ramp_idx`, `duty_pct`) solo en RAM + trama `$HP`.
-Picos de autotune (`atune_peak_hi_x10`, `atune_peak_lo_x10`) y ciclos viven en RAM. No hay buffer de traza: 16 KB no alcanza para una página de gráfico.
+Picos y ganancias resultado del autotune viven en estáticos de `pid_atune` (el algoritmo los usa; la trama los lee). No van en `app_state` ni hay buffer de traza.
 
 ## Alarmas y notificaciones
 
@@ -47,8 +46,7 @@ La columna **Beep** no es una frecuencia en Hz ni una duración única. Nombra u
 
 | Evento | UART (sesión USB) | Beep | `$HP` ACTION | Notas |
 |--------|-------------------|------|--------------|-------|
-| PREHEAT standalone listo | línea `ALARM:PH-OK` | `READY`: 3 pulsos de 50 ms ON / 80 ms OFF | `ALARM` | PID hold hasta ACK/timeout. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
-| HEAT fin de rampas | línea `ALARM:DONE` | igual que la fila anterior | `ALARM` | PTC OFF; aire si `cooldown_air_en` |
+| HEAT fin de rampas | línea `ALARM:2` | `READY`: 3 pulsos de 50 ms ON / 80 ms OFF | `ALARM` | PTC OFF; aire si `cooldown_air_en`. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
 | Sobretemperatura | línea `OT` | ninguno | `FAULT` | `OT` significa **over-temperature**: texto literal de UART cuando la lectura válida llega a `temp_max_c`. No es un pitido ni un código de fase. PTC1 y PTC2 OFF, fase `PH_FAULT` |
 | Cambio de fase | sin línea UART | ver abajo | token de la fase nueva | El token va dentro de `$HP`, no como línea de alarma |
 | Abort USB (PRESS vista) | línea `ERROR:ABORTED-BY-DEVICE` | `CONFIRM`: 2 pulsos de 30 ms ON / 60 ms OFF | — | Todo OFF → HOME |
@@ -67,7 +65,7 @@ ACK UI/`AT+STOP` en `PH_ALARM`: cierra alarma; HEAT puede pasar a `PH_COOLDOWN`.
 
 ## HEAT (`PROG_HEAT`)
 
-Lanzable: **UI** (Home → Heat) y **AT** (`AT+PROGRAM=HEAT` + `AT+START`).
+Lanzable: **UI** (Home → Heat) y **AT** (`AT+RUN=1`).
 
 ### Entradas
 
@@ -111,7 +109,7 @@ flowchart TD
 ### RAMPS
 
 - No se lanzan solos. Si `preheat_en`, primero se sube solo hasta `preheat_pct` % de T(Ramp1) (default 80) y se estabiliza ahí. Así el tiempo de banda no se cumple con la placa ya en, o por encima de, la temperatura de la rampa. Después **Ramp1 corre su hold completo a T plena**, luego 2..n.
-- `preheat_en=0` (Ajustes → ESTAB, o `AT+PREHEAT=0`) salta PREHEAT y STABILIZE y entra en Ramp1.
+- `preheat_en=0` (Ajustes → ESTAB, o `AT+CFG=H` con en=0) salta PREHEAT y STABILIZE y entra en Ramp1.
 - `preheat_pct` (Ajustes → P%, 50..100, paso 5) es el tope de ese tramo. No cambia la consigna del `PH_RUN`.
 - Preheat del pipeline **no** sustituye Ramp1.
 
@@ -121,46 +119,36 @@ flowchart TD
 
 ---
 
-## PREHEAT (`PROG_PREHEAT`)
+## PREHEAT
 
-Solo **AT**. Sin rampas, sin delay, sin bomba.
-
-| Fase | PTC | Avance | Alarma |
-|------|-----|--------|--------|
-| PREHEAT → STABILIZE | PID a `t_set_c` pleno (ee_pre) | banda + `stabilize_s` | — |
-| ALARM | PID hold | ACK/timeout | `ALARM:PH-OK` |
-| DONE | OFF | — | — |
-
-STOP durante subida: abort → IDLE (sin alarma de fin).
-
-`preheat_pct` no aplica aquí: el programa pide esa temperatura. El tope del 80 % es solo el precalentado del pipeline HEAT, para no sentarse en T(Ramp1) antes del hold de la rampa.
+No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_pct`, `stabilize_s`). No hay `ee_pre` ni `AT+RUN=0`.
 
 ---
 
 ## PID (lazo)
 
 - Ventana time-proportioning (`PID_WINDOW_MS`): duty % → tiempo ON del banco PTC (gate MOC3021/BT136).
-- Activo en `PH_PREHEAT`, `PH_STABILIZE`, `PH_RUN`, `PH_HOLD`, y `PH_ALARM` con `alarm_hold_heat`.
-- Ganancias: EEPROM global / edición Ajustes→PID.
+- Activo en `PH_PREHEAT`, `PH_STABILIZE`, `PH_RUN` y `PH_HOLD`.
+- Ganancias: EEPROM global / `AT+CFG=P`. Ajustes no edita PID.
 
 ---
 
 ## PID_ATUNE (`PROG_PID_TUNE`)
 
-UI (Ajustes→PID→Auto) o AT. Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → `atune_kp/ki/kd` → `pid_atune_apply` + `cfg_save_global`.
+Solo AT (`AT+RUN=2,temp,ciclos,hyst`). Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → ganancias en estáticos de `pid_atune` → `AT+CFG=A` (`pid_atune_apply` + `cfg_save_global`).
 
-Cada muestra a 1 Hz copia los picos del medio ciclo en `atune_peak_hi_x10` / `atune_peak_lo_x10`. `atune_cycles` cuenta ciclos ya cerrados. `atune_kp/ki/kd_x10` quedan al terminar.
+Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state`) cuenta ciclos ya cerrados. `AK`/`AI`/`AD` de `$HP` salen de `pid_atune_result`.
 
 | Origen | Qué se publica |
 |--------|----------------|
-| USB (`CTRL_USB`) | `atune_stream=1`. La trama normal `$HP` sale a 1 Hz, y una más al pasar a DONE o FAIL. Campos para graficar: `T` (un decimal), `SET`, `DUTY` (0 o 100), `P1`/`P2`, `ACTION=TUNING` |
-| UI | sin stream. Ajustes → PID → Auto muestra `RUN` / `OK` / `FAIL`. Los picos y las ganancias quedan en `app_state`. Salir con DONE aplica Kp/Ki/Kd |
+| USB (`CTRL_USB`) | `atune_stream=1`. `$HP` de proceso a 1 Hz, más `AP,AC,AK,AI,AD`, y una trama al pasar a DONE o FAIL |
+| UI | no lanza autotune ni dibuja la curva |
 
-La banda de oscilación es `t_set ± atune_hyst_c_x10`. No hay trama aparte `$HP,PLOT` ni página de curva: no caben en flash.
+La banda de oscilación es `t_set ± atune_hyst_c_x10`. No hay trama `$HP,PLOT`.
 
 | Fase atune | PTC | `$HP` ACTION |
 |------------|-----|--------------|
 | RUN | ON/OFF según hyst | `TUNING` |
 | DONE / FAIL | OFF | — |
 
-Cancel: STOP / Salir / fault apaga el stream sin trama extra. Los picos del último medio ciclo siguen en `app_state` hasta el siguiente arranque.
+Cancel: STOP / fault apaga el stream sin trama extra. El siguiente `RUN=2` pone las ganancias resultado a cero hasta el nuevo DONE.

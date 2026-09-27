@@ -91,7 +91,7 @@ u8g2 y el driver Adafruit del MAX31865 no están en el árbol.
 ## Huecos reales
 
 - No hay vista aparte de alarma. `PH_ALARM` se refleja en HOME en marcha / USB.
-- Sin editor UI de setpoint, delay ni escalones de rampa (`AT+TEMP` / `AT+DELAY` / `AT+RAMP`). Ganancias PID sí: Ajustes → PID.
+- Sin editor UI de setpoint, delay ni escalones de rampa (`AT+RUN=2` / `AT+CFG=H` / `AT+CFG=R`). Ganancias PID solo por `AT+CFG=P`.
 - Autotune: USB reemite `$HP` a 1 Hz. No hay `$HP,PLOT` ni página de curva (flash). Picos y ganancias quedan en `app_state`; la fila Auto muestra RUN/OK/FAIL.
 - No hay guía eléctrica del PCB más allá del KiCad y del CSV de BOM.
 - `ui_style_guide.md` puede describir paths de iconos/fuentes grandes no presentes en el binario.

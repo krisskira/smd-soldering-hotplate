@@ -3,8 +3,11 @@
 
 #include "../app/app_state.h"
 
-/** Emite una trama $HP completa (request o evento). */
+/** Trama de proceso $HP. Si atune_stream, añade AP/AC/AK/AI/AD. */
 void telemetry_emit(const app_state_t *st);
+
+/** Trama de settings $CF. Solo bajo demanda (AT+CFG?). */
+void telemetry_emit_cfg(const app_state_t *st);
 
 /** Si telem_dirty, emite y limpia el flag. Sin rate periódico. */
 void telemetry_tick(const app_state_t *st);

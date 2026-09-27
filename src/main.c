@@ -1,6 +1,6 @@
 /*
  * Firmware único: HOME dos columnas, Ajustes, sesión AT, sensor y PID.
- * Entrada USB: solo AT+DEVICEMODE=USB. Ver doc/usb-automation.md.
+ * Entrada USB: solo AT+MODE=1. Ver doc/usb-automation.md.
  */
 
 #include <avr/io.h>

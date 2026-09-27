@@ -19,55 +19,24 @@ static char s_line[AT_LINE_MAX];
 static uint8_t s_len;
 
 /*
- * Nombres AT+ (sin AT+). Prefijos largos primero
- * (PREHEATPCT>PREHEAT, TEMPMIN/TEMPMAX>TEMP).
+ * Cinco verbos. CFG aparece dos veces: '?' lee settings, '=' escribe.
+ * El parser exige que el terminador coincida antes de aceptar el nombre.
  */
-/* Nombres cortos (= claves $HP). Prefijos largos primero. */
 static const char CMD_NAMES[] PROGMEM =
-    "STATUS\0"
-    "DEVICEMODE\0"
-    "PIDAPPLY\0"
-    "PROGRAM\0"
-    "PREHEAT\0"
-    "PHPCT\0"
-    "ATUNE\0"
-    "RAMPS\0"
-    "DELAY\0"
-    "TEMP\0"
-    "TMIN\0"
-    "TMAX\0"
-    "STAB\0"
-    "RAMP\0"
-    "START\0"
-    "STOP\0"
-    "SND\0"
-    "AIR\0"
-    "KP\0"
-    "KI\0"
-    "KD\0";
+    "STAT\0"
+    "MODE\0"
+    "CFG\0"
+    "CFG\0"
+    "RUN\0"
+    "STOP\0";
 
 enum {
-    CMD_STATUS = 0,
-    CMD_DEVICEMODE,
-    CMD_PIDAPPLY,
-    CMD_PROGRAM,
-    CMD_PREHEAT,
-    CMD_PHPCT,
-    CMD_ATUNE,
-    CMD_RAMPS,
-    CMD_DELAY,
-    CMD_TEMP,
-    CMD_TMIN,
-    CMD_TMAX,
-    CMD_STAB,
-    CMD_RAMP,
-    CMD_START,
+    CMD_STAT = 0,
+    CMD_MODE,
+    CMD_CFG_Q,
+    CMD_CFG,
+    CMD_RUN,
     CMD_STOP,
-    CMD_SND,
-    CMD_AIR,
-    CMD_KP,
-    CMD_KI,
-    CMD_KD,
     CMD_COUNT
 };
 
@@ -75,25 +44,10 @@ enum {
 static const uint8_t CMD_META[CMD_COUNT] PROGMEM = {
     (uint8_t)('?' << 1) | 0,
     (uint8_t)('=' << 1) | 0,
-    (uint8_t)('\0' << 1) | 1,
+    (uint8_t)('?' << 1) | 1,
     (uint8_t)('=' << 1) | 1,
     (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('\0' << 1) | 1,
-    (uint8_t)('\0' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1,
-    (uint8_t)('=' << 1) | 1
+    (uint8_t)('\0' << 1) | 1
 };
 
 static void reply_ok(app_state_t *st)
@@ -140,21 +94,6 @@ static void reply_from_proc(app_state_t *st, uint8_t code)
     (st)->telem_dirty = 1u; \
     reply_ok(st); \
 } while (0)
-
-static uint8_t parse_01(const char *s, uint8_t *out)
-{
-    if (!s || !out || s[1] != '\0')
-        return 1u;
-    if (s[0] == '0') {
-        *out = 0;
-        return 0u;
-    }
-    if (s[0] == '1') {
-        *out = 1;
-        return 0u;
-    }
-    return 1u;
-}
 
 static uint8_t parse_u16(const char **pp, uint16_t *out)
 {
@@ -251,28 +190,206 @@ static uint8_t at_parse(const char *p, const char **args, char *term_out)
     return 0xFFu;
 }
 
-static uint8_t set_gain(app_state_t *st, int16_t *dst, const char *args)
+static uint8_t take_u(const char **p, uint16_t *out, uint8_t last)
+{
+    if (parse_u16(p, out))
+        return 1u;
+    if (last)
+        return **p ? 1u : 0u;
+    if (**p != ',')
+        return 1u;
+    (*p)++;
+    return 0u;
+}
+
+static uint8_t bit01(uint16_t v)
+{
+    return v > 1u;
+}
+
+/* AT+CFG=S,min,max */
+static uint8_t cfg_safety(app_state_t *st, const char *args)
 {
     const char *p = args;
-    int16_t v;
+    uint16_t mn, mx;
 
-    if (parse_i16(&p, &v) || *p || v < 0 || v > 999)
+    if (take_u(&p, &mn, 0u) || take_u(&p, &mx, 1u))
         return 1u;
-    *dst = v;
+    if (mn < TEMP_MIN_C_LO || mn > TEMP_MIN_C_HI)
+        return 1u;
+    if (mx < TEMP_MAX_C_LO || mx > TEMP_MAX_C_HI || mn > mx)
+        return 1u;
+    st->temp_min_c = mn;
+    st->temp_max_c = mx;
     cfg_save_global(st);
     ok_dirty(st);
     return 0u;
 }
 
+/* AT+CFG=H,en,pct,stab,delay,air,snd */
+static uint8_t cfg_heat(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t en, pct, stab, dly, air, snd;
+
+    if (take_u(&p, &en, 0u) || take_u(&p, &pct, 0u) || take_u(&p, &stab, 0u)
+        || take_u(&p, &dly, 0u) || take_u(&p, &air, 0u) || take_u(&p, &snd, 1u))
+        return 1u;
+    if (bit01(en) || bit01(air) || bit01(snd))
+        return 1u;
+    if (pct < PREHEAT_PCT_LO || pct > PREHEAT_PCT_HI
+        || (pct % PREHEAT_PCT_STEP) != 0u)
+        return 1u;
+    if (stab < 1u || stab > 3600u || dly > 3600u)
+        return 1u;
+    st->preheat_en = (uint8_t)en;
+    st->preheat_pct = (uint8_t)pct;
+    st->stabilize_s = stab;
+    st->delay_s = dly;
+    st->cooldown_air_en = (uint8_t)air;
+    st->buzz_nav_en = (uint8_t)snd;
+    st->program = PROG_HEAT;
+    cfg_save_global(st);
+    cfg_save_program(st, PROG_HEAT);
+    ok_dirty(st);
+    return 0u;
+}
+
+/* AT+CFG=P,kp,ki,kd  (×10, 0..999) */
+static uint8_t cfg_pid(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t kp, ki, kd;
+
+    if (take_u(&p, &kp, 0u) || take_u(&p, &ki, 0u) || take_u(&p, &kd, 1u))
+        return 1u;
+    if (kp > 999u || ki > 999u || kd > 999u)
+        return 1u;
+    st->pid_kp_x10 = (int16_t)kp;
+    st->pid_ki_x10 = (int16_t)ki;
+    st->pid_kd_x10 = (int16_t)kd;
+    cfg_save_global(st);
+    ok_dirty(st);
+    return 0u;
+}
+
+/* AT+CFG=R,i,°C,s */
+static uint8_t cfg_ramp(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t idx, temp, hold;
+
+    if (take_u(&p, &idx, 0u) || take_u(&p, &temp, 0u) || take_u(&p, &hold, 1u))
+        return 1u;
+    if (idx >= RAMP_STEPS_MAX)
+        return 1u;
+    if (temp < st->temp_min_c || temp > st->temp_max_c)
+        return 1u;
+    if (hold < 1u || hold > 3600u)
+        return 1u;
+    st->ramp_step[(uint8_t)idx].temp_c = temp;
+    st->ramp_step[(uint8_t)idx].hold_s = hold;
+    if (st->ramp_n < (uint8_t)(idx + 1u))
+        st->ramp_n = (uint8_t)(idx + 1u);
+    st->ramps_en = 1u;
+    cfg_save_ramps(st);
+    st->telem_dirty = 1u;
+    reply_ok(st);
+    return 0u;
+}
+
+static uint8_t handle_cfg(app_state_t *st, const char *args)
+{
+    char g;
+
+    if (!args || !args[0])
+        return 1u;
+    g = args[0];
+    if (g == 'A') {
+        if (args[1] != '\0')
+            return 1u;
+        if (st->atune_phase != ATUNE_DONE)
+            return 1u;
+        pid_atune_apply(st);
+        cfg_save_global(st);
+        ok_dirty(st);
+        return 0u;
+    }
+    if (args[1] != ',')
+        return 1u;
+    args += 2;
+    switch (g) {
+    case 'S': return cfg_safety(st, args);
+    case 'H': return cfg_heat(st, args);
+    case 'P': return cfg_pid(st, args);
+    case 'R': return cfg_ramp(st, args);
+    default:  return 1u;
+    }
+}
+
+/* AT+RUN=1  |  AT+RUN=2,temp,cycles,hyst */
+static void handle_run(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t prog, temp, cycles;
+    int16_t hyst;
+
+    if (process_is_active(st) || pid_atune_active(st)) {
+        reply_err(st, (uint8_t)PROTO_ERR_PROGRAM_BUSY);
+        return;
+    }
+    if (parse_u16(&p, &prog)) {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    if (prog == (uint16_t)PROG_HEAT && *p == '\0') {
+        st->program = PROG_HEAT;
+        reply_from_proc(st, process_start(st, CTRL_USB));
+        st->row_dirty = ROW_ALL;
+        return;
+    }
+    if (prog != (uint16_t)PROG_PID_TUNE || *p != ',') {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    p++;
+    if (parse_u16(&p, &temp) || *p != ',') {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    p++;
+    if (parse_u16(&p, &cycles) || *p != ',') {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    p++;
+    if (parse_i16(&p, &hyst) || *p) {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    if (temp < st->temp_min_c || temp > (uint16_t)(st->temp_max_c - 10u)
+        || cycles < ATUNE_MIN_CYCLES || cycles > ATUNE_MAX_CYCLES
+        || hyst < 1 || hyst > 99) {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    st->program = PROG_PID_TUNE;
+    st->t_set_c = temp;
+    st->atune_cycles_target = (uint8_t)cycles;
+    st->atune_hyst_c_x10 = hyst;
+    cfg_save_global(st);
+    cfg_save_program(st, PROG_PID_TUNE);
+    reply_from_proc(st, process_start(st, CTRL_USB));
+    st->row_dirty = ROW_ALL;
+}
+
 static void handle_line(app_state_t *st, char *line, uint8_t n)
 {
-    uint8_t v;
     uint8_t id;
     char term;
     const char *args;
     const char *p;
-    uint16_t u0, u1, u2;
-    int16_t i0;
+    uint16_t u0;
 
     if (!st || !line)
         return;
@@ -305,13 +422,12 @@ static void handle_line(app_state_t *st, char *line, uint8_t n)
     }
 
     switch (id) {
-    case CMD_STATUS:
+    case CMD_STAT:
         telemetry_emit(st);
         reply_ok(st);
         break;
 
-    case CMD_DEVICEMODE:
-        /* 0=MANUAL 1=USB */
+    case CMD_MODE:
         p = args;
         if (parse_u16(&p, &u0) || *p || u0 > 1u) {
             reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
@@ -332,206 +448,18 @@ static void handle_line(app_state_t *st, char *line, uint8_t n)
         reply_ok(st);
         break;
 
-    case CMD_PROGRAM:
-        if (process_is_active(st) || pid_atune_active(st)) {
-            reply_err(st, (uint8_t)PROTO_ERR_PROGRAM_BUSY);
-            break;
-        }
-        /* 0=PREHEAT 1=HEAT 2=PID_TUNE (program_id_t). */
-        p = args;
-        if (parse_u16(&p, &u0) || *p || u0 > (uint16_t)PROG_PID_TUNE) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->program = (program_id_t)u0;
-        cfg_load_program(st, st->program);
-        ok_dirty(st);
-        break;
-
-    case CMD_TEMP:
-        p = args;
-        if (parse_u16(&p, &u0) || *p
-            || u0 < st->temp_min_c || u0 > st->temp_max_c) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->t_set_c = u0;
-        cfg_save_program(st, st->program);
-        ok_dirty(st);
-        break;
-
-    case CMD_TMIN:
-        p = args;
-        if (parse_u16(&p, &u0) || *p
-            || u0 < TEMP_MIN_C_LO || u0 > TEMP_MIN_C_HI
-            || u0 > st->temp_max_c) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->temp_min_c = u0;
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_TMAX:
-        p = args;
-        if (parse_u16(&p, &u0) || *p
-            || u0 < TEMP_MAX_C_LO || u0 > TEMP_MAX_C_HI
-            || u0 < st->temp_min_c) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->temp_max_c = u0;
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_DELAY:
-        p = args;
-        if (parse_u16(&p, &u0) || *p || u0 > 3600u) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->delay_s = u0;
-        cfg_save_program(st, st->program);
-        ok_dirty(st);
-        break;
-
-    case CMD_RAMPS:
-        if (parse_01(args, &v) == 0u && v == 1u) {
-            st->ramps_en = 1u;
-            cfg_save_global(st);
-            st->telem_dirty = 1u;
-            reply_ok(st);
-        } else {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        }
-        break;
-
-    case CMD_RAMP:
-        p = args;
-        if (parse_u16(&p, &u0) || *p != ',' || u0 >= RAMP_STEPS_MAX) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        p++;
-        if (parse_u16(&p, &u1) || *p != ','
-            || u1 < st->temp_min_c || u1 > st->temp_max_c) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        p++;
-        if (parse_u16(&p, &u2) || *p || u2 < 1u || u2 > 3600u) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->ramp_step[(uint8_t)u0].temp_c = u1;
-        st->ramp_step[(uint8_t)u0].hold_s = u2;
-        if (st->ramp_n < (uint8_t)(u0 + 1u))
-            st->ramp_n = (uint8_t)(u0 + 1u);
-        cfg_save_ramps(st);
-        st->telem_dirty = 1u;
+    case CMD_CFG_Q:
+        telemetry_emit_cfg(st);
         reply_ok(st);
         break;
 
-    case CMD_PREHEAT:
-        if (parse_01(args, &v) == 0u) {
-            st->preheat_en = v;
-            cfg_save_global(st);
-            ok_dirty(st);
-        } else {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        }
-        break;
-
-    case CMD_PHPCT:
-        p = args;
-        if (parse_u16(&p, &u0) || *p
-            || u0 < PREHEAT_PCT_LO || u0 > PREHEAT_PCT_HI
-            || (u0 % PREHEAT_PCT_STEP) != 0u) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->preheat_pct = (uint8_t)u0;
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_STAB:
-        p = args;
-        if (parse_u16(&p, &u0) || *p || u0 < 1u || u0 > 3600u) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->stabilize_s = u0;
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_AIR:
-        if (parse_01(args, &v) == 0u) {
-            st->cooldown_air_en = v;
-            cfg_save_global(st);
-            ok_dirty(st);
-        } else {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        }
-        break;
-
-    case CMD_SND:
-        if (parse_01(args, &v) == 0u) {
-            st->buzz_nav_en = v;
-            cfg_save_global(st);
-            ok_dirty(st);
-        } else {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        }
-        break;
-
-    case CMD_ATUNE:
-        p = args;
-        if (parse_u16(&p, &u0) || *p != ','
-            || u0 < ATUNE_MIN_CYCLES || u0 > ATUNE_MAX_CYCLES) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        p++;
-        if (parse_i16(&p, &i0) || *p || i0 < 1 || i0 > 99) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        st->atune_cycles_target = (uint8_t)u0;
-        st->atune_hyst_c_x10 = i0;
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_KP:
-        if (set_gain(st, &st->pid_kp_x10, args))
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        break;
-    case CMD_KI:
-        if (set_gain(st, &st->pid_ki_x10, args))
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-        break;
-    case CMD_KD:
-        if (set_gain(st, &st->pid_kd_x10, args))
+    case CMD_CFG:
+        if (handle_cfg(st, args))
             reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
         break;
 
-    case CMD_PIDAPPLY:
-        if (st->atune_phase != ATUNE_DONE) {
-            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
-            break;
-        }
-        pid_atune_apply(st);
-        cfg_save_global(st);
-        ok_dirty(st);
-        break;
-
-    case CMD_START:
-        reply_from_proc(st, process_start(st, CTRL_USB));
-        st->row_dirty = ROW_ALL;
+    case CMD_RUN:
+        handle_run(st, args);
         break;
 
     case CMD_STOP:

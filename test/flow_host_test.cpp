@@ -86,10 +86,6 @@ static int flow_start(FlowSim *f)
         f->phase = PH_IDLE; /* fase proceso idle; ACTION override = TUNING */
         return PROG_OK;
     }
-    if (f->program == PROG_PREHEAT) {
-        f->phase = PH_PREHEAT;
-        return PROG_OK;
-    }
     /* HEAT */
     if (f->delay_s > 0)
         f->phase = PH_DELAY;
@@ -124,18 +120,6 @@ static void flow_event(FlowSim *f, FlowEvt e)
     }
 
     switch (f->program) {
-    case PROG_PREHEAT:
-        if (f->phase == PH_PREHEAT && e == EVT_BAND_OK)
-            f->phase = PH_STABILIZE;
-        else if (f->phase == PH_STABILIZE && e == EVT_BAND_OK)
-            flow_enter_alarm(f, (uint8_t)PROTO_ALARM_PH_OK);
-        else if (f->phase == PH_ALARM
-                 && (e == EVT_ALARM_TIMEOUT || e == EVT_ACK)) {
-            f->phase = PH_DONE;
-            f->active = 0;
-        }
-        break;
-
     case PROG_HEAT:
         if (f->phase == PH_DELAY && e == EVT_TICK_SEC && f->delay_s == 0) {
             f->phase = f->preheat_en ? PH_PREHEAT : PH_RUN;
@@ -166,19 +150,10 @@ static void flow_event(FlowSim *f, FlowEvt e)
     }
 }
 
-/* CF packing (telemetry) */
-static uint16_t pack_cf(uint8_t pe, uint8_t air, uint8_t snd, uint8_t ramps,
-                        uint8_t pct)
-{
-    return (uint16_t)((pe ? 1u : 0u) | (air ? 2u : 0u) | (snd ? 4u : 0u)
-                      | (ramps ? 8u : 0u) | ((uint16_t)pct << 8));
-}
-
 static void test_enums_aligned(void)
 {
     CHECK((int)PH_IDLE == 0);
     CHECK((int)PH_FAULT == 9);
-    CHECK((int)PROG_PREHEAT == 0);
     CHECK((int)PROG_HEAT == 1);
     CHECK((int)PROG_PID_TUNE == 2);
     CHECK((int)ATUNE_IDLE == 0);
@@ -186,7 +161,6 @@ static void test_enums_aligned(void)
     CHECK((int)ATUNE_DONE == 2);
     CHECK((int)ATUNE_FAIL == 3);
     CHECK(PROTO_ACTION_TUNING == 10u);
-    CHECK(PROTO_ALARM_PH_OK == 1);
     CHECK(PROTO_ALARM_DONE == 2);
 }
 
@@ -197,25 +171,6 @@ static void test_prog_err_map(void)
     CHECK(prog_err_to_proto(PROG_ERR_PARAM) == PROTO_ERR_INVALID_PARAMETER);
     CHECK(prog_err_to_proto(PROG_ERR_BUSY) == PROTO_ERR_PROGRAM_BUSY);
     CHECK(prog_err_to_proto(PROG_ERR_FAULT) == PROTO_ERR_DEVICE_BUSY);
-}
-
-static void test_preheat_flow(void)
-{
-    FlowSim f;
-    flow_reset(&f, PROG_PREHEAT);
-    CHECK(flow_start(&f) == PROG_OK);
-    CHECK(f.phase == PH_PREHEAT);
-    CHECK(action_code(f.phase, 0) == (uint8_t)PH_PREHEAT);
-
-    flow_event(&f, EVT_BAND_OK);
-    CHECK(f.phase == PH_STABILIZE);
-    flow_event(&f, EVT_BAND_OK);
-    CHECK(f.phase == PH_ALARM);
-    CHECK(f.alarm_n == PROTO_ALARM_PH_OK);
-
-    flow_event(&f, EVT_ALARM_TIMEOUT);
-    CHECK(f.phase == PH_DONE);
-    CHECK(!f.active);
 }
 
 static void test_heat_with_delay_and_preheat(void)
@@ -279,14 +234,11 @@ static void test_heat_stop_during_run(void)
 
 static void test_pid_tune_at_sequence(void)
 {
-    /* Secuencia documentada: MODE→PROGRAM→TEMP→ATUNE→START→PIDAPPLY */
+    /* Secuencia documentada: MODE → RUN=2 → CFG=A → STOP */
     static const char *seq[] = {
-        "AT+DEVICEMODE=1",
-        "AT+PROGRAM=2",
-        "AT+TEMP=150",
-        "AT+ATUNE=5,15",
-        "AT+START",
-        "AT+PIDAPPLY",
+        "AT+MODE=1",
+        "AT+RUN=2,150,5,15",
+        "AT+CFG=A",
         "AT+STOP",
         nullptr
     };
@@ -311,25 +263,21 @@ static void test_pid_tune_at_sequence(void)
     CHECK(action_code(PH_IDLE, 0) == (uint8_t)PH_IDLE);
 }
 
-static void test_cf_pack(void)
-{
-    uint16_t cf = pack_cf(1, 1, 0, 1, 80);
-    CHECK((cf & 1u) != 0);
-    CHECK((cf & 2u) != 0);
-    CHECK((cf & 4u) == 0);
-    CHECK((cf & 8u) != 0);
-    CHECK((cf >> 8) == 80u);
-}
-
 static void test_at_catalog_length(void)
 {
     static const char *cmds[] = {
-        "AT+STATUS?", "AT+DEVICEMODE=1", "AT+PROGRAM=1", "AT+TEMP=150",
-        "AT+DELAY=0", "AT+PREHEAT=1", "AT+PHPCT=80", "AT+STAB=30",
-        "AT+TMIN=40", "AT+TMAX=200", "AT+AIR=1", "AT+SND=1",
-        "AT+RAMPS=1", "AT+RAMP=0,100,60", "AT+ATUNE=3,15",
-        "AT+KP=20", "AT+KI=5", "AT+KD=10", "AT+PIDAPPLY",
-        "AT+START", "AT+STOP", nullptr
+        "AT+STAT?", "AT+MODE=1", "AT+MODE=0",
+        "AT+CFG=S,40,250",
+        "AT+CFG=H,1,80,30,0,1,1",
+        "AT+CFG=H,1,100,3600,3600,1,1",
+        "AT+CFG=P,120,40,10",
+        "AT+CFG=R,0,180,90",
+        "AT+CFG=A",
+        "AT+CFG?",
+        "AT+RUN=1",
+        "AT+RUN=2,150,5,15",
+        "AT+STOP",
+        nullptr
     };
     for (int i = 0; cmds[i]; i++)
         CHECK(std::strlen(cmds[i]) < AT_LINE_MAX);
@@ -339,13 +287,11 @@ int main(void)
 {
     test_enums_aligned();
     test_prog_err_map();
-    test_preheat_flow();
     test_heat_with_delay_and_preheat();
     test_heat_skip_preheat();
     test_heat_no_ramps();
     test_heat_stop_during_run();
     test_pid_tune_at_sequence();
-    test_cf_pack();
     test_at_catalog_length();
 
     std::puts("flow_host_test: OK");

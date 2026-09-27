@@ -117,11 +117,9 @@ static void test_complete_and_apply(void)
         feed_oscillation(&st, 1);
 
     CHECK(st.atune_phase == ATUNE_DONE);
-    CHECK(st.atune_kp_x10 != 0 || st.atune_ki_x10 != 0 || st.atune_kd_x10 != 0);
-
-    int16_t ak = st.atune_kp_x10;
-    int16_t ai = st.atune_ki_x10;
-    int16_t ad = st.atune_kd_x10;
+    int16_t ak = 0, ai = 0, ad = 0;
+    pid_atune_result(&ak, &ai, &ad);
+    CHECK(ak != 0 || ai != 0 || ad != 0);
     pid_atune_apply(&st);
     CHECK(st.atune_phase == ATUNE_IDLE);
     CHECK(st.pid_kp_x10 == ak);
@@ -136,7 +134,6 @@ static void test_apply_without_done(void)
     st_init(&st);
     st.pid_kp_x10 = 20;
     st.atune_phase = ATUNE_RUN;
-    st.atune_kp_x10 = 99;
     pid_atune_apply(&st);
     CHECK(st.pid_kp_x10 == 20); /* no aplica */
     CHECK(st.atune_phase == ATUNE_RUN);

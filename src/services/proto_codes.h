@@ -21,7 +21,6 @@ typedef enum {
 } proto_err_t;
 
 typedef enum {
-    PROTO_ALARM_PH_OK = 1,
     PROTO_ALARM_DONE = 2
 } proto_alarm_t;
 

@@ -9,7 +9,7 @@
 
 /*
  * Ajustes planos: Sonido | ESTAB | P% | Aire.
- * PID gains + autotune: solo AT. Escalones: AT+RAMP.
+ * PID y autotune: solo AT (`CFG=P`, `RUN=2`). Escalones: `AT+CFG=R`.
  */
 #define SET_ROW_Y0    16u
 #define SET_ROW_H     9u

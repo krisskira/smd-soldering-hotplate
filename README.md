@@ -19,7 +19,7 @@ Gates: `UI_NO_ICONS`, `NO_FONT_6X8`. `pid_atune.c` enlazado.
 ## Características
 
 - Home: Heat (delay 0.. + start) | Settings → PID
-- USB: solo `AT+DEVICEMODE=USB`
+- USB: solo `AT+MODE=1`
 - Programas: HEAT, PREHEAT (AT), PID_TUNE
 - Pipeline HEAT: delay? → preheat Ramp1 → RUN rampas → aire @ temp_min
 - Safety: temp_min 30..100, temp_max 40..250 (EEPROM)

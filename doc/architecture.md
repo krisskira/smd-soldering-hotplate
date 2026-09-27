@@ -27,7 +27,7 @@ firmware/avr/
   src/app/                   app_state.h, app_config.h (EEPROM v5)
   src/ui/                    home (Heat|Settings), settings, usb
   src/ui/core/               window, bands, texto
-  src/services/program/      máquina de fases (HEAT / PREHEAT / PID_TUNE)
+  src/services/program/      máquina de fases (HEAT con fase PREHEAT / PID_TUNE)
   src/services/pid*.c        lazo + autotune
   src/services/cfg_store.c   EEPROM global + heat/pre/tune + rampas
   src/services/at_cmd.c      AT
@@ -53,7 +53,7 @@ flowchart TB
 
 ## Estado
 
-Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PREHEAT`, `PID_TUNE`. **RAMPS** solo perfil EEPROM.
+Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PID_TUNE`. PREHEAT es fase de HEAT. **RAMPS** solo perfil EEPROM.
 
 | Campo clave | Rol |
 |-------------|-----|
@@ -62,7 +62,7 @@ Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PREHEAT`, `PID_TUNE
 | `ramp_*` | Perfil de escalones |
 | `temp_min_c` / `temp_max_c` | Safety + límites de consignas; aire OFF en min |
 | `pid_k*` / `atune_*` | Lazo y autoajuste. Picos en RAM. Stream `$HP` a 1 Hz solo si USB arrancó el autotune. Sin `$HP,PLOT` ni buffer de traza |
-| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1. PREHEAT AT usa `t_set` pleno |
+| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1 |
 | `device_mode` | MANUAL vs USB |
 
 ## Navegación
@@ -79,11 +79,11 @@ flowchart LR
   set --> pid
   set --> home
   run -->|Salir| home
-  atUsb["AT DEVICEMODE=USB"] --> usb
+  atUsb["AT MODE=1"] --> usb
   usb -->|PRESS| home
 ```
 
-PREHEAT no aparece en Home (solo AT). Ajustes: PID, Sonido, ESTAB, P%, Aire. La página PID muestra Auto (`RUN`/`OK`/`FAIL`) y las ganancias; no dibuja la curva.
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. Ajustes: Sonido, ESTAB, P%, Aire. Autotune y ganancias solo por AT; no se dibuja la curva.
 
 ## Super-loop
 

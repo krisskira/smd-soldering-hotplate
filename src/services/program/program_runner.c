@@ -83,19 +83,11 @@ static void preheat_tick(app_state_t *st)
     }
 }
 
-static void alarm_uart(uint8_t hold_heat)
+/* Fin de HEAT: PTC off, aire si está habilitado, ALARM:2. */
+static void alarm_start(app_state_t *st)
 {
-    proto_emit_alarm(hold_heat ? (uint8_t)PROTO_ALARM_PH_OK
-                               : (uint8_t)PROTO_ALARM_DONE);
-}
-
-/* Alarma con o sin calor; finish=1 arranca bomba si cooldown_en */
-static void alarm_start(app_state_t *st, uint8_t hold_heat, uint8_t finish)
-{
-    st->alarm_hold_heat = hold_heat ? 1u : 0u;
-    if (!hold_heat)
-        hold_leave(st);
-    if (finish && st->cooldown_air_en) {
+    hold_leave(st);
+    if (st->cooldown_air_en) {
         fan_on();
         st->out_state[OUT_FAN] = 1;
     }
@@ -106,17 +98,11 @@ static void alarm_start(app_state_t *st, uint8_t hold_heat, uint8_t finish)
     TELEM_DIRTY(st);
     buzzer_seq_beep_cat(st, BEEP_READY, 3);
     if (st->device_mode == DEVICE_USB)
-        alarm_uart(hold_heat);
+        proto_emit_alarm((uint8_t)PROTO_ALARM_DONE);
 }
 
 static void after_alarm(app_state_t *st)
 {
-    if (st->alarm_hold_heat) {
-        hold_leave(st);
-        st->phase = PH_DONE;
-        TELEM_DIRTY(st);
-        return;
-    }
     if (st->cooldown_air_en && st->sensor.valid
         && st->sensor.temp_c_x10 > (int16_t)(st->temp_min_c * 10)) {
         st->phase = PH_COOLDOWN;
@@ -159,7 +145,7 @@ static void enter_run_timed(app_state_t *st, uint16_t sec)
 static void enter_finish(app_state_t *st)
 {
     /* Alarma 1 min (o PRESS) + bomba hasta temp_min_c */
-    alarm_start(st, 0u, 1u);
+    alarm_start(st);
 }
 
 static void enter_ramp_step(app_state_t *st);
@@ -198,17 +184,6 @@ static void after_preheat_pipeline(app_state_t *st)
     st->ramps_en = 1u;
     st->ramp_idx = 0;
     enter_ramp_step(st);
-}
-
-static void on_preheat_standalone(app_state_t *st, uint8_t result)
-{
-    if (result != PROG_CB_OK) {
-        if (result == PROG_CB_FAULT)
-            program_fault(st);
-        return;
-    }
-    /* Mantener PID + alarma hasta PRESS o timeout */
-    alarm_start(st, 1u, 0u);
 }
 
 static void on_preheat_pipeline(app_state_t *st, uint8_t result)
@@ -250,14 +225,11 @@ void program_init(app_state_t *st)
     st->alarm_period_s = ALARM_PERIOD_S_DEFAULT;
     st->alarm_left_s = 0;
     st->alarm_beep_left_s = 0;
-    st->alarm_hold_heat = 0;
     st->cooldown_air_en = 1;
     st->temp_min_c = TEMP_MIN_C_DEFAULT;
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
     st->atune_cycles_target = ATUNE_MIN_CYCLES;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
-    st->atune_peak_hi_x10 = 0;
-    st->atune_peak_lo_x10 = 0;
     st->atune_stream = 0;
         st->device_mode = DEVICE_MANUAL;
     st->telem_dirty = 0;
@@ -414,10 +386,6 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
         TELEM_DIRTY(st);
         return PROG_OK;
 
-    case PROG_PREHEAT:
-        preheat_start(st, on_preheat_standalone);
-        return PROG_OK;
-
     case PROG_HEAT:
         cfg_load_ramps(st);
         if (st->ramp_n < 1u)
@@ -515,8 +483,7 @@ void program_tick(app_state_t *st)
     }
 
     if (st->phase == PH_HOLD || st->phase == PH_RUN
-        || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE
-        || (st->phase == PH_ALARM && st->alarm_hold_heat))
+        || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE)
         pid_tick(st);
 
     now = delay_ms();

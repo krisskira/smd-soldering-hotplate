@@ -3,7 +3,7 @@
 #include <avr/eeprom.h>
 
 /*
- * EEPROM v5: global (PID + atune + safety + preheat_pct) + ee_heat/pre/tune + rampas.
+ * EEPROM v5: global (PID + atune + safety + preheat_pct) + ee_heat/tune + rampas.
  * v4 no se migra: magic/ver distintos cargan defaults.
  */
 
@@ -35,7 +35,6 @@ typedef struct {
 } cfg_ramp_t;
 
 static uint8_t EEMEM ee_g[sizeof(cfg_g_t)];
-static uint8_t EEMEM ee_pre[sizeof(cfg_p2_t)];
 static uint8_t EEMEM ee_heat[sizeof(cfg_p2_t)];
 static uint8_t EEMEM ee_ramp[sizeof(cfg_ramp_t)];
 static uint8_t EEMEM ee_tune[sizeof(cfg_p2_t)];
@@ -164,9 +163,6 @@ void cfg_load_program(app_state_t *st, program_id_t prog)
     if (!st)
         return;
     switch (prog) {
-    case PROG_PREHEAT:
-        ee = ee_pre;
-        break;
     case PROG_PID_TUNE:
         ee = ee_tune;
         break;
@@ -196,9 +192,6 @@ void cfg_save_program(const app_state_t *st, program_id_t prog)
     if (!st)
         return;
     switch (prog) {
-    case PROG_PREHEAT:
-        ee = ee_pre;
-        break;
     case PROG_PID_TUNE:
         ee = ee_tune;
         break;
