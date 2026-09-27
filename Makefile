@@ -26,7 +26,7 @@ PORT := $(shell ls /dev/cu.usbserial* 2>/dev/null | head -n 1)
 
 ############################################
 # FLAGS — un solo firmware (HOME + USB/AT + pipeline)
-# Flash gates: NO_PID_ATUNE, UI_NO_ICONS (sin iconos en filas), sin font6x8
+# Flash gates: UI_NO_ICONS (sin iconos en filas), sin font6x8
 ############################################
 
 # Con LTO el código se genera al enlazar: OPTFLAGS va también en LDFLAGS.
@@ -52,8 +52,7 @@ $(OPTFLAGS) \
 -I./lib \
 -I./config \
 -DNO_FONT_6X8 \
--DUI_NO_ICONS \
--DNO_PID_ATUNE
+-DUI_NO_ICONS
 
 CXXFLAGS = $(CFLAGS) -std=c++11 -fno-exceptions -fno-rtti
 
@@ -84,6 +83,7 @@ SRC := \
 	src/services/cfg_store.c \
 	src/services/program/program_runner.c \
 	src/services/pid.c \
+	src/services/pid_atune.c \
 	src/services/sensor_service.c \
 	src/services/safety.c \
 	src/services/device_session.c \
@@ -91,9 +91,8 @@ SRC := \
 	src/services/telemetry.c \
 	lib/i18n/i18n.c
 
-# Sin font6x8_bold (flash). font8x12 (temperatura USB) y font_icons (solo ENTER)
-# sí entran. pid_atune.c stub via NO_PID_ATUNE.
-LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) ! -name 'font6x8_bold.c' -name '*.c' | tr '\n' ' ')
+# Sin font6x8_bold (flash). font8x12 (temperatura) y font_icons sí entran.
+LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) ! -name 'font6x8_bold.c' ! -name 'font8x12.c' ! -name 'font_icons.c' -name '*.c' | tr '\n' ' ')
 
 ALL_SRC := $(SRC) $(LIB_SRC)
 OBJ := $(patsubst %.c,$(BUILD)/%.o,$(ALL_SRC))

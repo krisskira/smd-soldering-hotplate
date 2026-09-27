@@ -3,7 +3,6 @@
 #include "ui_router.h"
 #include "ui_window.h"
 #include "ui_components.h"
-#include "ui_icons.h"
 #include "i18n/i18n_c.h"
 #include "../services/buzzer_seq.h"
 #include "../services/cfg_store.h"
@@ -13,15 +12,15 @@
 #include "lib/st7920/st7920_private.h"
 #include "lib/fonts/font.h"
 
-/* x0..30 barra | x31 | x32..127 panel. Tres casillas de ~21 px. */
+/* x0..30 barra | x31 | x32..127 panel. Dos casillas ~32 px. */
 #define PANEL_X    32u
 #define PANEL_TX   36u
-#define BOX_H      21u
+#define BOX_H      32u
 #define TEMP_H     18u
 #define LINE_H     10u
 #define PCOLS      ((128u - PANEL_TX) / 6u)
 
-static const ui_icon_id_t s_ico[3] = { ICO_START, ICO_TIMER, ICO_CFG };
+static const char s_mark[2] = { 'H', 'A' };
 
 static uint8_t is_run(const app_state_t *st)
 {
@@ -32,26 +31,23 @@ static uint8_t focus(const app_state_t *st)
 {
     if (!is_run(st))
         return st->home_sel;
-    return (st->program == PROG_START_IN) ? HOME_IDX_START_IN
-                                          : HOME_IDX_STOP_IN;
+    return HOME_IDX_HEAT;
 }
 
 static void side_box(uint8_t i, uint8_t inv)
 {
     char ico[2];
     uint8_t y0 = (uint8_t)(i * BOX_H);
-    uint8_t h = (i == 2u) ? 22u : BOX_H;
-    uint8_t iy = (uint8_t)(y0 + (h - 16u) / 2u);
-    uint8_t ix = 7u;
+    uint8_t iy = (uint8_t)(y0 + (BOX_H - 7u) / 2u);
     uint8_t py;
     uint16_t row[2], fill = inv ? 0xFFFFu : 0u;
 
-    ico[0] = ui_icon_char(s_ico[i]);
+    ico[0] = s_mark[i];
     ico[1] = '\0';
-    for (py = y0; py < (uint8_t)(y0 + h); py++) {
+    for (py = y0; py < (uint8_t)(y0 + BOX_H); py++) {
         row[0] = fill;
-        row[1] = (uint16_t)(fill | 0x0001u); /* x=31 */
-        st7920_font_row(row, py, &FONT_ICONS, ix, iy, ico, 2u, inv);
+        row[1] = (uint16_t)(fill | 0x0001u);
+        st7920_font_row(row, py, &FONT_5X7, 12u, iy, ico, 1u, inv);
         st7920_write_gdram(0, py, (uint8_t)(row[0] >> 8), (uint8_t)row[0]);
         st7920_write_gdram(1, py, (uint8_t)(row[1] >> 8), (uint8_t)row[1]);
     }
@@ -68,7 +64,6 @@ static void clear_line(uint8_t y)
     st7920_draw_band(PANEL_X, (uint8_t)(128u - PANEL_X), y, LINE_H, 0, 0u, 0u);
 }
 
-/* buf ya limpio. "RAMPA: Paso i/n" o "RAMPA: OFF". */
 static void fmt_ramp(const app_state_t *st, char *buf)
 {
     ui_line_put(buf, 0, i18n_tr_hash(I18N_PANEL_RAMP));
@@ -77,18 +72,10 @@ static void fmt_ramp(const app_state_t *st, char *buf)
         return;
     }
     ui_line_put(buf, 7, i18n_tr_hash(I18N_RAMP_STEP));
-    buf[12] = (is_run(st) && st->program == PROG_STOP_IN && st->phase == PH_RUN)
+    buf[12] = (is_run(st) && st->phase == PH_RUN)
         ? (char)('0' + st->ramp_idx + 1u) : '-';
     buf[13] = '-';
     buf[14] = (char)('0' + st->ramp_n);
-}
-
-static void fmt_elapsed(const app_state_t *st, char *buf)
-{
-    char t[6];
-    ui_line_put(buf, 0, i18n_tr_hash(I18N_PANEL_ELAPSED));
-    ui_mmss_to_str(is_run(st) ? st->t_elapsed_s : 0u, t);
-    ui_line_put(buf, 8, t);
 }
 
 static void draw_body(const app_state_t *st)
@@ -99,8 +86,7 @@ static void draw_body(const app_state_t *st)
 
     if (is_run(st)) {
         ui_line_clear(line);
-        ui_line_put(line, 0, i18n_tr_hash(st->program == PROG_START_IN
-            ? I18N_PROG_START_IN : I18N_PROG_STOP_IN));
+        ui_line_put(line, 0, i18n_tr_hash(I18N_PROG_HEAT));
         line[PCOLS] = '\0';
         line_at(20, line);
 
@@ -114,36 +100,25 @@ static void draw_body(const app_state_t *st)
         line_at(30, line);
 
         ui_line_clear(line);
-        if (st->program == PROG_STOP_IN)
-            fmt_ramp(st, line);
-        else
-            fmt_elapsed(st, line);
+        fmt_ramp(st, line);
         line[PCOLS] = '\0';
         line_at(40, line);
         return;
     }
 
     ui_line_clear(line);
-    if (f == HOME_IDX_STOP_IN) {
-        fmt_ramp(st, line);
-        line[PCOLS] = '\0';
-        line_at(20, line);
-        ui_line_clear(line);
-        fmt_elapsed(st, line);
-        line[PCOLS] = '\0';
-        line_at(30, line);
-        clear_line(40);
-    } else if (f == HOME_IDX_START_IN) {
+    if (f == HOME_IDX_HEAT) {
         ui_line_put(line, 0, i18n_tr_hash(I18N_PANEL_SET));
         if (st->edit_armed)
             line[4] = '*';
-        line[5] = '[';
         ui_mmss_to_str(st->delay_s, t);
         ui_line_put(line, 6, t);
-        line[11] = ']';
         line[PCOLS] = '\0';
         line_at(20, line);
-        clear_line(30);
+        ui_line_clear(line);
+        fmt_ramp(st, line);
+        line[PCOLS] = '\0';
+        line_at(30, line);
         clear_line(40);
     } else {
         ui_line_put(line, 0, i18n_tr_hash(I18N_NAV_SETTINGS));
@@ -159,21 +134,16 @@ static void dirty_all(app_state_t *st)
     st->row_dirty = HOME_DIRTY_ALL;
 }
 
-static uint8_t do_start(app_state_t *st, program_id_t prog)
+static uint8_t do_start(app_state_t *st)
 {
-    st->program = prog;
-    if (prog == PROG_START_IN) {
-        if (st->delay_s < 60u)
-            st->delay_s = 60u;
-        if (st->delay_s > TIMER_MAX_S)
-            st->delay_s = TIMER_MAX_S;
-        st->delay_s = (uint16_t)((st->delay_s / 60u) * 60u);
-        if (st->delay_s == 0u)
-            st->delay_s = 60u;
-        cfg_save_program(st, PROG_START_IN);
-    } else if (!st->ramps_en || st->ramp_n < 1u) {
+    st->program = PROG_HEAT;
+    if (st->delay_s > TIMER_MAX_S)
+        st->delay_s = TIMER_MAX_S;
+    st->delay_s = (uint16_t)((st->delay_s / 60u) * 60u);
+    cfg_save_program(st, PROG_HEAT);
+    cfg_load_ramps(st);
+    if (st->ramp_n < 1u)
         return 1u;
-    }
     if (process_start(st, CTRL_UI) != PROG_OK)
         return 1u;
     st->edit_armed = 0;
@@ -190,7 +160,7 @@ void home_view_enter(app_state_t *st)
         st->home_sel = 0;
     st->edit_armed = 0;
     cfg_load_ramps(st);
-    cfg_load_program(st, PROG_START_IN);
+    cfg_load_program(st, PROG_HEAT);
     st->frame_dirty = 1;
     dirty_all(st);
 }
@@ -245,10 +215,10 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
 
     if (evt == EVT_ENCODER_NEXT || evt == EVT_ENCODER_PREV) {
         dir = (evt == EVT_ENCODER_NEXT) ? 1 : -1;
-        if (st->edit_armed && st->home_sel == HOME_IDX_START_IN) {
-            int16_t v = (int16_t)st->delay_s + dir * 60;
-            if (v < 60)
-                v = 60;
+        if (st->edit_armed && st->home_sel == HOME_IDX_HEAT) {
+            int16_t v = (int16_t)st->delay_s + dir * (int16_t)START_DELAY_STEP_S;
+            if (v < 0)
+                v = 0;
             if (v > (int16_t)TIMER_MAX_S)
                 v = (int16_t)TIMER_MAX_S;
             st->delay_s = (uint16_t)v;
@@ -273,19 +243,14 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
         buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         return;
     }
-    if (st->home_sel == HOME_IDX_STOP_IN) {
-        buzzer_seq_beep_cat(st, do_start(st, PROG_STOP_IN) ? BEEP_ALARM
-                                                           : BEEP_CONFIRM, 2);
-        return;
-    }
+    /* Heat: 1º edita delay (incl. 0); 2º arranca */
     if (!st->edit_armed) {
         st->edit_armed = 1;
         st->row_dirty |= HOME_DIRTY_BODY;
         buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         return;
     }
-    buzzer_seq_beep_cat(st, do_start(st, PROG_START_IN) ? BEEP_ALARM
-                                                        : BEEP_CONFIRM, 2);
+    buzzer_seq_beep_cat(st, do_start(st) ? BEEP_ALARM : BEEP_CONFIRM, 2);
 }
 
 void home_view_on_sensor(app_state_t *st)

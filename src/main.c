@@ -5,6 +5,7 @@
 
 #include <avr/io.h>
 #include <stdint.h>
+#include <avr/pgmspace.h>
 
 #include "app/app_config.h"
 #include "app/app_state.h"
@@ -31,9 +32,6 @@
 static app_state_t g_state;
 static process_phase_t s_prev_phase;
 static atune_phase_t s_prev_atune;
-#ifndef NO_PID_ATUNE
-static uint8_t s_plot_due;
-#endif
 
 int main(void)
 {
@@ -56,9 +54,8 @@ int main(void)
 
     ptc_off();
     fan_off();
-    outputs_set_quiet(1u);
 
-    avr_uart_transmit_string("\r\nSMI HP\r\n");
+    avr_uart_transmit_pstr(PSTR("\r\nHP\r\n"));
 
     sensor_tick(&g_state.sensor);
     ui_router_init(&g_state);
@@ -93,25 +90,22 @@ int main(void)
                     if (pid_atune_active(&g_state))
                         pid_atune_on_sample(&g_state);
 
-                    if (safety_apply_limit(&g_state.sensor, g_state.out_state)) {
+                    if (safety_apply_limit(&g_state)) {
                         process_fault(&g_state);
                         g_state.telem_dirty = 1u;
                     }
 
                     telemetry_tick(&g_state);
-#ifndef NO_PID_ATUNE
-                    if (device_session_is_usb(&g_state)
-                        && pid_atune_active(&g_state))
-                        s_plot_due = 1u;
-#endif
                     ui_router_on_sensor_update(&g_state);
 
                     if (g_state.phase == PH_HOLD && s_prev_phase != PH_HOLD)
                         buzzer_seq_beep_cat(&g_state, BEEP_READY, 3);
-                    if (g_state.phase == PH_ALARM && s_prev_phase != PH_ALARM)
-                        buzzer_seq_beep_cat(&g_state, BEEP_READY, 3);
                     if (g_state.phase == PH_DONE && s_prev_phase != PH_DONE)
                         buzzer_seq_beep_cat(&g_state, BEEP_READY, 2);
+                    if (g_state.atune_stream && device_session_is_usb(&g_state)
+                        && (pid_atune_active(&g_state)
+                            || g_state.atune_phase != s_prev_atune))
+                        g_state.telem_dirty = 1u;
                     if (g_state.atune_phase != s_prev_atune)
                         g_state.telem_dirty = 1u;
 
@@ -121,14 +115,10 @@ int main(void)
             }
 
             process_tick(&g_state);
-#ifndef NO_PID_ATUNE
-            if (s_plot_due) {
-                s_plot_due = 0;
-                telemetry_plot(&g_state);
-            }
-#endif
             if (g_state.telem_dirty)
                 telemetry_tick(&g_state);
+            if (!pid_atune_active(&g_state))
+                at_cmd_set_stream(&g_state, 0);
             buzzer_seq_tick();
         }
     }

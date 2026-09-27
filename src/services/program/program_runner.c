@@ -5,6 +5,7 @@
 #include "../telem_dirty.h"
 #include "../cfg_store.h"
 #include "../buzzer_seq.h"
+#include "../at_cmd.h"
 #include "i18n/i18n_c.h"
 #include "lib/avr_delay/avr_delay.h"
 #include "lib/ports/ports.h"
@@ -84,9 +85,9 @@ static void preheat_tick(app_state_t *st)
 static void alarm_uart(uint8_t hold_heat)
 {
     if (hold_heat)
-        avr_uart_transmit_pstr(PSTR("ALARM:PREHEAT-SUCCESS\r\n"));
+        avr_uart_transmit_pstr(PSTR("ALARM:PH-OK\r\n"));
     else
-        avr_uart_transmit_pstr(PSTR("ALARM:CYCLE-DONE\r\n"));
+        avr_uart_transmit_pstr(PSTR("ALARM:DONE\r\n"));
 }
 
 /* Alarma con o sin calor; finish=1 arranca bomba si cooldown_en */
@@ -118,7 +119,7 @@ static void after_alarm(app_state_t *st)
         return;
     }
     if (st->cooldown_air_en && st->sensor.valid
-        && st->sensor.temp_c_x10 > (int16_t)(st->cooldown_target_c * 10)) {
+        && st->sensor.temp_c_x10 > (int16_t)(st->temp_min_c * 10)) {
         st->phase = PH_COOLDOWN;
         TELEM_DIRTY(st);
     } else {
@@ -158,12 +159,28 @@ static void enter_run_timed(app_state_t *st, uint16_t sec)
 
 static void enter_finish(app_state_t *st)
 {
-    /* Alarma 1 min (o PRESS) + bomba ~40 °C */
+    /* Alarma 1 min (o PRESS) + bomba hasta temp_min_c */
     alarm_start(st, 0u, 1u);
 }
 
 static void enter_ramp_step(app_state_t *st);
 static void after_preheat_pipeline(app_state_t *st);
+
+/* Tope de PREHEAT/STABILIZE en HEAT: pct% de T(Ramp1). 250*100 cabe en u16. */
+static uint16_t preheat_cap_c(const app_state_t *st, uint16_t full_c)
+{
+    uint8_t pct = st->preheat_pct;
+    uint16_t t;
+
+    if (pct < PREHEAT_PCT_LO || pct > PREHEAT_PCT_HI)
+        pct = PREHEAT_PCT_DEFAULT;
+    t = (uint16_t)(((uint16_t)full_c * (uint16_t)pct) / 100u);
+    if (t < st->temp_min_c)
+        t = st->temp_min_c;
+    if (t > full_c)
+        t = full_c;
+    return t;
+}
 
 static void enter_ramp_step(app_state_t *st)
 {
@@ -175,6 +192,7 @@ static void enter_ramp_step(app_state_t *st)
     enter_run_timed(st, st->ramp_step[st->ramp_idx].hold_s);
 }
 
+/* Tras estabilizar en el tope (pct% de Ramp1): corre Ramp1..n a T plena. */
 static void after_preheat_pipeline(app_state_t *st)
 {
     cfg_load_ramps(st);
@@ -211,15 +229,15 @@ void program_init(app_state_t *st)
     if (!st)
         return;
 
-    st->program = PROG_PREHEAT;
+    st->program = PROG_HEAT;
     st->phase = PH_IDLE;
     st->t_set_c = 150;
     st->delay_s = 60;
-    st->run_s = 300;
-    st->t_remain_s = 0;
+        st->t_remain_s = 0;
     st->t_elapsed_s = 0;
     st->duty_pct = 0;
     st->preheat_en = 1;
+    st->preheat_pct = PREHEAT_PCT_DEFAULT;
     st->ramps_en = 1;
     st->stabilize_s = PREHEAT_STABLE_S_DEFAULT;
     st->stabilize_left = 0;
@@ -235,9 +253,14 @@ void program_init(app_state_t *st)
     st->alarm_beep_left_s = 0;
     st->alarm_hold_heat = 0;
     st->cooldown_air_en = 1;
-    st->cooldown_target_c = COOLDOWN_TARGET_C_DEFAULT;
-    st->temp_limit_c = TEMP_LIMIT_C;
-    st->device_mode = DEVICE_MANUAL;
+    st->temp_min_c = TEMP_MIN_C_DEFAULT;
+    st->temp_max_c = TEMP_MAX_C_DEFAULT;
+    st->atune_cycles_target = ATUNE_MIN_CYCLES;
+    st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
+    st->atune_peak_hi_x10 = 0;
+    st->atune_peak_lo_x10 = 0;
+    st->atune_stream = 0;
+        st->device_mode = DEVICE_MANUAL;
     st->telem_dirty = 0;
     st->pid_kp_x10 = PID_KP_DEFAULT;
     st->pid_ki_x10 = PID_KI_DEFAULT;
@@ -276,8 +299,7 @@ uint8_t program_is_active(const app_state_t *st)
 const char *program_token(program_id_t p)
 {
     switch (p) {
-    case PROG_START_IN: return PSTR("START_IN");
-    case PROG_STOP_IN:  return PSTR("STOP_IN");
+    case PROG_HEAT:     return PSTR("HEAT");
     case PROG_PREHEAT:  return PSTR("PREHEAT");
     case PROG_PID_TUNE: return PSTR("PID_TUNE");
     default:            return PSTR("PREHEAT");
@@ -345,8 +367,8 @@ void program_stop(app_state_t *st, ctrl_src_t src)
 {
     if (!st)
         return;
-    /* START_IN en HOLD/RUN: STOP pide final (alarma+bomba), no abort seco */
-    if ((st->program == PROG_START_IN || st->program == PROG_STOP_IN)
+    /* HEAT en DELAY/PREHEAT/RUN: STOP pide final (alarma+bomba), no abort seco */
+    if (st->program == PROG_HEAT
         && (st->phase == PH_HOLD || st->phase == PH_RUN
             || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE
             || st->phase == PH_DELAY)) {
@@ -381,12 +403,23 @@ uint8_t program_user_ack(app_state_t *st)
     return 1;
 }
 
+/*
+ * HEAT: si preheat_en, PREHEAT/STABILIZE al pct% de T(Ramp1);
+ * si no, RUN Ramp1 a temperatura plena. Luego Ramp1..n → aire a temp_min.
+ */
 static void begin_pipeline(app_state_t *st)
 {
-    if (st->preheat_en)
-        preheat_start(st, on_preheat_pipeline);
-    else
-        after_preheat_pipeline(st);
+    cfg_load_ramps(st);
+    st->ramps_en = 1u;
+    if (st->ramp_n == 0u)
+        st->ramp_n = 1u;
+    if (!st->preheat_en) {
+        st->ramp_idx = 0;
+        enter_ramp_step(st);
+        return;
+    }
+    st->t_set_c = preheat_cap_c(st, st->ramp_step[0].temp_c);
+    preheat_start(st, on_preheat_pipeline);
 }
 
 uint8_t program_start(app_state_t *st, ctrl_src_t src)
@@ -409,6 +442,8 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
     switch (st->program) {
     case PROG_PID_TUNE:
         pid_atune_start(st);
+        at_cmd_set_stream(st, (uint8_t)(src == CTRL_USB
+                                        && st->atune_phase == ATUNE_RUN));
         TELEM_DIRTY(st);
         return PROG_OK;
 
@@ -416,17 +451,16 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
         preheat_start(st, on_preheat_standalone);
         return PROG_OK;
 
-    case PROG_START_IN:
+    case PROG_HEAT:
+        cfg_load_ramps(st);
+        if (st->ramp_n < 1u)
+            return PROG_ERR_PARAM;
         if (st->delay_s > 0) {
             st->t_remain_s = st->delay_s;
             st->phase = PH_DELAY;
             TELEM_DIRTY(st);
             return PROG_OK;
         }
-        begin_pipeline(st);
-        return PROG_OK;
-
-    case PROG_STOP_IN:
         begin_pipeline(st);
         return PROG_OK;
 
@@ -487,7 +521,7 @@ static void on_second(app_state_t *st)
             enter_ramp_step(st);
         }
     } else if (st->phase == PH_COOLDOWN) {
-        int16_t target = (int16_t)(st->cooldown_target_c * 10);
+        int16_t target = (int16_t)(st->temp_min_c * 10);
         if (st->sensor.valid && st->sensor.temp_c_x10 <= target) {
             fan_off();
             st->out_state[OUT_FAN] = 0;

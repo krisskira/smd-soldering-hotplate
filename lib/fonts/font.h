@@ -52,7 +52,4 @@ uint8_t font_glyph(const font_t *f, uint8_t c);
 /** Bytes por glifo en data. */
 uint8_t font_glyph_bytes(const font_t *f);
 
-/** Ancho de tinta en px (sin la separación final). */
-uint16_t font_text_width(const font_t *f, const char *s, uint8_t scale);
-
 #endif

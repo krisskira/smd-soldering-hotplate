@@ -1,9 +1,9 @@
 # SMI Soldering Hot Plate – Firmware AVR
 
-Firmware ATmega16 @ **8 MHz**: HOME + programas PREHEAT/START_IN/STOP_IN,
-fase RAMPS, PID por ventana, **MODO USB** / AT, Ajustes EEPROM.
+Firmware ATmega16 @ **8 MHz**: HOME (Heat|Settings), HEAT/PREHEAT/PID_TUNE,
+rampas EEPROM, PID (SSR MOC3021+BT136), MODO USB / AT, EEPROM v4.
 
-**Docs:** [product_features.md](doc/product_features.md) · [architecture.md](doc/architecture.md) · [usb-automation.md](doc/usb-automation.md) · [ui_style_guide.md](doc/ui_style_guide.md)
+**Docs:** [product_features.md](doc/product_features.md) · [program_flows.md](doc/program_flows.md) · [architecture.md](doc/architecture.md) · [usb-automation.md](doc/usb-automation.md)
 
 ## Build
 
@@ -14,13 +14,12 @@ make usb-host-test
 make flash
 ```
 
-Un solo firmware (sin perfiles PANEL/USB). Gates de flash en Makefile:
-`NO_PID_ATUNE`, `UI_NO_ICONS`, sin font6x8/8x12/icons.
+Gates: `UI_NO_ICONS`, `NO_FONT_6X8`. `pid_atune.c` enlazado.
 
 ## Características
 
-- HOME → Ajustes (Modo USB, Rampas, sonido, precalentar, aire)
-- MODO USB: sesión exclusiva `AT+DEVICEMODE=USB|MANUAL`
-- Programas: PREHEAT, START_IN, STOP_IN (+ PID_TUNE cuando haya flash/UI)
-- Pipeline: preheat? → rampas → FIN (alarma + aire)
-- Corte ≥ 200 °C; salidas OFF al boot; banco PTC unificado
+- Home: Heat (delay 0.. + start) | Settings → PID
+- USB: solo `AT+DEVICEMODE=USB`
+- Programas: HEAT, PREHEAT (AT), PID_TUNE
+- Pipeline HEAT: delay? → preheat Ramp1 → RUN rampas → aire @ temp_min
+- Safety: temp_min 30..100, temp_max 40..250 (EEPROM)

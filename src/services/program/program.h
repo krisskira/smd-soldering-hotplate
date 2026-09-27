@@ -38,7 +38,7 @@ void program_fault(app_state_t *st);
 
 /**
  * PRESS durante PH_ALARM: cierra alarma.
- * PREHEAT → DONE; START/STOP → sigue cooldown si hace falta.
+ * PREHEAT → DONE; HEAT → sigue cooldown si hace falta.
  */
 uint8_t program_user_ack(app_state_t *st);
 

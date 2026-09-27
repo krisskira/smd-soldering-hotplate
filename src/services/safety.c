@@ -1,22 +1,20 @@
 #include "safety.h"
 #include "outputs.h"
-#include "../app/app_config.h"
 #include "lib/avr_uart/avr_uart.h"
 #include <avr/pgmspace.h>
 
-uint8_t safety_apply_limit(sensor_reading_t *reading, uint8_t *out_state)
+uint8_t safety_apply_limit(app_state_t *st)
 {
-    if (!reading || !out_state)
+    int16_t lim;
+
+    if (!st || !st->sensor.valid)
         return 0;
 
-    if (!reading->valid)
+    lim = (int16_t)(st->temp_max_c * 10);
+    if (st->sensor.temp_c_x10 < lim)
         return 0;
 
-    if (reading->temp_c_x10 < TEMP_LIMIT_X10)
-        return 0;
-
-    outputs_heaters_off(out_state);
-
-    avr_uart_transmit_pstr(PSTR("ALARM:OVER-TEMP\r\n"));
+    outputs_heaters_off(st->out_state);
+    avr_uart_transmit_pstr(PSTR("OT\r\n"));
     return 1;
 }

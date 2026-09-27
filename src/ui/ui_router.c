@@ -87,4 +87,6 @@ void ui_router_on_sensor_update(app_state_t *st)
         st->row_dirty = ROW_ALL;
     else if (st->view == VIEW_HOME)
         home_view_on_sensor(st);
+    else if (st->view == VIEW_SETTINGS)
+        st->row_dirty = ROW_ALL;
 }

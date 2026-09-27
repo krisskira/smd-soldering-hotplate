@@ -127,14 +127,3 @@ void st7920_graphics_mode(void)
     st7920_clear_gdram_buffer();
 }
 
-void st7920_goto(uint8_t x, uint8_t y)
-{
-    uint8_t addr = (y == 0) ? (0x80 + x) : (0x90 + x);
-    st7920_cmd(addr);
-}
-
-void st7920_print(const char *str)
-{
-    while (*str)
-        st7920_data((uint8_t)*str++);
-}

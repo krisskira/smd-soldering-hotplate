@@ -1,211 +1,111 @@
 # Arquitectura del firmware AVR
 
-Cómo está armado el firmware y dónde vive cada flujo. El comportamiento de producto está en [product_features.md](product_features.md). El estilo de pantalla, en [ui_style_guide.md](ui_style_guide.md). Los comandos AT, en [usb-automation.md](usb-automation.md).
+Comportamiento de producto: [product_features.md](product_features.md).  
+Flujos de programas (fases, alarmas, rampas): [program_flows.md](program_flows.md).  
+UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automation.md).
 
-Última revisión contra el código: 2026-09-26.
+Última revisión: 2026-09-27. Un solo binario (`make`). Sin perfiles PANEL/USB.
 
-Un solo binario (`make`). No hay `PROFILE=PANEL` ni `PROFILE=USB`. Gates en el Makefile: `UI_NO_ICONS` (sin iconos en filas), `NO_FONT_6X8`, `NO_PID_ATUNE`. `pid_atune.c` está en el árbol y no entra al link mientras `NO_PID_ATUNE`.
+## Core vs shell
 
-## Dónde está cada cosa
+| Capa | Incluye | Regla |
+|------|---------|-------|
+| **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
+| **Shell** | `home_view`, `settings_view`, `usb_view`, ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
+
+Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`**, no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`).
+
+## Actuador de calor
+
+Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). No es un relé mecánico. Ver BOM PCB y [program_flows.md](program_flows.md).
+
+## Árbol
 
 ```
 firmware/avr/
-  src/main.c                 super-loop; una sola app_state_t
-  src/app/app_state.h        vistas, fases, programas, campos de estado
-  src/app/app_config.h       límites, índices de menú, EEPROM v3
-  src/ui/ui_router.c         despacha HOME o USB
-  src/ui/home_view.c         menú HOME (Ajustes)
-  src/ui/usb_view.c          estado de la sesión USB
-  src/ui/core/               window, filas, cabecera, texto (sin pantallas)
-  src/services/program/      máquina de fases
-  src/services/pid.c         PID por ventana (lo llama program_tick)
-  src/services/cfg_store.c   EEPROM global, por programa y rampas
-  src/services/at_cmd.c      líneas AT
-  src/services/device_session.c   MANUAL ↔ USB
-  src/services/telemetry.c   trama $HP
-  src/services/sensor_service.c   MAX31865 @ 1 Hz
-  src/services/safety.c      corte ≥ 200 °C
-  src/services/outputs.c     banco PTC + ventilador
-  src/services/buzzer_seq.c  beeps no bloqueantes
-  lib/                       drivers e i18n (no conocen pantallas)
-  config/board_pins.h        pines
+  src/main.c                 super-loop; g_state
+  src/app/                   app_state.h, app_config.h (EEPROM v5)
+  src/ui/                    home (Heat|Settings), settings, usb
+  src/ui/core/               window, bands, texto
+  src/services/program/      máquina de fases (HEAT / PREHEAT / PID_TUNE)
+  src/services/pid*.c        lazo + autotune
+  src/services/cfg_store.c   EEPROM global + heat/pre/tune + rampas
+  src/services/at_cmd.c      AT
+  lib/                       drivers + i18n
 ```
-
-La UI no llama drivers de pin. Los drivers no dibujan menús. `main.c` es el único dueño de `g_state`.
-
-| Si buscas… | Archivo | Qué hace |
-|------------|---------|----------|
-| Orden del bucle | `src/main.c` | Refresh, encoder, AT, sensor 1 Hz, `program_tick`, telemetría, buzzer |
-| A qué pantalla va un evento | `src/ui/ui_router.c` | `VIEW_HOME` → `home_view_*`; `VIEW_USB` → `usb_view_*` |
-| Ítems del menú | `src/ui/home_view.c` | Hoy solo entra a USB |
-| Fases PREHEAT / START / STOP | `src/services/program/program_runner.c` | Start, tick de 1 s, STOP, ACK, fallo |
-| Calor durante una fase | `src/services/pid.c` | `pid_tick` solo desde `program_tick` |
-| Guardar un toggle | `src/services/cfg_store.c` | `cfg_save_global` / `cfg_save_program` / `cfg_save_ramps` |
-| Entrar o salir de USB | `src/services/device_session.c` | Rechaza USB si el equipo está ocupado |
-| Comando AT | `src/services/at_cmd.c` | Parseo; arranca con `program_start` |
 
 ## Capas
 
 ```mermaid
 flowchart TB
-    main["main.c — g_state"]
-    ui["ui_router + home_view + usb_view"]
-    core["ui/core — filas, cabecera, ventana"]
-    svc["services — programa, PID, EEPROM, AT, seguridad"]
-    lib["lib — ST7920, MAX31865, UART, encoder, puertos, i18n"]
-    pins["config/board_pins.h"]
-
-    main --> ui
-    main --> svc
-    ui --> core
-    ui --> svc
-    svc --> lib
-    core --> lib
-    lib --> pins
+  main["main.c g_state"]
+  shell["ui_router home settings usb"]
+  coreUi["ui/core"]
+  svc["services program PID cfg AT safety"]
+  lib["lib ST7920 MAX31865 UART ports"]
+  main --> shell
+  main --> svc
+  shell --> coreUi
+  shell --> svc
+  svc --> lib
+  coreUi --> lib
 ```
 
 ## Estado
 
-Una `static app_state_t g_state` en `main.c`. Definición en `src/app/app_state.h`.
+Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PREHEAT`, `PID_TUNE`. **RAMPS** solo perfil EEPROM.
 
-| Campo | Valores | Dónde se usa |
-|-------|---------|--------------|
-| `view` | `VIEW_HOME`, `VIEW_USB`, `VIEW_SETTINGS` | El router. |
-| `home_page` | `MENU` | Subpágina de HOME. La marcha local no está en esta iteración. |
-| `settings_page` / `settings_sel` | `SET_PAGE_MAIN`, `SET_PAGE_RAMPS` / 0..n (n = pie) | `settings_view.c` |
-| `edit_armed` | `SET_EDIT_NONE`, `TEMP`, `TIME` | Campo del escalón en edición |
-| `program` | `PREHEAT`, `START_IN`, `STOP_IN`, `PID_TUNE` | RAMPS no es un `program_id_t`. |
-| `phase` | ver máquina de fases | La pinta RUN y la trama `$HP` (`ACTION`) |
-| `device_mode` | `DEVICE_MANUAL`, `DEVICE_USB` | Exclusivos. USB solo con equipo libre. |
-
-Índices de menú y páginas: `src/app/app_config.h` (`HOME_IDX_*`, `HOME_PAGE_*`, `SETTINGS_COUNT`).
-
-## Super-loop
-
-`program_tick` corre en **cada** vuelta. El sensor y el aviso de muestra nueva van a 1 Hz (`TEMP_PERIOD_MS`). El PID no lo llama `main`: `program_tick` llama `pid_tick` solo en fases con calor (`PH_PREHEAT`, `PH_STABILIZE`, `PH_HOLD`, `PH_RUN`, o `PH_ALARM` con hold).
-
-```mermaid
-flowchart TD
-    init["Init: SPI, LCD, UART, salidas OFF, EEPROM, UI HOME"] --> loop
-    loop["Vuelta del super-loop"] --> refresh["ui_router_refresh"]
-    refresh --> enc["encoder_poll + botón"]
-    enc --> evt["ui_router_on_event"]
-    evt --> at["at_cmd_tick"]
-    at --> sens{"¿Pasó 1 s?"}
-    sens -->|sí| tick["sensor_tick + pid_notify_sample"]
-    tick --> safe["safety_apply_limit"]
-    safe -->|sobretemperatura| fault["program_fault"]
-    safe --> telem["telemetry_tick"]
-    fault --> telem
-    telem --> uiUpd["ui_router_on_sensor_update"]
-    uiUpd --> beeps["beep al entrar en HOLD, ALARM o DONE"]
-    beeps --> prog["program_tick"]
-    sens -->|no| prog
-    prog --> dirty{"telem_dirty"}
-    dirty -->|sí| telem2["telemetry_tick"]
-    dirty -->|no| buzz["buzzer_seq_tick"]
-    telem2 --> buzz
-    buzz --> loop
-```
-
-Dentro de `program_tick`, si la fase calienta, `pid_tick` hace dos cosas: calcula el duty si hay muestra nueva (`pid_compute_sample`) y aplica la ventana de 2 s al banco PTC (`pid_window_tick`).
-
-Seguridad, en dos sitios:
-
-- `safety_apply_limit`: temperatura válida ≥ 200 °C → calefactores OFF, `ALARM:OVER-TEMP`, `program_fault`.
-- `program_tick`: programa activo con sensor inválido, salvo `PH_DELAY` y `PH_ALARM` → `program_fault`.
-- Boot: `ptc_off()`, `fan_off()`, `outputs_set_quiet(1)`.
+| Campo clave | Rol |
+|-------------|-----|
+| `program` / `phase` | Qué corre y en qué etapa |
+| `delay_s` | HEAT: 0 = inmediato; >0 = PH_DELAY |
+| `ramp_*` | Perfil de escalones |
+| `temp_min_c` / `temp_max_c` | Safety + límites de consignas; aire OFF en min |
+| `pid_k*` / `atune_*` | Lazo, autoajuste, picos y stream `$HP` a 1 Hz |
+| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1 |
+| `device_mode` | MANUAL vs USB |
 
 ## Navegación
 
-Tres vistas. HOME es de dos columnas (barra STOP_IN / START_IN / Ajustes + panel). USB solo por AT.
+```mermaid
+flowchart LR
+  home["HOME Heat Settings"]
+  set["SETTINGS"]
+  pid["SET_PAGE_PID"]
+  run["HOME en marcha"]
+  usb["VIEW_USB"]
+  home -->|Heat x2| run
+  home --> set
+  set --> pid
+  set --> home
+  run -->|Salir| home
+  atUsb["AT DEVICEMODE=USB"] --> usb
+  usb -->|PRESS| home
+```
+
+PREHEAT no aparece en Home (solo AT).
+
+## Super-loop
 
 ```mermaid
 flowchart TD
-    boot["Boot"] --> home["HOME dos columnas"]
-    home -->|"PRESS Ajustes"| set["VIEW_SETTINGS"]
-    home -->|"PRESS programa"| run["HOME en marcha + pie Salir"]
-    run -->|"PRESS Salir"| home
-    set -->|"pie Salir"| home
-    set -->|"Rampas"| ramps["SET_PAGE_RAMPS"]
-    ramps -->|"pie Salir"| set
-    atUsb["AT+DEVICEMODE=USB"] --> usb["VIEW_USB"]
-    usb -->|"PRESS"| home
-    atMan["AT+DEVICEMODE=MANUAL"] --> home
+  r[refresh UI] --> e[encoder]
+  e --> a[AT]
+  a --> s[sensor 1Hz + safety]
+  s --> p[program_tick + pid]
+  p --> t[telemetry]
+  t --> b[buzzer]
+  b --> r
 ```
 
-`home_view.c`: barra x0–31 (divisoria en x=31), panel x32–127. Dirty bits `HOME_DIRTY_*`. En marcha, `device_session_safe_stop`.
+Detalle de fases: [program_flows.md](program_flows.md).
 
-Ajustes (`settings_view.c`): Rampas | Sonido | Precalentar | Aire final. Sin fila USB.
+## Seguridad
 
-Los flujos de cada programa (qué fase sigue a cuál) están en [product_features.md](product_features.md).
-
-## Máquina de fases
-
-La implementa `program_runner.c`. Tokens UART (`ACTION` de `$HP`) en `program_action_token`.
-
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> DELAY: START_IN con delay
-    IDLE --> PREHEAT: PREHEAT, o pipeline con preheat_en
-    IDLE --> RUN: pipeline sin preheat, escalón 1
-    DELAY --> PREHEAT: cuenta a 0 y preheat_en
-    DELAY --> RUN: cuenta a 0 sin preheat
-    PREHEAT --> STABILIZE: dentro de banda
-    STABILIZE --> PREHEAT: sale de banda
-    STABILIZE --> ALARM: estable el tiempo pedido
-    STABILIZE --> RUN: pipeline, escalón 1
-    RUN --> RUN: siguiente escalón
-    RUN --> ALARM: último escalón → FIN
-    ALARM --> DONE: ACK o timeout, PREHEAT standalone
-    ALARM --> COOLDOWN: ACK o timeout, FIN y aún caliente
-    ALARM --> DONE: ACK o timeout, FIN ya frío o sin aire
-    COOLDOWN --> DONE: temp ≤ cooldown_target_c
-    PREHEAT --> FAULT: sensor inválido o sobretemperatura
-    HOLD --> FAULT: sensor inválido o sobretemperatura
-    RUN --> FAULT: sensor inválido o sobretemperatura
-    STABILIZE --> FAULT: sensor inválido o sobretemperatura
-    COOLDOWN --> FAULT: sensor inválido o sobretemperatura
-```
-
-STOP no siempre aborta:
-
-- En `START_IN` o `STOP_IN`, durante `DELAY`, `PREHEAT`, `STABILIZE` o `RUN`, `program_stop` entra a FIN (`PH_ALARM` sin calor y bomba si `cooldown_air_en`).
-- En PREHEAT standalone, en cooldown, o un segundo STOP ya en alarma, apaga todo y pasa a `PH_IDLE`.
-- El PRESS de la vista USB es aborto de sesión: para el programa y fuerza salidas OFF.
-
-## Pintado
-
-1. `ui_comp_draw_header` hace `st7920_clear_gdram` solo con `frame_dirty` (cambio de vista o de página HOME).
-2. El refresh de lista usa `row_dirty` y `ui_display_refresh_focus`. Con `UI_NO_ICONS` no hay iconos 8×8 en filas.
-3. La cabecera actual es 5×7 con negrita sintetizada (`ST7920_TEXT_BOLD`), centrada, sin icono. `FONT_6X8_BOLD` no se linkea.
-4. USB: cada zona es una banda propia (`st7920_draw_band`) que se reescribe entera y no toca a las demás. Cabecera y+0–14 a todo el ancho; icono 32×32 en x 0–31, y 16–47; temperatura 8×12 (+ `C` en 5×7) en x 32–127, y 16–33; programa y 34–43; fase y tiempo y 44–53; pie invertido `Salir ↵` y 54–63.
-5. La GDRAM se escribe en bloques de 16 px y no se puede leer. Dos zonas no deben compartir bloque horizontal en las mismas filas.
-
-`st7920_render()` no va en el refresh parcial.
-
-## Actuadores
-
-| API | Uso |
-|-----|-----|
-| `outputs_bank_set` | PTC1 y PTC2 juntos. Es lo que usa el PID. |
-| `program_set_output` | Un canal suelto. Solo en reposo; lo rechaza si hay programa o autotune. |
-| `fan_on` / `fan_off` | Bomba de aire en FIN y cooldown |
+- Boot: PTC y fan OFF.
+- `temp ≥ temp_max_c` (válida) → heaters OFF, UART `OT`, `program_fault`.
+- Sensor inválido con programa activo (salvo DELAY/ALARM) → fault.
 
 ## Flash
 
-Medir con `make size`. Hasta el rediseño de vistas no reintroducir `font6x8`, `font8x12`, `font_icons` ni linkear `pid_atune.c`. El reproductor de animaciones está en `features/parked/` y no se enlaza; la vista de gráfico de autotune puede recuperarlo.
-
-Textos: tabla C en `lib/i18n/i18n.c` (PROGMEM, un buffer de 24 bytes). No van a EEPROM. La configuración ya ocupa 66 bytes de 512; el resto no compensa sacar las cadenas de la imagen del programa.
-
-Fuentes, medidas como objeto suelto (PROGMEM, sin el código que las dibuja):
-
-| Fuente | En el binario | Flash del glifo |
-|--------|---------------|-----------------|
-| 5×7 (`font5x7_data` + mapa) | Sí. Menús, fase y temperatura USB | 355 B de glifos + 72 B de mapa (71 caracteres: letras, dígitos, espacio, `*+.|~`, `-`, `:`, `°`) |
-| 6×8 negrita | No (`NO_FONT_6X8`) | 414 B de glifos + mapa. Sin `:` |
-| 8×12 | Sí. Temperatura de la vista USB | 156 B (`-.0123456789°`, 13 × 12) |
-| Iconos 8×8 | Sí, solo `ICO_ENTER` en el pie USB. `UI_NO_ICONS` solo apaga iconos en filas de lista | 8 B |
-
-No recortar: límite 200 °C, OFF al boot, banco PTC unificado, sensor inválido → OFF en programa activo.
+Medir con `make size` tras cada cambio. Gates actuales: `UI_NO_ICONS`, `NO_FONT_6X8` (revisables si hay margen).

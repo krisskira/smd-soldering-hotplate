@@ -46,13 +46,13 @@ void ui_comp_format_menu(char *buf, const char *label, ui_comp_state_t st)
 
 void ui_comp_draw_footer(uint8_t x, const char *label, uint8_t inv)
 {
-    static const char enter[2] = { (char)(ICO_ENTER + 1u), '\0' };
+    static const char enter[] = "<";
     st7920_span_t s[2];
     uint8_t n = ui_str_len(label);
     uint8_t tx = (uint8_t)(x + UI_FOOT_X);
 
     span_set(&s[0], &FONT_5X7, label, tx);
-    span_set(&s[1], &FONT_ICONS, enter,
+    span_set(&s[1], &FONT_5X7, enter,
              (uint8_t)(tx + (n + 1u) * FONT_5X7.advance));
     st7920_draw_band(x, (uint8_t)(128u - x), UI_FOOT_Y, UI_FOOT_H, s, 2u, inv);
 }
@@ -73,7 +73,7 @@ void ui_comp_draw_temp(uint8_t band_x, uint8_t text_x, uint8_t y, uint8_t h,
         val[len] = '\0';
         /* avance FONT_8X12 = 9; evita font_text_width. */
         span_set(&s[1], &FONT_5X7, unit,
-                 (uint8_t)(text_x + (uint8_t)(len * 9u) + 2u));
+                 (uint8_t)(text_x + (uint8_t)(len * 6u) + 2u));
         n = 2;
     } else {
         val[0] = '-'; val[1] = '-'; val[2] = '-'; val[3] = '.'; val[4] = '-';
@@ -82,6 +82,28 @@ void ui_comp_draw_temp(uint8_t band_x, uint8_t text_x, uint8_t y, uint8_t h,
     span_set(&s[0], &FONT_8X12, val, text_x);
     st7920_draw_band(band_x, (uint8_t)(128u - band_x), y, h, s, n, 0u);
 }
+
+void ui_comp_draw_5x7_band(uint8_t band_x, uint8_t band_w, uint8_t text_x,
+                           uint8_t y, const char *str)
+{
+    st7920_span_t s;
+
+    if (str && str[0]) {
+        span_set(&s, &FONT_5X7, str, text_x);
+        st7920_draw_band(band_x, band_w, y, UI_COMP_LINE_H, &s, 1u, 0u);
+    } else {
+        st7920_draw_band(band_x, band_w, y, UI_COMP_LINE_H, 0, 0u, 0u);
+    }
+}
+
+void ui_comp_draw_5x7_row(uint8_t y, uint8_t h, const char *str, uint8_t inv)
+{
+    st7920_span_t s;
+
+    span_set(&s, &FONT_5X7, str ? str : "", 1u);
+    st7920_draw_band(0u, 128u, y, h, &s, 1u, inv);
+}
+
 
 void ui_comp_format_toggle(char *buf, const char *label, uint8_t on,
                            ui_comp_state_t st)

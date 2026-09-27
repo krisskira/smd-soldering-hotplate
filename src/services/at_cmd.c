@@ -13,6 +13,10 @@
 static char s_line[AT_LINE_MAX];
 static uint8_t s_len;
 
+static const char ERR_PARAM[] PROGMEM = "INVALID-PARAMETER";
+static const char ERR_PBUSY[] PROGMEM = "PROGRAM-BUSY";
+static const char ERR_DBUSY[] PROGMEM = "DEVICE-BUSY";
+
 static void reply_ok(app_state_t *st)
 {
     if (st)
@@ -42,13 +46,13 @@ static void reply_from_proc(app_state_t *st, uint8_t code)
         reply_err_P(st, PSTR("OVER-TEMPERATURE"));
         break;
     case PROG_ERR_BUSY:
-        reply_err_P(st, PSTR("PROGRAM-BUSY"));
+        reply_err_P(st, ERR_PBUSY);
         break;
     case PROG_ERR_FAULT:
-        reply_err_P(st, PSTR("DEVICE-BUSY"));
+        reply_err_P(st, ERR_DBUSY);
         break;
     default:
-        reply_err_P(st, PSTR("INVALID-PARAMETER"));
+        reply_err_P(st, ERR_PARAM);
         break;
     }
 }
@@ -145,7 +149,7 @@ static void handle_line(app_state_t *st, char *line)
         p = line + 14;
         if (streq_P(p, PSTR("USB"))) {
             if (device_session_enter_usb(st) != 0) {
-                reply_err_P(st, PSTR("DEVICE-BUSY"));
+                reply_err_P(st, ERR_DBUSY);
                 return;
             }
             ui_enter_view(st, VIEW_USB);
@@ -161,7 +165,7 @@ static void handle_line(app_state_t *st, char *line)
             reply_ok(st);
             return;
         }
-        reply_err_P(st, PSTR("INVALID-PARAMETER"));
+        reply_err_P(st, ERR_PARAM);
         return;
     }
 
@@ -171,19 +175,17 @@ static void handle_line(app_state_t *st, char *line)
     if (strncmp_P(line, PSTR("AT+PROGRAM="), 11) == 0) {
         p = line + 11;
         if (process_is_active(st) || pid_atune_active(st)) {
-            reply_err_P(st, PSTR("PROGRAM-BUSY"));
+            reply_err_P(st, ERR_PBUSY);
             return;
         }
-        if (streq_P(p, PSTR("START_IN")))
-            st->program = PROG_START_IN;
-        else if (streq_P(p, PSTR("STOP_IN")))
-            st->program = PROG_STOP_IN;
+        if (streq_P(p, PSTR("HEAT")))
+            st->program = PROG_HEAT;
         else if (streq_P(p, PSTR("PREHEAT")))
             st->program = PROG_PREHEAT;
         else if (streq_P(p, PSTR("PID_TUNE")))
             st->program = PROG_PID_TUNE;
         else {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         cfg_load_program(st, st->program);
@@ -196,8 +198,8 @@ static void handle_line(app_state_t *st, char *line)
     if (strncmp_P(line, PSTR("AT+TEMP="), 8) == 0) {
         p = line + 8;
         if (parse_u16(&p, &u0) || *p
-            || u0 < TEMP_MIN_SET_C || u0 > TEMP_MAX_SET_C) {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            || u0 < st->temp_min_c || u0 > st->temp_max_c) {
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         st->t_set_c = u0;
@@ -211,11 +213,10 @@ static void handle_line(app_state_t *st, char *line)
     if (strncmp_P(line, PSTR("AT+DELAY="), 9) == 0) {
         p = line + 9;
         if (parse_u16(&p, &u0) || *p || u0 > 3600u) {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         st->delay_s = u0;
-        st->run_s = u0;
         cfg_save_program(st, st->program);
         st->row_dirty = ROW_ALL;
         st->telem_dirty = 1u;
@@ -227,18 +228,18 @@ static void handle_line(app_state_t *st, char *line)
     if (strncmp_P(line, PSTR("AT+RAMP="), 8) == 0) {
         p = line + 8;
         if (parse_u16(&p, &u0) || *p != ',' || u0 >= RAMP_STEPS_MAX) {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         p++;
         if (parse_u16(&p, &u1) || *p != ','
-            || u1 < TEMP_MIN_SET_C || u1 > TEMP_MAX_SET_C) {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            || u1 < st->temp_min_c || u1 > st->temp_max_c) {
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         p++;
         if (parse_u16(&p, &u2) || *p || u2 < 1u || u2 > 3600u) {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
             return;
         }
         st->ramp_step[(uint8_t)u0].temp_c = u1;
@@ -259,7 +260,7 @@ static void handle_line(app_state_t *st, char *line)
             st->telem_dirty = 1u;
             reply_ok(st);
         } else {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
         }
         return;
     }
@@ -272,7 +273,7 @@ static void handle_line(app_state_t *st, char *line)
             st->telem_dirty = 1u;
             reply_ok(st);
         } else {
-            reply_err_P(st, PSTR("INVALID-PARAMETER"));
+            reply_err_P(st, ERR_PARAM);
         }
         return;
     }
@@ -329,13 +330,8 @@ void at_cmd_tick(app_state_t *st)
     }
 }
 
-uint8_t at_cmd_stream_on(void)
-{
-    return 0;
-}
-
 void at_cmd_set_stream(app_state_t *st, uint8_t on)
 {
-    (void)on;
-    (void)st;
+    if (st)
+        st->atune_stream = on ? 1u : 0u;
 }

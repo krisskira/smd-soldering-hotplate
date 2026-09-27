@@ -1,7 +1,6 @@
 /*
- * ST7920 - Texto con cualquier fuente de lib/fonts (escala 1..3).
- * Compone fila a fila en un buffer de 128 px y escribe solo los bloques
- * de la banda pedida.
+ * ST7920 - Texto con fuentes de lib/fonts (escala fija 1).
+ * Compone fila a fila y escribe solo los bloques de la banda pedida.
  */
 #include "st7920.h"
 #include "st7920_private.h"
@@ -15,18 +14,19 @@ void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                       uint8_t clear)
 {
     const uint8_t *p;
-    uint8_t gy, gx, sx, bits = 0, on;
+    uint8_t gy, gx, bits = 0, on;
     uint16_t px;
 
+    (void)scale;
     if (!f || glyph == FONT_NO_GLYPH || row_y < ty)
         return;
-    gy = (uint8_t)((row_y - ty) / scale);
+    gy = (uint8_t)(row_y - ty);
     if (gy >= f->h)
         return;
 
     p = f->data + (uint16_t)glyph * font_glyph_bytes(f);
     if (f->layout == FONT_ROWS)
-        p += (uint16_t)gy * (uint8_t)((f->w + 7u) >> 3);
+        p += gy;
 
     for (gx = 0; gx < f->w; gx++) {
         if (f->layout == FONT_ROWS) {
@@ -38,21 +38,19 @@ void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
         }
         if (!on)
             continue;
-        for (sx = 0; sx < scale; sx++) {
-            px = (uint16_t)tx + (uint16_t)gx * scale + sx;
-            if (px >= LCD_W)
-                break;
-            if (clear)
-                st7920_row_clear_pixel(row_buf, (uint8_t)px);
-            else
-                st7920_row_set_pixel(row_buf, (uint8_t)px);
-        }
+        px = (uint16_t)tx + gx;
+        if (px >= LCD_W)
+            break;
+        if (clear)
+            st7920_row_clear_pixel(row_buf, (uint8_t)px);
+        else
+            st7920_row_set_pixel(row_buf, (uint8_t)px);
     }
 }
 
 static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                          uint8_t tx, uint8_t ty, const char *str,
-                         uint8_t scale, uint8_t clear)
+                         uint8_t clear)
 {
     uint16_t x = tx;
     uint8_t c;
@@ -63,8 +61,8 @@ static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
         if (c == FONT_UTF8_C2)
             continue;
         st7920_glyph_row(row_buf, row_y, f, font_glyph(f, c), (uint8_t)x, ty,
-                         scale, clear);
-        x += (uint16_t)f->advance * scale;
+                         1u, clear);
+        x += f->advance;
     }
 }
 
@@ -72,7 +70,8 @@ void st7920_font_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                      uint8_t tx, uint8_t ty, const char *str, uint8_t scale,
                      uint8_t clear)
 {
-    font_row_adv(row_buf, row_y, f, tx, ty, str, scale, clear);
+    (void)scale;
+    font_row_adv(row_buf, row_y, f, tx, ty, str, clear);
 }
 
 void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,
@@ -82,7 +81,7 @@ void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,
     uint16_t fill = inv ? 0xFFFFu : 0u;
     uint8_t b0 = (uint8_t)(x >> 4);
     uint8_t b1 = (uint8_t)(((uint16_t)x + w + 15u) >> 4);
-    uint8_t row_y, b, i, scale, gh, ty;
+    uint8_t row_y, b, i, gh, ty;
     const st7920_span_t *s;
 
     if (b1 > 8u)
@@ -94,32 +93,15 @@ void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,
             s = &spans[i];
             if (!s->f || !s->str)
                 continue;
-            scale = s->scale ? s->scale : 1u;
-            if (scale > 3u)
-                scale = 3u;
-            gh = (uint8_t)(s->f->h * scale);
+            gh = s->f->h;
             ty = (uint8_t)(y + (h > gh ? (uint8_t)((h - gh) / 2u) : 0u));
             if (row_y < ty || row_y >= (uint8_t)(ty + gh))
                 continue;
-            font_row_adv(row, row_y, s->f, s->x, ty, s->str, scale, inv);
+            font_row_adv(row, row_y, s->f, s->x, ty, s->str, inv);
         }
         for (b = b0; b < b1; b++)
             st7920_write_gdram(b, row_y,
                                (uint8_t)(row[b] >> 8),
                                (uint8_t)(row[b] & 0xFFu));
     }
-}
-
-void st7920_draw_font_gdram(const font_t *f, uint8_t x, uint8_t y, uint8_t h,
-                            const char *str, uint8_t scale, uint8_t inv)
-{
-    st7920_span_t s;
-    uint8_t bx = (uint8_t)(x & 0xF0u);
-
-    s.f = f;
-    s.str = str;
-    s.x = x;
-    s.scale = scale;
-    s.bold = 0;
-    st7920_draw_band(bx, (uint8_t)(LCD_W - bx), y, h, &s, 1u, inv);
 }

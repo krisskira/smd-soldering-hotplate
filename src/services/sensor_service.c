@@ -1,17 +1,6 @@
 #include "sensor_service.h"
 #include "lib/max31865/max31865.h"
 
-const char *sensor_fault_text(uint8_t fault)
-{
-    if (fault & 0x04) return "SOBRETENSION";
-    if (fault & 0x08) return "RTDIN- ABIERTO";
-    if (fault & 0x10) return "FORCE- ABIERTO";
-    if (fault & 0x20) return "REFIN- ABIERTO";
-    if (fault & 0x40) return "RTD BAJO";
-    if (fault & 0x80) return "RTD ABIERTO";
-    return "";
-}
-
 void sensor_init(void)
 {
     max31865_init();

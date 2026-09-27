@@ -27,18 +27,3 @@ uint8_t font_glyph_bytes(const font_t *f)
         return (uint8_t)(f->h * (uint8_t)((f->w + 7u) >> 3));
     return f->w;
 }
-
-uint16_t font_text_width(const font_t *f, const char *s, uint8_t scale)
-{
-    uint16_t n = 0;
-
-    if (!f || !s)
-        return 0;
-    for (; *s; s++) {
-        if ((uint8_t)*s != FONT_UTF8_C2)
-            n++;
-    }
-    if (n == 0u)
-        return 0;
-    return (uint16_t)((n * f->advance - (uint8_t)(f->advance - f->w)) * scale);
-}

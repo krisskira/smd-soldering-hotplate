@@ -44,12 +44,11 @@ src/ui/home_view.c              MENU, RUN, SETTINGS
 src/ui/usb_view.c               sesión USB
 src/ui/core/ui_window.c         ventana de 3 filas sobre N ítems
 src/ui/core/ui_display.c        refresh por fila sucia
-src/ui/core/ui_components.c     cabecera y formato de fila
+src/ui/core/ui_components.c     cabecera, bandas 5×7, formato de fila
 src/ui/core/ui_text.c           temperatura, mm:ss, líneas
-src/ui/assets/usb_icon_32.h     bitmap 32×32 de la vista USB
 src/services/program/           program_runner — fases
 src/services/pid.c              ventana temporal; lo llama program_tick
-src/services/pid_atune.c        en el árbol; no se compila (NO_PID_ATUNE)
+src/services/pid_atune.c        autoajuste por relé (enlazado)
 src/services/cfg_store.c        EEPROM global + programa + rampas
 src/services/sensor_service.c   PT100
 src/services/safety.c           límite 200 °C
@@ -91,11 +90,11 @@ u8g2 y el driver Adafruit del MAX31865 no están en el árbol.
 
 ## Huecos reales
 
-- No hay vista aparte de alarma. `PH_ALARM` se pinta en la vista USB. La pantalla local de marcha (ACK) vuelve con las vistas siguientes.
-- No hay editor en pantalla de setpoint, delay, duración, escalones ni ganancias PID. Eso entra por AT y EEPROM.
-- Autotune: fuente presente, enlace cortado por `NO_PID_ATUNE`. El ítem del menú solo hace beep.
+- No hay vista aparte de alarma. `PH_ALARM` se refleja en HOME en marcha / USB.
+- Sin editor UI de setpoint, delay ni escalones de rampa (`AT+TEMP` / `AT+DELAY` / `AT+RAMP`). Ganancias PID sí: Ajustes → PID.
+- Autotune: USB reemite `$HP` a 1 Hz. No hay `$HP,PLOT` ni página de curva (flash). Picos y ganancias quedan en `app_state`; la fila Auto muestra RUN/OK/FAIL.
 - No hay guía eléctrica del PCB más allá del KiCad y del CSV de BOM.
-- `ui_style_guide.md` sigue describiendo el path de iconos 8×8 y las fuentes grandes. Ese path no está en el binario actual.
+- `ui_style_guide.md` puede describir paths de iconos/fuentes grandes no presentes en el binario.
 
 ## Skills
 
