@@ -48,11 +48,7 @@ uint8_t program_set_output(app_state_t *st, uint8_t idx, uint8_t on,
                            ctrl_src_t src);
 uint8_t program_set_bank(app_state_t *st, uint8_t on, ctrl_src_t src);
 
-/* Tokens UART en PROGMEM — emitir con avr_uart_transmit_pstr(). */
-const char *program_token(program_id_t p);
-const char *program_action_token(const app_state_t *st);
 const char *program_phase_name(process_phase_t p);
-/* program_name removed — UI uses I18N keys */
 
 /* Compat wrappers for existing call sites */
 #define process_init        program_init
@@ -63,8 +59,6 @@ const char *program_phase_name(process_phase_t p);
 #define process_is_active   program_is_active
 #define process_set_output  program_set_output
 #define process_set_bank    program_set_bank
-#define process_program_token program_token
-#define process_action_token  program_action_token
 #define process_phase_name    program_phase_name
 
 #endif

@@ -1,35 +1,10 @@
 #include "telemetry.h"
 #include "process.h"
-#include "device_session.h"
+#include "pid_atune.h"
+#include "proto_codes.h"
+#include "proto_tokens.h"
 #include "lib/avr_uart/avr_uart.h"
 #include <avr/pgmspace.h>
-
-static void put_u16(uint16_t v)
-{
-    char tmp[5];
-    uint8_t i = 0;
-
-    if (v >= 10000u) {
-        avr_uart_transmit_pstr(PSTR("9999"));
-        return;
-    }
-    if (v == 0) {
-        avr_uart_transmit_char('0');
-        return;
-    }
-    while (v > 0) {
-        tmp[i++] = (char)('0' + (v % 10u));
-        v /= 10u;
-    }
-    while (i > 0)
-        avr_uart_transmit_char(tmp[--i]);
-}
-
-static void put_kv_u16(const char *key_P, uint16_t v)
-{
-    avr_uart_transmit_pstr(key_P);
-    put_u16(v);
-}
 
 static void put_i16_x10(int16_t v)
 {
@@ -41,15 +16,42 @@ static void put_i16_x10(int16_t v)
     } else {
         a = (uint16_t)v;
     }
-    put_u16((uint16_t)(a / 10u));
+    proto_put_u16((uint16_t)(a / 10u));
     avr_uart_transmit_char('.');
     avr_uart_transmit_char((char)('0' + (a % 10u)));
 }
 
+static void kv_u(const char *key_P, uint16_t v)
+{
+    avr_uart_transmit_pstr(key_P);
+    proto_put_u16(v);
+}
+
+static void kv_i(const char *key_P, int16_t v)
+{
+    avr_uart_transmit_pstr(key_P);
+    if (v < 0) {
+        avr_uart_transmit_char('-');
+        proto_put_u16((uint16_t)(-v));
+    } else {
+        proto_put_u16((uint16_t)v);
+    }
+}
+
+static void kv_b(const char *key_P, uint8_t on)
+{
+    avr_uart_transmit_pstr(key_P);
+    avr_uart_transmit_char(on ? '1' : '0');
+}
+
 void telemetry_emit(const app_state_t *st)
 {
+    uint8_t act;
+
     if (!st)
         return;
+
+    act = pid_atune_active(st) ? PROTO_ACTION_TUNING : (uint8_t)st->phase;
 
     avr_uart_transmit_pstr(PSTR("$HP,T="));
     if (st->sensor.valid)
@@ -57,25 +59,41 @@ void telemetry_emit(const app_state_t *st)
     else
         avr_uart_transmit_pstr(PSTR("---"));
 
-    avr_uart_transmit_pstr(PSTR(",DEVICE="));
-    avr_uart_transmit_pstr(device_session_is_usb(st) ? PSTR("USB") : PSTR("MANUAL"));
-    avr_uart_transmit_pstr(PSTR(",PROGRAM="));
-    avr_uart_transmit_pstr(process_program_token(st->program));
-    avr_uart_transmit_pstr(PSTR(",ACTION="));
-    avr_uart_transmit_pstr(process_action_token(st));
-    put_kv_u16(PSTR(",SET="), st->t_set_c);
-    put_kv_u16(PSTR(",DELAY="), st->delay_s);
-    put_kv_u16(PSTR(",RUN="), st->t_remain_s);
-    avr_uart_transmit_pstr(PSTR(",P1="));
-    avr_uart_transmit_char(st->out_state[OUT_PTC1] ? '1' : '0');
-    avr_uart_transmit_pstr(PSTR(",P2="));
-    avr_uart_transmit_char(st->out_state[OUT_PTC2] ? '1' : '0');
-    avr_uart_transmit_pstr(PSTR(",FAN="));
-    avr_uart_transmit_char(st->out_state[OUT_FAN] ? '1' : '0');
-    put_kv_u16(PSTR(",DUTY="), st->duty_pct);
-    avr_uart_transmit_pstr(PSTR(",FLT="));
-    avr_uart_transmit_char((st->phase == PH_FAULT || st->sensor.fault) ? '1' : '0');
-    avr_uart_transmit_pstr(PSTR("\r\n"));
+    kv_u(PSTR(",P="), (uint16_t)st->program);
+    kv_u(PSTR(",A="), act);
+    kv_u(PSTR(",SET="), st->t_set_c);
+    kv_u(PSTR(",DLY="), st->delay_s);
+    kv_u(PSTR(",RUN="), st->t_remain_s);
+    kv_u(PSTR(",EL="), st->t_elapsed_s);
+    kv_b(PSTR(",P1="), st->out_state[OUT_PTC1]);
+    kv_b(PSTR(",P2="), st->out_state[OUT_PTC2]);
+    kv_b(PSTR(",F="), st->out_state[OUT_FAN]);
+    kv_u(PSTR(",DU="), st->duty_pct);
+    kv_b(PSTR(",FL="),
+         (uint8_t)(st->phase == PH_FAULT || st->sensor.fault));
+    kv_u(PSTR(",MN="), st->temp_min_c);
+    kv_u(PSTR(",MX="), st->temp_max_c);
+    kv_i(PSTR(",KP="), st->pid_kp_x10);
+    kv_i(PSTR(",KI="), st->pid_ki_x10);
+    kv_i(PSTR(",KD="), st->pid_kd_x10);
+    /* Flags + atune (host reconstruye UI / gráfico). */
+    kv_u(PSTR(",CF="),
+         (uint16_t)((st->preheat_en ? 1u : 0u)
+                    | (st->cooldown_air_en ? 2u : 0u)
+                    | (st->buzz_nav_en ? 4u : 0u)
+                    | (st->ramps_en ? 8u : 0u)
+                    | ((uint16_t)st->preheat_pct << 8)));
+    kv_u(PSTR(",SB="), st->stabilize_s);
+    kv_u(PSTR(",RN="), st->ramp_n);
+    kv_u(PSTR(",RI="), st->ramp_idx);
+    kv_u(PSTR(",AP="), (uint16_t)st->atune_phase);
+    kv_u(PSTR(",AC="), st->atune_cycles);
+    kv_u(PSTR(",AG="), st->atune_cycles_target);
+    kv_i(PSTR(",AH="), st->atune_hyst_c_x10);
+    kv_i(PSTR(",AK="), st->atune_kp_x10);
+    kv_i(PSTR(",AI="), st->atune_ki_x10);
+    kv_i(PSTR(",AD="), st->atune_kd_x10);
+    avr_uart_transmit_pstr(PROTO_CRLF);
 }
 
 void telemetry_tick(const app_state_t *st)

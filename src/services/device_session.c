@@ -3,8 +3,7 @@
 #include "outputs.h"
 #include "pid_atune.h"
 #include "telemetry.h"
-#include "lib/avr_uart/avr_uart.h"
-#include <avr/pgmspace.h>
+#include "proto_codes.h"
 
 uint8_t device_session_is_busy(const app_state_t *st)
 {
@@ -61,7 +60,7 @@ void device_session_leave_manual(app_state_t *st, uint8_t notify_abort)
     st->telem_dirty = 1u;
 
     if (notify_abort)
-        avr_uart_transmit_pstr(PSTR("ERROR:ABORTED-BY-DEVICE\r\n"));
+        proto_emit_error((uint8_t)PROTO_ERR_ABORTED_BY_DEVICE);
 }
 
 uint8_t device_session_is_usb(const app_state_t *st)

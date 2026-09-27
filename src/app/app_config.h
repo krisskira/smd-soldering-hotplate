@@ -46,13 +46,11 @@
 #define HOME_DIRTY_ALL     0x0Fu
 
 #define SET_PAGE_MAIN     0u
-#define SET_PAGE_PID      1u
-#define SETTINGS_COUNT    5u
-#define SET_IDX_PID       0u
-#define SET_IDX_SOUND     1u
-#define SET_IDX_PREHEAT   2u
-#define SET_IDX_PRE_PCT   3u
-#define SET_IDX_AIR       4u
+#define SETTINGS_COUNT    4u
+#define SET_IDX_SOUND     0u
+#define SET_IDX_PREHEAT   1u
+#define SET_IDX_PRE_PCT   2u
+#define SET_IDX_AIR       3u
 
 #define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 #define SET_EDIT_NONE     0u

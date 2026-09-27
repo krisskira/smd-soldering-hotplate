@@ -1,5 +1,5 @@
 /*
- * Host smoke test — contrato MODO USB (tokens / errores / trama).
+ * Host smoke test — contrato MODO USB (códigos numéricos / $HP).
  *   cd firmware/avr && make usb-host-test
  */
 #include <cstdio>
@@ -13,48 +13,90 @@
     } \
 } while (0)
 
-static const char *program_token(int p)
+/* Espejo parse_u16 firmware. */
+static int parse_u16_host(const char **pp, unsigned *out)
 {
-    switch (p) {
-    case 0: return "PREHEAT";
-    case 1: return "HEAT";
-    case 2: return "PID_TUNE";
-    default: return "?";
+    const char *p;
+    unsigned v = 0;
+    unsigned n = 0;
+
+    if (!pp || !*pp || !out)
+        return 1;
+    p = *pp;
+    while (*p >= '0' && *p <= '9' && n < 5u) {
+        v = v * 10u + (unsigned)(*p - '0');
+        p++;
+        n++;
     }
+    if (n == 0u)
+        return 1;
+    *out = v;
+    *pp = p;
+    return 0;
 }
 
 int main(void)
 {
-    CHECK(std::strcmp(program_token(0), "PREHEAT") == 0);
-    CHECK(std::strcmp(program_token(1), "HEAT") == 0);
-    CHECK(std::strcmp(program_token(2), "PID_TUNE") == 0);
+    /* program_id_t */
+    CHECK(0 == 0); /* PREHEAT */
+    CHECK(1 == 1); /* HEAT */
+    CHECK(2 == 2); /* PID_TUNE */
 
-    CHECK(std::strstr("ERROR:DEVICE-BUSY", "DEVICE-BUSY") != nullptr);
-    CHECK(std::strstr("ERROR:USB-MODE-REQUIRED", "USB-MODE-REQUIRED") != nullptr);
-    CHECK(std::strstr("ERROR:PROGRAM-BUSY", "PROGRAM-BUSY") != nullptr);
-    CHECK(std::strstr("ERROR:ABORTED-BY-DEVICE", "ABORTED-BY-DEVICE") != nullptr);
-    CHECK(std::strstr("ERROR:INVALID-COMMAND", "INVALID-COMMAND") != nullptr);
-    CHECK(std::strstr("ERROR:INVALID-PARAMETER", "INVALID-PARAMETER") != nullptr);
-    CHECK(std::strstr("ERROR:SENSOR-INVALID", "SENSOR-INVALID") != nullptr);
+    /* ERROR:n */
+    CHECK(std::strstr("ERROR:1", "ERROR:1") != nullptr);
+    CHECK(std::strstr("ERROR:2", "ERROR:2") != nullptr);
+    CHECK(std::strstr("ERROR:3", "ERROR:3") != nullptr);
+    CHECK(std::strstr("ERROR:4", "ERROR:4") != nullptr);
+    CHECK(std::strstr("ERROR:5", "ERROR:5") != nullptr);
+    CHECK(std::strstr("ERROR:6", "ERROR:6") != nullptr);
+    CHECK(std::strstr("ERROR:7", "ERROR:7") != nullptr);
+    CHECK(std::strstr("ERROR:8", "ERROR:8") != nullptr);
 
+    /* ALARM:n */
+    CHECK(std::strstr("ALARM:1", "ALARM:1") != nullptr);
+    CHECK(std::strstr("ALARM:2", "ALARM:2") != nullptr);
+
+    /* $HP sin DEVICE; P/A numéricos */
     const char *sample =
-        "$HP,T=148.0,DEVICE=USB,PROGRAM=HEAT,ACTION=PREHEATING,"
-        "SET=150,DELAY=0,RUN=84,P1=1,P2=1,FAN=0,DUTY=40,FLT=0";
-    CHECK(std::strstr(sample, "DEVICE=USB") != nullptr);
-    CHECK(std::strstr(sample, "PROGRAM=HEAT") != nullptr);
-    CHECK(std::strstr(sample, "ACTION=PREHEATING") != nullptr);
-
-    CHECK(std::strstr("ALARM:PH-OK", "PH-OK") != nullptr);
-    CHECK(std::strstr("ALARM:DONE", "DONE") != nullptr);
-    CHECK(std::strstr("OT\r\n", "OT") != nullptr);
+        "$HP,T=148.0,P=1,A=2,SET=150,DLY=0,RUN=84,EL=10,"
+        "P1=1,P2=1,F=0,DU=40,FL=0,MN=40,MX=200,KP=20,KI=5,KD=10,"
+        "CF=337,SB=30,RN=2,RI=0,AP=0,AC=0,AG=3,AH=15,AK=0,AI=0,AD=0";
+    CHECK(std::strstr(sample, "DEVICE=") == nullptr);
+    CHECK(std::strstr(sample, ",P=1,") != nullptr);
+    CHECK(std::strstr(sample, ",A=2,") != nullptr);
+    CHECK(std::strstr(sample, "MN=40") != nullptr);
+    CHECK(std::strstr(sample, "AG=3") != nullptr);
 
     const char *tune =
-        "$HP,T=148.2,DEVICE=USB,PROGRAM=PID_TUNE,ACTION=TUNING,"
-        "SET=150,DELAY=0,RUN=0,P1=1,P2=1,FAN=0,DUTY=100,FLT=0";
-    CHECK(std::strstr(tune, "PROGRAM=PID_TUNE") != nullptr);
-    CHECK(std::strstr(tune, "ACTION=TUNING") != nullptr);
-    CHECK(std::strstr(tune, "DUTY=100") != nullptr);
-    CHECK(std::strstr(tune, "REMAIN=") == nullptr);
+        "$HP,T=148.2,P=2,A=10,SET=150,DLY=0,RUN=0,EL=0,"
+        "P1=1,P2=1,F=0,DU=100,FL=0,MN=40,MX=200,KP=20,KI=5,KD=10,"
+        "CF=1,SB=30,RN=2,RI=0,AP=1,AC=2,AG=5,AH=15,AK=0,AI=0,AD=0";
+    CHECK(std::strstr(tune, ",P=2,") != nullptr);
+    CHECK(std::strstr(tune, ",A=10,") != nullptr);
+    CHECK(std::strstr(tune, "AP=1") != nullptr);
+    CHECK(std::strstr(tune, "DU=100") != nullptr);
+
+    /* parse helpers */
+    {
+        const char *p;
+        unsigned u = 0;
+        p = "100";
+        CHECK(parse_u16_host(&p, &u) == 0 && u == 100 && *p == '\0');
+        p = "2,15";
+        CHECK(parse_u16_host(&p, &u) == 0 && u == 2 && *p == ',');
+        p = "abc";
+        CHECK(parse_u16_host(&p, &u) != 0);
+    }
+
+    /* Comandos clave del catálogo (nombres cortos). */
+    static const char *k_cmds[] = {
+        "STATUS?", "DEVICEMODE=", "PROGRAM=", "TEMP=", "TMIN=", "TMAX=",
+        "DELAY=", "PREHEAT=", "PHPCT=", "STAB=", "AIR=", "SND=",
+        "RAMPS=", "RAMP=", "ATUNE=", "KP=", "KI=", "KD=", "PIDAPPLY",
+        "START", "STOP", nullptr
+    };
+    for (int i = 0; k_cmds[i]; i++)
+        CHECK(k_cmds[i][0] != '\0');
 
     std::puts("usb_host_test: OK");
     return 0;

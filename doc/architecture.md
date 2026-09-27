@@ -1,7 +1,7 @@
 # Arquitectura del firmware AVR
 
-Comportamiento de producto: [product_features.md](product_features.md).  
-Flujos de programas (fases, alarmas, rampas): [program_flows.md](program_flows.md).  
+Maestro de fases, alarmas y EEPROM: [program_flows.md](program_flows.md). Si este archivo discrepa, manda ese.  
+Producto: [product_features.md](product_features.md).  
 UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automation.md).
 
 Última revisión: 2026-09-27. Un solo binario (`make`). Sin perfiles PANEL/USB.
@@ -11,7 +11,7 @@ UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automati
 | Capa | Incluye | Regla |
 |------|---------|-------|
 | **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
-| **Shell** | `home_view`, `settings_view`, `usb_view`, ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
+| **Shell** | `home_view`, `settings_view` (PID, Sonido, ESTAB, P%, Aire), `usb_view`, ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
 
 Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`**, no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`).
 
@@ -61,8 +61,8 @@ Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PREHEAT`, `PID_TUNE
 | `delay_s` | HEAT: 0 = inmediato; >0 = PH_DELAY |
 | `ramp_*` | Perfil de escalones |
 | `temp_min_c` / `temp_max_c` | Safety + límites de consignas; aire OFF en min |
-| `pid_k*` / `atune_*` | Lazo, autoajuste, picos y stream `$HP` a 1 Hz |
-| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1 |
+| `pid_k*` / `atune_*` | Lazo y autoajuste. Picos en RAM. Stream `$HP` a 1 Hz solo si USB arrancó el autotune. Sin `$HP,PLOT` ni buffer de traza |
+| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1. PREHEAT AT usa `t_set` pleno |
 | `device_mode` | MANUAL vs USB |
 
 ## Navegación
@@ -71,7 +71,7 @@ Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PREHEAT`, `PID_TUNE
 flowchart LR
   home["HOME Heat Settings"]
   set["SETTINGS"]
-  pid["SET_PAGE_PID"]
+  pid["PID via AT only"]
   run["HOME en marcha"]
   usb["VIEW_USB"]
   home -->|Heat x2| run
@@ -83,7 +83,7 @@ flowchart LR
   usb -->|PRESS| home
 ```
 
-PREHEAT no aparece en Home (solo AT).
+PREHEAT no aparece en Home (solo AT). Ajustes: PID, Sonido, ESTAB, P%, Aire. La página PID muestra Auto (`RUN`/`OK`/`FAIL`) y las ganancias; no dibuja la curva.
 
 ## Super-loop
 
@@ -91,19 +91,21 @@ PREHEAT no aparece en Home (solo AT).
 flowchart TD
   r[refresh UI] --> e[encoder]
   e --> a[AT]
-  a --> s[sensor 1Hz + safety]
-  s --> p[program_tick + pid]
-  p --> t[telemetry]
+  a --> s["1 Hz: sensor, muestra PID o atune, safety"]
+  s --> p[process_tick]
+  p --> t["telemetry si dirty"]
   t --> b[buzzer]
   b --> r
 ```
+
+En ese tick de 1 Hz se arma el beep `READY` al entrar en `HOLD` o `DONE`, y el stream `$HP` si el autotune salió por USB.
 
 Detalle de fases: [program_flows.md](program_flows.md).
 
 ## Seguridad
 
-- Boot: PTC y fan OFF.
-- `temp ≥ temp_max_c` (válida) → heaters OFF, UART `OT`, `program_fault`.
+- Boot, fault y sobretemperatura: PTC y fan OFF.
+- `temp ≥ temp_max_c` (lectura válida) → UART `OT` (over-temperature, no es un pitido), fase `PH_FAULT`, `$HP` `ACTION=FAULT`.
 - Sensor inválido con programa activo (salvo DELAY/ALARM) → fault.
 
 ## Flash

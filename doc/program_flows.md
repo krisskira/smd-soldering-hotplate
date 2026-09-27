@@ -83,7 +83,7 @@ flowchart TD
   dly -->|si| wait[PH_DELAY PTC OFF]
   dly -->|no| phen
   wait -->|cuenta 0| phen{"preheat_en?"}
-  phen -->|no| r1
+  phen -->|no| r1["PH_RUN Ramp1 PID + hold_s"]
   phen -->|si| pre["PH_PREHEAT t = preheat_pct% de Ramp1"]
   pre --> stab["PH_STABILIZE banda ±2 C en ese t"]
   stab --> r1["PH_RUN Ramp1 PID + hold_s"]

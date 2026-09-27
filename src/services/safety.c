@@ -1,7 +1,6 @@
 #include "safety.h"
 #include "outputs.h"
-#include "lib/avr_uart/avr_uart.h"
-#include <avr/pgmspace.h>
+#include "proto_codes.h"
 
 uint8_t safety_apply_limit(app_state_t *st)
 {
@@ -15,6 +14,6 @@ uint8_t safety_apply_limit(app_state_t *st)
         return 0;
 
     outputs_heaters_off(st->out_state);
-    avr_uart_transmit_pstr(PSTR("OT\r\n"));
+    proto_emit_error((uint8_t)PROTO_ERR_OVER_TEMPERATURE);
     return 1;
 }

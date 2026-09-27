@@ -59,17 +59,17 @@ uint8_t pid_atune_active(const app_state_t *st)
     return (st && st->atune_phase == ATUNE_RUN) ? 1u : 0u;
 }
 
-void pid_atune_start(app_state_t *st)
+uint8_t pid_atune_start(app_state_t *st)
 {
     int16_t t;
 
     if (!st || !st->sensor.valid)
-        return;
+        return 1u;
     if (st->sensor.temp_c_x10 >= (int16_t)(st->temp_max_c * 10))
-        return;
+        return 1u;
     if (st->t_set_c < st->temp_min_c
         || st->t_set_c > (uint16_t)(st->temp_max_c - 10u))
-        return;
+        return 1u;
 
     pid_atune_cancel(st);
     st->atune_phase = ATUNE_RUN;
@@ -87,6 +87,7 @@ void pid_atune_start(app_state_t *st)
     s_half_sum = 0;
     s_half_n = 0;
     s_t0 = delay_ms();
+    return 0u;
 }
 
 static void finish_ok(app_state_t *st, uint16_t tu_ms, int16_t amp)

@@ -6,6 +6,7 @@
 #include "../cfg_store.h"
 #include "../buzzer_seq.h"
 #include "../at_cmd.h"
+#include "../proto_codes.h"
 #include "i18n/i18n_c.h"
 #include "lib/avr_delay/avr_delay.h"
 #include "lib/ports/ports.h"
@@ -84,10 +85,8 @@ static void preheat_tick(app_state_t *st)
 
 static void alarm_uart(uint8_t hold_heat)
 {
-    if (hold_heat)
-        avr_uart_transmit_pstr(PSTR("ALARM:PH-OK\r\n"));
-    else
-        avr_uart_transmit_pstr(PSTR("ALARM:DONE\r\n"));
+    proto_emit_alarm(hold_heat ? (uint8_t)PROTO_ALARM_PH_OK
+                               : (uint8_t)PROTO_ALARM_DONE);
 }
 
 /* Alarma con o sin calor; finish=1 arranca bomba si cooldown_en */
@@ -295,38 +294,6 @@ uint8_t program_is_active(const app_state_t *st)
     }
 }
 
-/* Punteros a literales en PROGMEM (usar con avr_uart_transmit_pstr). */
-const char *program_token(program_id_t p)
-{
-    switch (p) {
-    case PROG_HEAT:     return PSTR("HEAT");
-    case PROG_PREHEAT:  return PSTR("PREHEAT");
-    case PROG_PID_TUNE: return PSTR("PID_TUNE");
-    default:            return PSTR("PREHEAT");
-    }
-}
-
-const char *program_action_token(const app_state_t *st)
-{
-    if (!st)
-        return PSTR("IDLE");
-    if (pid_atune_active(st))
-        return PSTR("TUNING");
-    switch (st->phase) {
-    case PH_DELAY:     return PSTR("WAITING");
-    case PH_PREHEAT:   return PSTR("PREHEATING");
-    case PH_STABILIZE: return PSTR("STABILIZING");
-    case PH_HOLD:      return PSTR("HOLDING");
-    case PH_RUN:       return PSTR("RUNNING");
-    case PH_COOLDOWN:  return PSTR("COOLING");
-    case PH_ALARM:     return PSTR("ALARM");
-    case PH_DONE:      return PSTR("DONE");
-    case PH_FAULT:     return PSTR("FAULT");
-    case PH_IDLE:
-    default:           return PSTR("IDLE");
-    }
-}
-
 const char *program_phase_name(process_phase_t p)
 {
     switch (p) {
@@ -441,9 +408,9 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
 
     switch (st->program) {
     case PROG_PID_TUNE:
-        pid_atune_start(st);
-        at_cmd_set_stream(st, (uint8_t)(src == CTRL_USB
-                                        && st->atune_phase == ATUNE_RUN));
+        if (pid_atune_start(st) != 0u)
+            return PROG_ERR_PARAM;
+        at_cmd_set_stream(st, (uint8_t)(src == CTRL_USB ? 1u : 0u));
         TELEM_DIRTY(st);
         return PROG_OK;
 

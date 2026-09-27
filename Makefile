@@ -87,6 +87,8 @@ SRC := \
 	src/services/sensor_service.c \
 	src/services/safety.c \
 	src/services/device_session.c \
+	src/services/proto_tokens.c \
+	src/services/proto_emit.c \
 	src/services/at_cmd.c \
 	src/services/telemetry.c \
 	lib/i18n/i18n.c
@@ -98,11 +100,16 @@ ALL_SRC := $(SRC) $(LIB_SRC)
 OBJ := $(patsubst %.c,$(BUILD)/%.o,$(ALL_SRC))
 TARGET = firmware
 
+# LTO + avr-ld: dos `make` a la vez corrompen .o → "ELF section name out of range".
+# Escritura atómica de objetos + sin paralelismo en este Makefile.
+.NOTPARALLEL:
+
 all: $(BUILD)/$(TARGET).hex
 
 $(BUILD)/$(TARGET).elf: $(OBJ)
 	@mkdir -p $(BUILD)
-	$(LD) $(OBJ) $(LDFLAGS) -o $@
+	$(LD) $(OBJ) $(LDFLAGS) -o $@.tmp
+	mv -f $@.tmp $@
 
 $(BUILD)/$(TARGET).hex: $(BUILD)/$(TARGET).elf
 	$(OBJCOPY) -O ihex $< $@
@@ -110,11 +117,13 @@ $(BUILD)/$(TARGET).hex: $(BUILD)/$(TARGET).elf
 
 $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@.tmp
+	mv -f $@.tmp $@
 
 $(BUILD)/%.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@.tmp
+	mv -f $@.tmp $@
 
 flash: all
 	avrdude -c $(PROGRAMMER) -p m16 -P $(PORT) -b $(BAUD) \
@@ -128,9 +137,38 @@ program: all flash size
 clean:
 	rm -rf build
 
-.PHONY: all flash size program clean usb-host-test
+.PHONY: all flash size program clean test usb-host-test flow-host-test pid-atune-host-test
 
+# Contrato UART + catálogo AT
 usb-host-test:
 	@mkdir -p build
-	g++ -std=c++11 -Wall -o build/usb_host_test test/usb_host_test.cpp
+	g++ -std=c++11 -Wall -I. -I./src -I./src/services -I./src/app \
+		-o build/usb_host_test test/usb_host_test.cpp
 	./build/usb_host_test
+
+# Flujos HEAT / PREHEAT / PID_TUNE (máquina de fases + AT)
+flow-host-test:
+	@mkdir -p build
+	g++ -std=c++11 -Wall -I. -I./src -I./src/services -I./src/app \
+		-o build/flow_host_test test/flow_host_test.cpp
+	./build/flow_host_test
+
+# Autotune real (pid_atune.c) con stubs host
+pid-atune-host-test:
+	@mkdir -p build/test
+	gcc -std=c11 -Wall -DHOST_TEST \
+		-I. -I./src -I./src/services -I./src/app -I./lib \
+		-c src/services/pid_atune.c -o build/test/pid_atune_host.o
+	gcc -std=c11 -Wall -DHOST_TEST \
+		-I. -I./src -I./src/services -I./src/app -I./lib \
+		-c test/host_stubs.c -o build/test/host_stubs.o
+	g++ -std=c++11 -Wall -DHOST_TEST \
+		-I. -I./src -I./src/services -I./src/app -I./lib \
+		-c test/pid_atune_host_test.cpp -o build/test/pid_atune_host_test.o
+	g++ -o build/pid_atune_host_test \
+		build/test/pid_atune_host.o build/test/host_stubs.o \
+		build/test/pid_atune_host_test.o
+	./build/pid_atune_host_test
+
+test: usb-host-test flow-host-test pid-atune-host-test
+	@echo "all host tests: OK"
