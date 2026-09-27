@@ -78,6 +78,14 @@ int main(void)
     CHECK(std::strstr(cfg, "PCT=80") != nullptr);
     CHECK(std::strstr(cfg, "RN=2") != nullptr);
 
+    const char *ramps =
+        "$R,N=2,0=180/90,1=220/60,2=100/60,3=125/60";
+    CHECK(std::strstr(ramps, "$R,") != nullptr);
+    CHECK(std::strstr(ramps, "N=2") != nullptr);
+    CHECK(std::strstr(ramps, "0=180/90") != nullptr);
+    CHECK(std::strstr(ramps, "1=220/60") != nullptr);
+    CHECK(std::strstr(ramps, "3=125/60") != nullptr);
+
     /* parse helpers */
     {
         const char *p;

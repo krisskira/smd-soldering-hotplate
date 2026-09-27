@@ -104,6 +104,27 @@ void telemetry_emit_cfg(const app_state_t *st)
     avr_uart_transmit_pstr(PROTO_CRLF);
 }
 
+/* $R,N=<n>,0=<°C>/<s>,1=...,2=...,3=... — siempre 4 huecos. */
+void telemetry_emit_ramps(const app_state_t *st)
+{
+    uint8_t i;
+
+    if (!st)
+        return;
+
+    avr_uart_transmit_pstr(PSTR("$R"));
+    kv_u(PSTR(",N="), st->ramp_n);
+    for (i = 0; i < RAMP_STEPS_MAX; i++) {
+        avr_uart_transmit_char(',');
+        avr_uart_transmit_char((char)('0' + i));
+        avr_uart_transmit_char('=');
+        proto_put_u16(st->ramp_step[i].temp_c);
+        avr_uart_transmit_char('/');
+        proto_put_u16(st->ramp_step[i].hold_s);
+    }
+    avr_uart_transmit_pstr(PROTO_CRLF);
+}
+
 void telemetry_tick(const app_state_t *st)
 {
     app_state_t *mut;

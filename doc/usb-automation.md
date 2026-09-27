@@ -90,6 +90,7 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 | `AT+CFG=H,<en>,<pct>,<stab>,<delay>,<air>,<snd>` | sí | Flujo HEAT | global + `ee_heat` | `OK` |
 | `AT+CFG=P,<kp>,<ki>,<kd>` | sí | Ganancias ×10, 0..999 | global | `OK` |
 | `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0..3 | `ee_ramp` | `OK` |
+| `AT+CFG=R?` | sí | Emite `$R` (escalones) | — | `$R` + `OK` |
 | `AT+CFG=A` | sí | Copia resultado autotune → PID si `ATUNE_DONE` | global | `OK` |
 | `AT+CFG?` | sí | Emite `$CF` | — | `$CF` + `OK` |
 
@@ -97,7 +98,7 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 
 `CFG=S`: min 30..100, max 40..250, min ≤ max.
 
-`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir un escalón define el perfil (`ramp_n` crece hasta cubrir el índice).
+`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir un escalón define el perfil (`ramp_n` crece hasta cubrir el índice). `CFG=R?` lee los cuatro huecos (`$R`); no achica `N`.
 
 `RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99.
 
@@ -121,7 +122,7 @@ Con stream de autotune se añade:
 | `T` | Temperatura ×10 o `---` |
 | `P` `A` | PROGRAM / ACTION |
 | `SET` `DLY` `RUN` `EL` | Consigna, delay, remain, elapsed |
-| `DU` `F` `RI` `FL` | Duty del banco PTC, fan, índice de rampa, fault |
+| `DU` `F` `RI` `FL` | Duty del banco PTC, fan, índice del escalón en curso (`ramp_idx`), fault. `RI` no es el perfil; el contenido de cada escalón va en `$R` |
 | `AP` | `atune_phase` (0 IDLE, 1 RUN, 2 DONE, 3 FAIL). Solo en stream |
 | `AC` | Ciclos ya cerrados. Solo en stream |
 | `AK` `AI` `AD` | Resultado ×10. Cero hasta DONE. Solo en stream |
@@ -137,7 +138,19 @@ $CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,KD=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
 DLY=<s>,AIR=0|1,SND=0|1,RN=<ramp_n>
 ```
 
+`RN` es cuántos escalones cuenta el programa (`ramp_n`, 1..4). No trae °C ni hold; eso sale en `$R`.
+
 No se exponen dirty flags ni se permite forzar calentadores fuera del runner/PID.
+
+## Lectura — escalones `$R`
+
+Solo `AT+CFG=R?`. Emite siempre los cuatro huecos (0..3); `N` dice cuántos usa HEAT.
+
+```
+$R,N=<n>,0=<°C>/<s>,1=<°C>/<s>,2=<°C>/<s>,3=<°C>/<s>
+```
+
+Ejemplo: `$R,N=2,0=180/90,1=220/60,2=100/60,3=125/60`.
 
 ## Arranque
 
@@ -180,7 +193,7 @@ PRESS local → `ERROR:8` (no es STOP).
 
 ## Gaps
 
-Sin comando AT: `alarm_duration_s`, `alarm_period_s`, lectura de escalones.
+Sin comando AT: `alarm_duration_s`, `alarm_period_s`. `ramp_n` solo crece al escribir un índice alto; no hay forma de achicarlo por AT.
 
 ## Streams
 
@@ -188,7 +201,17 @@ Sin comando AT: `alarm_duration_s`, `alarm_period_s`, lectura de escalones.
 |--------|--------|-----|
 | Foto de proceso | `STAT?`, `MODE`, cambios de fase, beep de alarma | un disparo |
 | Settings | `CFG?` | un disparo |
+| Escalones | `CFG=R?` | un disparo |
 | Autotune 1 Hz | `RUN=2` OK | STOP / fin DONE\|FAIL / fault |
+
+## Herramienta host
+
+UI de escritorio en la raíz del repo: [`host-ui/`](../../../host-ui/). Habla este contrato por puerto serie (sin simulador).
+
+```bash
+pip install -r host-ui/requirements.txt
+python host-ui/app.py
+```
 
 ## Nota Flash
 
@@ -197,5 +220,6 @@ Medición LTO (`make size`), mismo árbol, UI todavía enlazada:
 | | Program |
 |--|--------:|
 | Catálogo AT anterior (22 comandos, `$HP` con settings) | 16098 B |
-| Verbos `MODE/RUN/CFG/STAT` + `$HP` de proceso | **15618 B** |
-| **Δ** | **−480 B** |
+| Verbos `MODE/RUN/CFG/STAT` + `$HP` de proceso | 15618 B |
+| + `CFG=R?` / trama `$R` | **15738 B** |
+| **Δ** vs catálogo anterior | **−360 B** |

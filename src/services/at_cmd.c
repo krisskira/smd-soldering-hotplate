@@ -315,6 +315,12 @@ static uint8_t handle_cfg(app_state_t *st, const char *args)
         ok_dirty(st);
         return 0u;
     }
+    /* AT+CFG=R? — lectura de escalones (args "R?", sin coma). */
+    if (g == 'R' && args[1] == '?' && args[2] == '\0') {
+        telemetry_emit_ramps(st);
+        reply_ok(st);
+        return 0u;
+    }
     if (args[1] != ',')
         return 1u;
     args += 2;
