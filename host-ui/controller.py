@@ -237,6 +237,7 @@ class AppController:
     def stop(self) -> None:
         was_heat = self.state.recording_heat or self.heat.is_heat_running()
         self.state.recording_heat = False
+        self.state.heat_seen_active = False
         self.tune.stop_recording()
         if was_heat:
             self._unlock_heat_poll()
@@ -276,10 +277,12 @@ class AppController:
         self.heat.chart.clear()
         self.heat.sync_chart_ylim()
         self.state.recording_heat = True
+        self.state.heat_seen_active = False
         self._lock_heat_poll()
 
         def _fail(_r=None) -> None:
             self.state.recording_heat = False
+            self.state.heat_seen_active = False
             self._unlock_heat_poll()
             messagebox.showerror(
                 "HEAT",
@@ -634,6 +637,7 @@ class AppController:
         heat_running = p == 1 and a in (1, 2, 3, 4, 5, 6, 7)
         heat_ending = p == 1 and a in (8, 9)
         if self.state.recording_heat and (heat_running or heat_ending):
+            self.state.heat_seen_active = True
             now = time.time()
             if self.state.t0 is None:
                 self.state.t0 = now
@@ -657,9 +661,11 @@ class AppController:
             )
             if heat_ending:
                 self.state.recording_heat = False
+                self.state.heat_seen_active = False
                 self._unlock_heat_poll()
-        elif self.state.recording_heat and not heat_running:
+        elif self.state.recording_heat and self.state.heat_seen_active:
             self.state.recording_heat = False
+            self.state.heat_seen_active = False
             self._unlock_heat_poll()
 
     def clear_plot(self) -> None:

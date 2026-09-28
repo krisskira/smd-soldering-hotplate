@@ -23,6 +23,9 @@ class SessionState:
     trace: list = field(default_factory=list)
     t0: Optional[float] = None
     recording_heat: bool = False
+    # Evita que un STAT? IDLE pendiente desarme la captura justo antes del
+    # OK de AT+RUN=1. Solo se acepta IDLE como fin tras ver HEAT activo.
+    heat_seen_active: bool = False
     poll_stat_enabled: bool = True
     stat_interval_label: str = "1 s"
 
@@ -31,11 +34,13 @@ class SessionState:
         self.usb_mode = False
         self.conn_port = ""
         self.recording_heat = False
+        self.heat_seen_active = False
 
     def clear_samples(self) -> None:
         self.samples.clear()
         self.trace.clear()
         self.t0 = None
+        self.heat_seen_active = False
 
     def append_sample(
         self,
