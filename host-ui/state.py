@@ -6,7 +6,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from constants import MAX_SAMPLES
+from constants import MAX_SAMPLES, TEMP_MAX_C_DEFAULT, TEMP_MIN_C_DEFAULT
 
 
 @dataclass
@@ -14,8 +14,8 @@ class SessionState:
     device_online: bool = False
     usb_mode: bool = False
     conn_port: str = ""
-    tmin: int = 40
-    tmax: int = 200
+    tmin: int = TEMP_MIN_C_DEFAULT
+    tmax: int = TEMP_MAX_C_DEFAULT
     last_hp: dict[str, Any] = field(default_factory=dict)
     last_cf: dict[str, Any] = field(default_factory=dict)
     samples: deque = field(default_factory=lambda: deque(maxlen=MAX_SAMPLES))

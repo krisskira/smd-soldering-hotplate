@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 
-/* Safety / consignas (también en EEPROM v6) */
+/* Safety / consignas (también en EEPROM v7) */
 #define TEMP_MIN_C_DEFAULT     50u   /* OFF aire + piso default */
-#define TEMP_MAX_C_DEFAULT     240u  /* corte safety default */
+#define TEMP_MAX_C_DEFAULT     250u  /* corte safety default */
 #define TEMP_MIN_C_LO          50u
 #define TEMP_MIN_C_HI          100u
 #define TEMP_MAX_C_LO          40u
@@ -71,14 +71,15 @@
 #define USB_SEL_COUNT     2u
 
 #define PID_WINDOW_MS     2000u
-#define PID_KP_DEFAULT    20
-#define PID_KI_DEFAULT    5
-#define PID_KD_DEFAULT    10
+#define PID_KP_DEFAULT    246
+#define PID_KI_DEFAULT    692
+#define PID_KD_DEFAULT    216
 
-/* Autotune (SSR bang-bang); defaults EEPROM v6 */
-#define ATUNE_MIN_CYCLES  3u
-#define ATUNE_MAX_CYCLES  10u
-#define ATUNE_MAX_S_DEFAULT  720u   /* timeout global del RUN (s) */
+/* Autotune (SSR bang-bang); defaults EEPROM v7 */
+#define ATUNE_MIN_CYCLES     3u
+#define ATUNE_MAX_CYCLES     10u
+#define ATUNE_CYCLES_DEFAULT 5u
+#define ATUNE_MAX_S_DEFAULT  2000u  /* timeout global del RUN (s) */
 #define ATUNE_MAX_S_LO       120u
 #define ATUNE_MAX_S_HI       3600u
 #define ATUNE_HYST_C_X10  15
@@ -102,6 +103,6 @@
 #define AT_LINE_MAX       32u
 
 #define CFG_EEPROM_MAGIC  0xA5u
-#define CFG_EEPROM_VER    6u
+#define CFG_EEPROM_VER    7u
 
 #endif

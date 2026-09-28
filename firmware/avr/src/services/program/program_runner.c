@@ -228,15 +228,12 @@ void program_init(app_state_t *st)
     st->cooldown_air_en = 1;
     st->temp_min_c = TEMP_MIN_C_DEFAULT;
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
-    st->atune_cycles_target = ATUNE_MIN_CYCLES;
+    st->atune_cycles_target = ATUNE_CYCLES_DEFAULT;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
     st->atune_max_s = ATUNE_MAX_S_DEFAULT;
     st->atune_stream = 0;
         st->device_mode = DEVICE_MANUAL;
     st->telem_dirty = 0;
-    st->pid_kp_x10 = PID_KP_DEFAULT;
-    st->pid_ki_x10 = PID_KI_DEFAULT;
-    st->pid_kd_x10 = PID_KD_DEFAULT;
     st->pid_loop = PID_OFF;
     st->atune_phase = ATUNE_IDLE;
     st->buzz_nav_en = 1;

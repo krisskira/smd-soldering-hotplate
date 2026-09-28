@@ -1,6 +1,6 @@
 {
-  "temp": 80,
-  "cycles": 3,
-  "hyst": 50,
-  "max_s": 600
+  "temp": 100,
+  "cycles": 5,
+  "hyst": 15,
+  "max_s": 2000
 }

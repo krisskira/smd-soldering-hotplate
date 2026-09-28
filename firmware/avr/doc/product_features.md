@@ -48,7 +48,7 @@ Labels LCD (i18n, CAPS inglés): `IDLE` `WAIT` `PREHEAT` `STABLE` `ALM` `RUN` `E
 | DLY | `delay_s` de HEAT (±1 min, desde 0). No se edita desde la casilla Heat |
 
 Aire (`cooldown_air_en`), sonido / ESTAB / P% / PID / autotune: solo AT.  
-Timeout autotune (`atune_max_s` / `$CF AMS=`): 120..3600 s, default **720**.
+Timeout autotune (`atune_max_s` / `$CF AMS=`): 120..3600 s, default **2000**.
 
 ## Alarmas
 
@@ -58,9 +58,9 @@ Detalle en [program_flows.md](program_flows.md). Contrato corto:
 - La columna Beep nombra una categoría (ancho del pulso + repeticiones), no una frecuencia en Hz.
 - El token de fase va en `$HP` `A=`, no en una línea UART de alarma aparte (salvo `ALARM:n` de proceso).
 
-## EEPROM v6
+## EEPROM v7
 
-Global: ganancias PID, `atune_cycles_target`, `atune_hyst_c_x10`, `atune_max_s`, `temp_min_c`, `temp_max_c`, `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque con ver distinta (p.ej. v5) no se migra: vuelven los defaults.  
+Global: ganancias PID (default Kp **246** / Ki **692** / Kd **216**), `atune_cycles_target` (default **5**), `atune_hyst_c_x10` (default **15**), `atune_max_s` (default **2000**), `temp_min_c` (default **50**), `temp_max_c` (default **250**), `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque con ver distinta (p.ej. v6) no se migra: vuelven los defaults.  
 Programas: `ee_heat` (delay), `ee_tune`. Rampas: `ee_ramp`. No hay `ee_pre`.  
 Picos de autotune y la fase viva no se guardan.
 

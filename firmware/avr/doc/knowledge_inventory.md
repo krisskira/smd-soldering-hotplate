@@ -21,7 +21,7 @@
 | Documento | Estado | Notas |
 |-----------|--------|-------|
 | `product_features.md` | Vigente | Shell / Home / labels LCD |
-| `program_flows.md` | Vigente | **Maestro** de fases, beeps, EEPROM v6 |
+| `program_flows.md` | Vigente | **Maestro** de fases, beeps, EEPROM v7 |
 | `architecture.md` | Vigente | Mapa de módulos y super-loop |
 | `ui_style_guide.md` | Vigente | 5×7 + 8×12 + iconos **16×16**; Home vía `home_view` |
 | `usb-automation.md` | Vigente | Contrato AT; fases detalladas en `program_flows.md` |
@@ -33,7 +33,7 @@
 
 ```
 src/main.c                      super-loop
-src/app/app_config.h            constantes, HOME_DIRTY_*, EEPROM v6
+src/app/app_config.h            constantes, HOME_DIRTY_*, EEPROM v7
 src/app/app_state.h             app_state_t, fases, PROG_HEAT / PROG_PID_TUNE
 src/ui/ui_router.c              → home_view
 src/ui/home_view.c              Heat + Settings embebido + overlay USB

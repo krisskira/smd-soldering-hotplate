@@ -39,7 +39,7 @@
 | hotplate-preheat | Fase PREHEAT de HEAT |
 | hotplate-pid | PID / autotune |
 | hotplate-usb-mode | AT / `$HP` |
-| hotplate-app-state | Menús / EEPROM v6 |
+| hotplate-app-state | Menús / EEPROM v7 |
 | hotplate-feature-development | Features generales |
 
 ## Critical Rules

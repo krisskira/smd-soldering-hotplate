@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from constants import TUNE_CACHE
+from constants import TUNE_CACHE, TUNE_MAX_S_DEFAULT
 
 
 def load_tune() -> Optional[dict[str, int]]:
@@ -17,14 +17,14 @@ def load_tune() -> Optional[dict[str, int]]:
             "temp": int(data["temp"]),
             "cycles": int(data["cycles"]),
             "hyst": int(data["hyst"]),
-            "max_s": int(data.get("max_s", 600)),
+            "max_s": int(data.get("max_s", TUNE_MAX_S_DEFAULT)),
         }
         return out
     except Exception:
         return None
 
 
-def save_tune(temp: int, cycles: int, hyst: int, max_s: int = 600) -> None:
+def save_tune(temp: int, cycles: int, hyst: int, max_s: int = TUNE_MAX_S_DEFAULT) -> None:
     data = {"temp": temp, "cycles": cycles, "hyst": hyst, "max_s": max_s}
     try:
         TUNE_CACHE.write_text(json.dumps(data, indent=2), encoding="utf-8")

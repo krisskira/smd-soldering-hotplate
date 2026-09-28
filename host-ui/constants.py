@@ -8,8 +8,19 @@ TUNE_CACHE = ROOT / "tune_params.json"
 
 MAX_SAMPLES = 900
 POLL_MS = 50
-# Ventana inicial del eje X (Tiempo s) en todas las gráficas LiveChart.
+# Ventana inicial del eje X de HEAT. El autoajuste usa el timeout del formulario.
 CHART_X_SPAN_S = 300.0
+
+# Valores de fábrica (EEPROM v7 y campos de la app antes de leer $CF).
+TUNE_TEMP_C_DEFAULT = 100
+TUNE_CYCLES_DEFAULT = 5
+TUNE_HYST_X10_DEFAULT = 15
+TUNE_MAX_S_DEFAULT = 2000
+TEMP_MIN_C_DEFAULT = 50
+TEMP_MAX_C_DEFAULT = 250
+PID_KP_DEFAULT = 246
+PID_KI_DEFAULT = 692
+PID_KD_DEFAULT = 216
 
 STAT_INTERVALS_MS = {
     "1 s": 1_000,

@@ -1,19 +1,19 @@
 {
-  "n": 1,
+  "n": 3,
   "steps": [
     {
       "active": true,
-      "temp": 65,
+      "temp": 100,
+      "hold": 30
+    },
+    {
+      "active": true,
+      "temp": 80,
       "hold": 60
     },
     {
-      "active": false,
-      "temp": 0,
-      "hold": 150
-    },
-    {
-      "active": false,
-      "temp": 155,
+      "active": true,
+      "temp": 60,
       "hold": 60
     },
     {

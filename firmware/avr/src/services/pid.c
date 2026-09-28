@@ -12,9 +12,7 @@ void pid_init(app_state_t *st)
 {
     if (!st)
         return;
-    st->pid_kp_x10 = PID_KP_DEFAULT;
-    st->pid_ki_x10 = PID_KI_DEFAULT;
-    st->pid_kd_x10 = PID_KD_DEFAULT;
+    /* Kp/Ki/Kd los pone cfg_load_global (EEPROM o cfg_store_defaults). */
     st->pid_loop = PID_OFF;
     st->duty_pct = 0;
     pid_reset(st);

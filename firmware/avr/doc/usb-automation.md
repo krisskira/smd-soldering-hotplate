@@ -101,7 +101,7 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 
 `CFG=R`: °C dentro de min..max, hold 1..3600. Escribir un escalón define el perfil (`ramp_n` crece hasta cubrir el índice). `CFG=R?` lee los cuatro huecos (`$R`); no achica `N`.
 
-`RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 600 s). Si se omite, usa el valor guardado.
+`RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 2000 s). Si se omite, usa el valor guardado.
 
 `CFG=T`: ciclos 3..10, hyst 1..99, `max_s` 120..3600. No arranca el proceso.
 
@@ -186,7 +186,7 @@ AT+RUN=2,150,5,15,1200
 - Fuera de rango → `ERROR:2` (no hay `OK` vacío).
 - Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI,AD` mientras corre.
 - En medio-ciclo OFF: fan ON (acelera enfriamiento / reduce tiempo sobre consigna).
-- Timeout global: `AMS` / `max_s` (default **720** s); FAIL si se supera.
+- Timeout global: `AMS` / `max_s` (default **2000** s); FAIL si se supera.
 - Al terminar: una trama con `AP=2` y `AK/AI/AD`.
 - Aplicar al PID de trabajo: `AT+CFG=A` → EEPROM. Si no DONE → `ERROR:2`.
 

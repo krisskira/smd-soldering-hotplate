@@ -3,8 +3,8 @@
 #include <avr/eeprom.h>
 
 /*
- * EEPROM v6: global (PID + atune + atune_max_s + safety + preheat_pct)
- * + ee_heat/tune + rampas. Ver distinta (p.ej. v5) → defaults, sin migración.
+ * EEPROM v7: global (PID + atune + atune_max_s + safety + preheat_pct)
+ * + ee_heat/tune + rampas. Ver distinta (p.ej. v6) → defaults, sin migración.
  */
 
 typedef struct {
@@ -78,7 +78,7 @@ void cfg_store_defaults(app_state_t *st)
     st->cooldown_air_en = 1;
     st->temp_min_c = TEMP_MIN_C_DEFAULT;
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
-    st->atune_cycles_target = ATUNE_MIN_CYCLES;
+    st->atune_cycles_target = ATUNE_CYCLES_DEFAULT;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
     st->atune_max_s = ATUNE_MAX_S_DEFAULT;
     st->t_set_c = 150;
@@ -124,7 +124,7 @@ uint8_t cfg_load_global(app_state_t *st)
         st->temp_min_c = TEMP_MIN_C_DEFAULT;
     st->atune_cycles_target = (b.atune_cycles_target >= ATUNE_MIN_CYCLES
                                && b.atune_cycles_target <= ATUNE_MAX_CYCLES)
-        ? b.atune_cycles_target : ATUNE_MIN_CYCLES;
+        ? b.atune_cycles_target : ATUNE_CYCLES_DEFAULT;
     st->atune_hyst_c_x10 = (b.atune_hyst_c_x10 > 0 && b.atune_hyst_c_x10 < 100)
         ? b.atune_hyst_c_x10 : ATUNE_HYST_C_X10;
     st->atune_max_s = clamp_u16(b.atune_max_s, ATUNE_MAX_S_LO, ATUNE_MAX_S_HI);

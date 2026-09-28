@@ -11,6 +11,32 @@ from tkinter import ttk
 from constants import CHART_X_SPAN_S
 
 
+def _x_major_step(span_s: float) -> float:
+    """Paso de marcas que divide el tramo y cae en un número redondo."""
+    span = max(int(round(span_s)), 1)
+    best = float(span)
+    best_score = -1
+    for parts in range(4, 9):
+        if span % parts != 0:
+            continue
+        step = span // parts
+        score = parts
+        if step % 100 == 0:
+            score += 30
+        elif step % 50 == 0:
+            score += 20
+        elif step % 10 == 0:
+            score += 10
+        elif step % 5 == 0:
+            score += 5
+        if score > best_score:
+            best_score = score
+            best = float(step)
+    if best_score < 0:
+        return span / 5.0
+    return best
+
+
 class LiveChart:
     def __init__(
         self,
@@ -25,11 +51,13 @@ class LiveChart:
         show_live_info: bool = False,
         start_label: str = "Iniciar",
         x_span_s: float = CHART_X_SPAN_S,
+        x_locked: bool = False,
     ) -> None:
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
         from matplotlib.figure import Figure
 
         self._y_max: Optional[float] = None
+        self._x_locked = bool(x_locked)
         self._x_span_s = max(float(x_span_s), 1.0)
         self._frame = ttk.LabelFrame(parent, text=title)
         self._frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -78,6 +106,8 @@ class LiveChart:
         self.ax2.set_ylim(0, 110)
         self.ax.set_ylim(0, 100)
         self.ax.set_xlim(0, self._x_span_s)
+        if self._x_locked:
+            self._apply_x_measures()
 
         (self.line_t,) = self.ax.plot(
             [],
@@ -121,6 +151,22 @@ class LiveChart:
         self.var_phase.set(f"Fase: {phase}")
         self.var_temp.set(f"T medida: {temp_c}")
 
+    def _apply_x_measures(self) -> None:
+        from matplotlib.ticker import FuncFormatter, MultipleLocator
+
+        self.ax.set_xlim(0, self._x_span_s)
+        self.ax.xaxis.set_major_locator(MultipleLocator(_x_major_step(self._x_span_s)))
+        self.ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda v, _pos: f"{int(round(v))}")
+        )
+
+    def set_x_span(self, span_s: float) -> None:
+        """Fija el largo del eje X y sus marcas a `span_s` segundos."""
+        self._x_span_s = max(float(span_s), 1.0)
+        self._x_locked = True
+        self._apply_x_measures()
+        self.canvas.draw_idle()
+
     def set_y_max(self, y_max: float) -> None:
         self._y_max = max(float(y_max), 1.0)
         self.ax.set_ylim(0, self._y_max)
@@ -148,9 +194,12 @@ class LiveChart:
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
 
-        # Mantener al menos CHART_X_SPAN_S; crecer si la curva supera ese tramo.
-        t_end = max(float(xs[-1]), self._x_span_s)
-        self.ax.set_xlim(0, t_end)
+        if self._x_locked:
+            self.ax.set_xlim(0, self._x_span_s)
+        else:
+            # Mantener al menos el tramo inicial; crecer si la curva lo supera.
+            t_end = max(float(xs[-1]), self._x_span_s)
+            self.ax.set_xlim(0, t_end)
         self.ax2.set_ylim(0, 110)
 
         for coll in list(self.ax.collections):
@@ -168,7 +217,10 @@ class LiveChart:
             coll.remove()
         if self._y_max is not None:
             self.ax.set_ylim(0, self._y_max)
-        self.ax.set_xlim(0, self._x_span_s)
+        if self._x_locked:
+            self._apply_x_measures()
+        else:
+            self.ax.set_xlim(0, self._x_span_s)
         self.ax2.set_ylim(0, 110)
         self.var_phase.set("Fase: —")
         self.var_temp.set("T medida: —")

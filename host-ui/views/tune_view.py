@@ -12,7 +12,13 @@ from tkinter import ttk
 import protocol as proto
 import tune_store
 from chart import LiveChart
-from constants import MAX_SAMPLES
+from constants import (
+    MAX_SAMPLES,
+    TUNE_CYCLES_DEFAULT,
+    TUNE_HYST_X10_DEFAULT,
+    TUNE_MAX_S_DEFAULT,
+    TUNE_TEMP_C_DEFAULT,
+)
 from widgets.tooltip import ToolTip
 
 if TYPE_CHECKING:
@@ -28,7 +34,7 @@ class TuneView:
         self.samples: deque = deque(maxlen=MAX_SAMPLES)
         self.history: list[tuple[float, float, float, float]] = []
         self._t0: Optional[float] = None
-        self._cycles_target = 5
+        self._cycles_target = TUNE_CYCLES_DEFAULT
         self.recording = False
 
         row1 = ttk.Frame(parent)
@@ -37,10 +43,10 @@ class TuneView:
 
         # --- Parámetros + Guardar ---
         params = ttk.LabelFrame(row1, text="Parámetros de autoajuste")
-        self.var_ttemp = tk.StringVar(value="150")
-        self.var_tcyc = tk.StringVar(value="5")
-        self.var_thyst = tk.StringVar(value="15")
-        self.var_tmax_s = tk.StringVar(value="600")
+        self.var_ttemp = tk.StringVar(value=str(TUNE_TEMP_C_DEFAULT))
+        self.var_tcyc = tk.StringVar(value=str(TUNE_CYCLES_DEFAULT))
+        self.var_thyst = tk.StringVar(value=str(TUNE_HYST_X10_DEFAULT))
+        self.var_tmax_s = tk.StringVar(value=str(TUNE_MAX_S_DEFAULT))
         for r, (lab, var, tip) in enumerate(
             [
                 (
@@ -64,7 +70,8 @@ class TuneView:
                 (
                     "Timeout máximo (s)",
                     self.var_tmax_s,
-                    "Timeout global del autoajuste\nRango: 120…3600 s (default 600)\n"
+                    "Timeout global del autoajuste\nRango: 120…3600 s (default 2000)\n"
+                    "El eje X de la curva usa este valor.\n"
                     "AT+CFG=T,…,<max_s>  ·  AT+RUN=2,…,<max_s>  ·  $CF AMS=",
                 ),
             ]
@@ -164,10 +171,14 @@ class TuneView:
             on_clear=self.clear_chart,
             start_label="Iniciar autoajuste",
             figsize=(8, 3.8),
+            x_span_s=float(TUNE_MAX_S_DEFAULT),
+            x_locked=True,
         )
         self.var_ttemp.trace_add("write", lambda *_: self.sync_chart_ylim())
+        self.var_tmax_s.trace_add("write", lambda *_: self.sync_chart_x())
         self._load_cached_params()
         self.sync_chart_ylim()
+        self.sync_chart_x()
 
     def _load_cached_params(self) -> None:
         data = tune_store.load_tune()
@@ -176,27 +187,39 @@ class TuneView:
         self.var_ttemp.set(str(data["temp"]))
         self.var_tcyc.set(str(data["cycles"]))
         self.var_thyst.set(str(data["hyst"]))
-        self.var_tmax_s.set(str(data.get("max_s", 600)))
+        self.var_tmax_s.set(str(data.get("max_s", TUNE_MAX_S_DEFAULT)))
 
     def target_ymax(self) -> float:
         try:
             return max(float(self.var_ttemp.get()) * 1.5, 1.0)
         except ValueError:
-            return 150.0
+            return float(TUNE_TEMP_C_DEFAULT) * 1.5
 
     def sync_chart_ylim(self) -> None:
         if hasattr(self, "chart"):
             self.chart.set_y_max(self.target_ymax())
 
+    def sync_chart_x(self) -> None:
+        """Largo y marcas del eje X = timeout máximo del formulario."""
+        if not hasattr(self, "chart"):
+            return
+        try:
+            span = int(self.var_tmax_s.get())
+        except ValueError:
+            return
+        if 120 <= span <= 3600:
+            self.chart.set_x_span(float(span))
+
     def begin_run(self) -> None:
         try:
             self._cycles_target = int(self.var_tcyc.get())
         except ValueError:
-            self._cycles_target = 5
+            self._cycles_target = TUNE_CYCLES_DEFAULT
         self.recording = True
         self.samples.clear()
         self.history.clear()
         self._t0 = None
+        self.sync_chart_x()
         self.chart.clear()
         self.sync_chart_ylim()
         self.progress["value"] = 0
@@ -274,7 +297,7 @@ class TuneView:
         band = None
         if fields.get("SET") is not None:
             band = self.hyst_band(float(fields["SET"]))
-        self.chart.redraw(self.samples, band, y_max=self.target_ymax())
+        self.chart.redraw(self.history, band, y_max=self.target_ymax())
 
         if finished:
             self.recording = False

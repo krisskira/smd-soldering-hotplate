@@ -7,7 +7,7 @@
 
 /*
  * Autotune bang-bang SSR (Åström–Hägglund) → Ziegler–Nichols.
- * Salida: MOC3021 + BT136. Ciclos/hyst/timeout desde app_state (EEPROM v6).
+ * Salida: MOC3021 + BT136. Ciclos/hyst/timeout desde app_state (EEPROM v7).
  * Fan ON en medio-ciclo OFF (enfriamiento) para acortar Tu y limitar
  * tiempo de componentes SMD por encima de la consigna.
  */

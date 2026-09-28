@@ -24,7 +24,7 @@ Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). N
 ```
 firmware/avr/
   src/main.c                 super-loop; g_state
-  src/app/                   app_state.h, app_config.h (EEPROM v6)
+  src/app/                   app_state.h, app_config.h (EEPROM v7)
   src/ui/                    home (Heat|Ajustes embebido|overlay USB)
   src/ui/core/               window, bands, texto
   src/services/program/      máquina de fases (HEAT con fase PREHEAT / PID_TUNE)

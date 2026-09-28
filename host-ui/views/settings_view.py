@@ -7,6 +7,13 @@ from typing import TYPE_CHECKING, Any
 import tkinter as tk
 from tkinter import ttk
 
+from constants import (
+    PID_KD_DEFAULT,
+    PID_KI_DEFAULT,
+    PID_KP_DEFAULT,
+    TEMP_MAX_C_DEFAULT,
+    TEMP_MIN_C_DEFAULT,
+)
 from widgets.tooltip import ToolTip
 
 if TYPE_CHECKING:
@@ -71,8 +78,8 @@ class SettingsView:
         _save_bar(g1, "Guardar límites", ctrl.write_safety)
         body1 = ttk.Frame(g1)
         body1.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-        self.var_mn = tk.StringVar(value="40")
-        self.var_mx = tk.StringVar(value="200")
+        self.var_mn = tk.StringVar(value=str(TEMP_MIN_C_DEFAULT))
+        self.var_mx = tk.StringVar(value=str(TEMP_MAX_C_DEFAULT))
         _labeled_row(
             body1, 0, "Temperatura mínima (°C)", _num_entry(body1, self.var_mn),
             "Temperatura mínima", "30…100 °C", "$CF MN=  ·  AT+CFG=S,<min>,<max>",
@@ -142,9 +149,9 @@ class SettingsView:
         _save_bar(g3, "Sobrescribir valores PID", ctrl.write_pid)
         body_pid = ttk.Frame(g3)
         body_pid.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-        self.var_kp = tk.StringVar(value="20")
-        self.var_ki = tk.StringVar(value="5")
-        self.var_kd = tk.StringVar(value="10")
+        self.var_kp = tk.StringVar(value=str(PID_KP_DEFAULT))
+        self.var_ki = tk.StringVar(value=str(PID_KI_DEFAULT))
+        self.var_kd = tk.StringVar(value=str(PID_KD_DEFAULT))
         for i, (lab, var, tip_name, trama) in enumerate(
             [
                 ("Proporcional Kp", self.var_kp, "Kp ×10", "$CF KP=  ·  AT+CFG=P"),
