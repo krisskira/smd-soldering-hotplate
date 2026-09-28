@@ -23,6 +23,7 @@ const uint8_t font5x7_data[] PROGMEM = {
     0x7F, 0x41, 0x41, 0x22, 0x1C,  /* 'D' */
     0x7F, 0x49, 0x49, 0x49, 0x41,  /* 'E' */
     0x7F, 0x09, 0x09, 0x01, 0x01,  /* 'F' */
+    0x7F, 0x08, 0x08, 0x08, 0x7F,  /* 'H' */
     0x00, 0x41, 0x7F, 0x41, 0x00,  /* 'I' */
     0x7F, 0x40, 0x40, 0x40, 0x40,  /* 'L' */
     0x7F, 0x02, 0x04, 0x02, 0x7F,  /* 'M' */
@@ -56,7 +57,7 @@ const uint8_t font5x7_data[] PROGMEM = {
 };
 
 static const char font5x7_map[] PROGMEM =
-    " *+.0123456789ABCDEFILMNOPRSTUacdefijlmnoprstuv\xB0-:";
+    " *+.0123456789ABCDEFHILMNOPRSTUacdefijlmnoprstuv\xB0-:";
 
 const font_t FONT_5X7 = {
     font5x7_data, font5x7_map, 5u, 7u, 6u, 0u, 0u, FONT_NO_GLYPH, FONT_COLS

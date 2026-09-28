@@ -21,7 +21,7 @@
 |-----------|--------|-------|
 | `product_features.md` | Vigente | Fuente de producto. Flujos de programa y de menú. |
 | `architecture.md` | Vigente | Fuente de arquitectura. Mapa de archivos y super-loop. |
-| `ui_style_guide.md` | Vigente con matices | El sistema visual incluye 6×8, 8×12 e iconos 8×8. El Makefile actual los deja fuera (`NO_FONT_6X8`, `UI_NO_ICONS`; 8×12 e icono ENTER sí entran por la vista USB). La cabecera linkeada es 5×7 en negrita sintetizada. |
+| `ui_style_guide.md` | Vigente con matices | El sistema visual incluye 6×8, 8×12 e iconos 8×8. El Makefile actual los deja fuera (`NO_FONT_6X8`, `UI_NO_ICONS`; icono ENTER en footer). Cabecera 5×7 negrita sintetizada. |
 | `usb-automation.md` | Vigente | Contrato AT. El detalle de fases está en `product_features.md`. |
 | `atmega16_pin_definition_hotplate.md` | Vigente | PTC1 = PD7, PTC2 = PD6. Confirmar contra `board_pins.h` si se toca el esquemático. |
 | `optimizacion_temporizados.md` | Referencia | Patrón `delay_ms()` no bloqueante. Los ejemplos de animación no son el menú actual. |
@@ -39,9 +39,8 @@
 src/main.c                      super-loop
 src/app/app_config.h            constantes, índices HOME, EEPROM v3
 src/app/app_state.h             app_state_t, vistas, fases, programas
-src/ui/ui_router.c              VIEW_HOME | VIEW_USB
-src/ui/home_view.c              MENU, RUN, SETTINGS
-src/ui/usb_view.c               sesión USB
+src/ui/ui_router.c              → home_view
+src/ui/home_view.c              Heat + Ajustes embebido + overlay USB
 src/ui/core/ui_window.c         ventana de 3 filas sobre N ítems
 src/ui/core/ui_display.c        refresh por fila sucia
 src/ui/core/ui_components.c     cabecera, bandas 5×7, formato de fila

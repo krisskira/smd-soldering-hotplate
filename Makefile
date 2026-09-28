@@ -75,8 +75,6 @@ SRC := \
 	src/ui/core/ui_window.c \
 	src/ui/core/ui_components.c \
 	src/ui/home_view.c \
-	src/ui/usb_view.c \
-	src/ui/settings_view.c \
 	src/ui/ui_router.c \
 	src/services/buzzer_seq.c \
 	src/services/outputs.c \

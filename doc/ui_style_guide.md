@@ -5,7 +5,7 @@ Complementa [architecture.md](architecture.md) (capas y binario actual) y
 [product_features.md](product_features.md) (navegación).
 
 El sistema visual de abajo incluye 6×8, 8×12 e iconos 8×8. El Makefile
-actual los excluye (`NO_FONT_6X8`, `UI_NO_ICONS`; 8×12 e icono ENTER sí entran por la vista USB): la
+actual los excluye (`NO_FONT_6X8`, `UI_NO_ICONS`; icono ENTER en footer): la
 cabecera linkeada es 5×7 con negrita sintetizada y las listas van por
 `ui_display_refresh_focus`.
 

@@ -27,6 +27,7 @@ static void st_init(app_state_t *st)
     st->t_set_c = 150;
     st->atune_cycles_target = ATUNE_MIN_CYCLES;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
+    st->atune_max_s = ATUNE_MAX_S_DEFAULT;
     st->sensor.valid = 1;
     st->sensor.temp_c_x10 = 250; /* 25.0 °C */
     st->sensor.fault = 0;

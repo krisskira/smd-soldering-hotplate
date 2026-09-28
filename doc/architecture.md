@@ -11,7 +11,7 @@ UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automati
 | Capa | Incluye | Regla |
 |------|---------|-------|
 | **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
-| **Shell** | `home_view`, `settings_view` (PID, Sonido, ESTAB, P%, Aire), `usb_view`, ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
+| **Shell** | `home_view` (Heat + Ajustes embebido + overlay USB), ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
 
 Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`**, no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`).
 
@@ -24,8 +24,8 @@ Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). N
 ```
 firmware/avr/
   src/main.c                 super-loop; g_state
-  src/app/                   app_state.h, app_config.h (EEPROM v5)
-  src/ui/                    home (Heat|Settings), settings, usb
+  src/app/                   app_state.h, app_config.h (EEPROM v6)
+  src/ui/                    home (Heat|Ajustes embebido|overlay USB)
   src/ui/core/               window, bands, texto
   src/services/program/      máquina de fases (HEAT con fase PREHEAT / PID_TUNE)
   src/services/pid*.c        lazo + autotune
@@ -39,7 +39,7 @@ firmware/avr/
 ```mermaid
 flowchart TB
   main["main.c g_state"]
-  shell["ui_router home settings usb"]
+  shell["ui_router → home_view"]
   coreUi["ui/core"]
   svc["services program PID cfg AT safety"]
   lib["lib ST7920 MAX31865 UART ports"]
@@ -70,20 +70,20 @@ Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PID_TUNE`. PREHEAT 
 ```mermaid
 flowchart LR
   home["HOME Heat Settings"]
-  set["SETTINGS"]
+  set["panel Ajustes en Home"]
   pid["PID via AT only"]
   run["HOME en marcha"]
-  usb["VIEW_USB"]
-  home -->|Heat x2| run
-  home --> set
+  usb["overlay USB en Heat"]
+  home -->|Heat PRESS| run
+  home -->|Settings PRESS| set
+  set -->|Salir| home
   set --> pid
-  set --> home
-  run -->|Salir| home
+  run -->|Cancelar| home
   atUsb["AT MODE=1"] --> usb
   usb -->|PRESS| home
 ```
 
-PREHEAT no es programa ni casilla de Home: es la fase de HEAT. Ajustes: Sonido, ESTAB, P%, Aire. Autotune y ganancias solo por AT; no se dibuja la curva.
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: R1…R4 + Retraso. Aire / ESTAB / P% / PID solo AT.
 
 ## Super-loop
 

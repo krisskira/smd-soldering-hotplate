@@ -27,6 +27,14 @@ void outputs_bank_set(uint8_t *state, uint8_t on)
     state[OUT_PTC2] = on ? 1u : 0u;
 }
 
+void fan_on(void)
+{
+}
+
+void fan_off(void)
+{
+}
+
 void pid_reset(app_state_t *st)
 {
     (void)st;

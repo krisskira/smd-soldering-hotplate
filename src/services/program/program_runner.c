@@ -230,6 +230,7 @@ void program_init(app_state_t *st)
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
     st->atune_cycles_target = ATUNE_MIN_CYCLES;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
+    st->atune_max_s = ATUNE_MAX_S_DEFAULT;
     st->atune_stream = 0;
         st->device_mode = DEVICE_MANUAL;
     st->telem_dirty = 0;
@@ -306,8 +307,8 @@ void program_stop(app_state_t *st, ctrl_src_t src)
 {
     if (!st)
         return;
-    /* HEAT en DELAY/PREHEAT/RUN: STOP pide final (alarma+bomba), no abort seco */
-    if (st->program == PROG_HEAT
+    /* AT+STOP (USB): cierra HEAT como fin → ALARM:2. UI Cancel: abort → IDLE. */
+    if (src == CTRL_USB && st->program == PROG_HEAT
         && (st->phase == PH_HOLD || st->phase == PH_RUN
             || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE
             || st->phase == PH_DELAY)) {

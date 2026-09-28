@@ -273,6 +273,34 @@ static uint8_t cfg_pid(app_state_t *st, const char *args)
     return 0u;
 }
 
+/* AT+CFG=T,cycles,hyst,max_s — params autotune sin arrancar */
+static uint8_t cfg_tune(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t cycles, max_s;
+    int16_t hyst;
+
+    if (take_u(&p, &cycles, 0u))
+        return 1u;
+    if (parse_i16(&p, &hyst) || *p != ',')
+        return 1u;
+    p++;
+    if (take_u(&p, &max_s, 1u))
+        return 1u;
+    if (cycles < ATUNE_MIN_CYCLES || cycles > ATUNE_MAX_CYCLES)
+        return 1u;
+    if (hyst < 1 || hyst > 99)
+        return 1u;
+    if (max_s < ATUNE_MAX_S_LO || max_s > ATUNE_MAX_S_HI)
+        return 1u;
+    st->atune_cycles_target = (uint8_t)cycles;
+    st->atune_hyst_c_x10 = hyst;
+    st->atune_max_s = max_s;
+    cfg_save_global(st);
+    ok_dirty(st);
+    return 0u;
+}
+
 /* AT+CFG=R,i,°C,s */
 static uint8_t cfg_ramp(app_state_t *st, const char *args)
 {
@@ -329,15 +357,16 @@ static uint8_t handle_cfg(app_state_t *st, const char *args)
     case 'H': return cfg_heat(st, args);
     case 'P': return cfg_pid(st, args);
     case 'R': return cfg_ramp(st, args);
+    case 'T': return cfg_tune(st, args);
     default:  return 1u;
     }
 }
 
-/* AT+RUN=1  |  AT+RUN=2,temp,cycles,hyst */
+/* AT+RUN=1  |  AT+RUN=2,temp,cycles,hyst[,max_s] */
 static void handle_run(app_state_t *st, const char *args)
 {
     const char *p = args;
-    uint16_t prog, temp, cycles;
+    uint16_t prog, temp, cycles, max_s;
     int16_t hyst;
 
     if (process_is_active(st) || pid_atune_active(st)) {
@@ -369,13 +398,25 @@ static void handle_run(app_state_t *st, const char *args)
         return;
     }
     p++;
-    if (parse_i16(&p, &hyst) || *p) {
+    if (parse_i16(&p, &hyst)) {
+        reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+        return;
+    }
+    max_s = st->atune_max_s;
+    if (*p == ',') {
+        p++;
+        if (parse_u16(&p, &max_s) || *p) {
+            reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
+            return;
+        }
+    } else if (*p) {
         reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
         return;
     }
     if (temp < st->temp_min_c || temp > (uint16_t)(st->temp_max_c - 10u)
         || cycles < ATUNE_MIN_CYCLES || cycles > ATUNE_MAX_CYCLES
-        || hyst < 1 || hyst > 99) {
+        || hyst < 1 || hyst > 99
+        || max_s < ATUNE_MAX_S_LO || max_s > ATUNE_MAX_S_HI) {
         reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
         return;
     }
@@ -383,6 +424,7 @@ static void handle_run(app_state_t *st, const char *args)
     st->t_set_c = temp;
     st->atune_cycles_target = (uint8_t)cycles;
     st->atune_hyst_c_x10 = hyst;
+    st->atune_max_s = max_s;
     cfg_save_global(st);
     cfg_save_program(st, PROG_PID_TUNE);
     reply_from_proc(st, process_start(st, CTRL_USB));
@@ -444,11 +486,17 @@ static void handle_line(app_state_t *st, char *line, uint8_t n)
                 reply_err(st, (uint8_t)PROTO_ERR_DEVICE_BUSY);
                 break;
             }
-            ui_enter_view(st, VIEW_USB);
+            /* Overlay USB en Heat; sale de Ajustes embebidos. */
+            st->home_page = HOME_PAGE_MENU;
+            st->home_sel = HOME_IDX_HEAT;
+            st->edit_armed = 0u;
+            st->frame_dirty = 1u;
+            st->row_dirty = HOME_DIRTY_ALL;
         } else {
             device_session_leave_manual(st, 0u);
-            if (st->view == VIEW_USB)
-                ui_enter_view(st, VIEW_HOME);
+            st->home_page = HOME_PAGE_MENU;
+            st->frame_dirty = 1u;
+            st->row_dirty = HOME_DIRTY_ALL;
         }
         telemetry_emit(st);
         reply_ok(st);

@@ -3,25 +3,26 @@
 Fuente de verdad del orden de fases, actuadores, EEPROM y alarmas.
 Arquitectura: [architecture.md](architecture.md). AT: [usb-automation.md](usb-automation.md).
 
-Última actualización: 2026-09-27. EEPROM global **v5**.
+Última actualización: 2026-09-27. EEPROM global **v6**.
 
 ## Actuadores
 
 | Actuador | Hardware | API | Quién lo manda |
 |----------|----------|-----|----------------|
 | PTC1+PTC2 (banco) | Micro → opto **MOC3021** → triac **BT136** (SSR, no relé mecánico) | `outputs_bank_set` / PID ventana | `pid_tick`, `pid_atune`, preheat |
-| Bomba de aire | Fan | `fan_on` / `fan_off` | FIN de HEAT (`PH_ALARM` finish + `PH_COOLDOWN`) |
+| Bomba de aire | Fan | `fan_on` / `fan_off` | FIN de HEAT (`PH_ALARM`/`PH_COOLDOWN` si `cooldown_air_en`); autotune en medio-ciclo OFF |
 | Buzzer | Piezo | `buzzer_seq_beep_cat` | Nav, alarma, confirm |
 
 BOM / datasheets: `smd-soldering-hotplate-pcb/smd-soldering-hotplate-pcb.csv` (BT136-600, MOC3021M).
 
 ## EEPROM vs estado RAM
 
-| Dato | EEPROM (global v5) | RAM (`app_state_t`) | Notas |
+| Dato | EEPROM (global v6) | RAM (`app_state_t`) | Notas |
 |------|--------------------|---------------------|-------|
 | Kp/Ki/Kd ×10 | sí | `pid_kp/ki/kd_x10` | Tras autotune o edición |
 | `atune_cycles_target` | sí | igual | Ciclos a completar en autotune |
 | `atune_hyst_c_x10` | sí | igual | Histéresis autotune |
+| `atune_max_s` | sí | igual | Timeout global autotune (s), 120..3600; default 600 |
 | `temp_min_c` | sí | igual | Piso rampas/consignas + OFF aire |
 | `temp_max_c` | sí | igual | Techo + corte safety |
 | `preheat_en` | sí | igual | 0: HEAT salta PREHEAT→STABILIZE |
@@ -59,7 +60,9 @@ Beep en un cambio de fase:
 
 Tokens de `$HP` ACTION: `WAITING`, `PREHEATING`, `STABILIZING`, `RUNNING`, `COOLING`, `DONE`, `TUNING`, `ALARM`, `FAULT`, `IDLE`.
 
-ACK UI/`AT+STOP` en `PH_ALARM`: cierra alarma; HEAT puede pasar a `PH_COOLDOWN`.
+ACK UI/`AT+STOP` en `PH_ALARM`: cierra alarma; HEAT puede pasar a `PH_COOLDOWN`.  
+Cancel UI (Home **Cancelar**) en DELAY/PREHEAT/RUN: abort seco → `PH_IDLE` (no `ALARM:2`).  
+`AT+STOP` USB en esas fases: cierra como fin → `PH_ALARM` + `ALARM:2`.
 
 ---
 
@@ -135,7 +138,11 @@ No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_p
 
 ## PID_ATUNE (`PROG_PID_TUNE`)
 
-Solo AT (`AT+RUN=2,temp,ciclos,hyst`). Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → ganancias en estáticos de `pid_atune` → `AT+CFG=A` (`pid_atune_apply` + `cfg_save_global`).
+Solo AT: `AT+CFG=T,ciclos,hyst,max_s` (persiste sin arrancar) y `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → ganancias en estáticos de `pid_atune` → `AT+CFG=A` (`pid_atune_apply` + `cfg_save_global`).
+
+Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default 600 s; rango 120..3600; `$CF AMS=`).
+
+Enfriamiento asistido: en el medio-ciclo OFF (calentador apagado) el fan queda ON para acortar la bajada y limitar el tiempo de componentes SMD por encima de la consigna. En medio-ciclo ON y al DONE/FAIL/cancel, fan OFF. (Independiente de `cooldown_air_en`, que solo aplica al fin de HEAT.)
 
 Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state`) cuenta ciclos ya cerrados. `AK`/`AI`/`AD` de `$HP` salen de `pid_atune_result`.
 
@@ -146,9 +153,10 @@ Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state
 
 La banda de oscilación es `t_set ± atune_hyst_c_x10`. No hay trama `$HP,PLOT`.
 
-| Fase atune | PTC | `$HP` ACTION |
-|------------|-----|--------------|
-| RUN | ON/OFF según hyst | `TUNING` |
-| DONE / FAIL | OFF | — |
+| Fase atune | PTC | Fan | `$HP` ACTION |
+|------------|-----|-----|--------------|
+| RUN (medio ON) | ON | OFF | `TUNING` |
+| RUN (medio OFF) | OFF | ON | `TUNING` |
+| DONE / FAIL | OFF | OFF | — |
 
 Cancel: STOP / fault apaga el stream sin trama extra. El siguiente `RUN=2` pone las ganancias resultado a cero hasta el nuevo DONE.

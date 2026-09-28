@@ -5,7 +5,7 @@
 #define BUF_LEN 24u
 
 static const char S_PANEL_RAMP[] PROGMEM = "RAMPA:";
-static const char S_T_USB[] PROGMEM = "USB";
+static const char S_T_USB[] PROGMEM = "USB MODE"; /* 8 chars */
 static const char S_PH_IDLE[] PROGMEM = "IDLE";
 static const char S_PH_WAIT[] PROGMEM = "ESPERA";
 static const char S_PH_PRE[] PROGMEM = "PRECAL";
@@ -15,24 +15,21 @@ static const char S_PH_RUN[] PROGMEM = "RUN";
 static const char S_PH_DONE[] PROGMEM = "DONE";
 static const char S_PH_FLT[] PROGMEM = "FAULT";
 static const char S_USB_EXIT[] PROGMEM = "Salir";
-static const char S_P_HEAT[] PROGMEM = "Heat";
+static const char S_HEAT[] PROGMEM = "HEAT";
 static const char S_NAV_SET[] PROGMEM = "Ajustes";
-static const char S_T_SET[] PROGMEM = "AJUSTE";
-static const char S_SET_SOUND[] PROGMEM = "Sonido";
-static const char S_SET_PRE[] PROGMEM = "ESTAB";
-static const char S_SET_AIR[] PROGMEM = "Aire";
-static const char S_RAMP_STEP[] PROGMEM = "Paso";
+static const char S_SET_DELAY[] PROGMEM = "Retraso";
+static const char S_BTN_START[] PROGMEM = "Iniciar";
 static const char S_ON[] PROGMEM = "ON";
 static const char S_OFF[] PROGMEM = "OFF";
-static const char S_PANEL_SET[] PROGMEM = "SET:";
-static const char S_SET_PCT[] PROGMEM = "P%";
+static const char S_BTN_CANCEL[] PROGMEM = "Cancel";
 static const char S_NULL[] PROGMEM = "?";
 
+/* Slots legacy reutilizan OFF / Ajustes para ahorrar flash. */
 static const char *const TABLE[] PROGMEM = {
     S_PANEL_RAMP, S_T_USB, S_PH_IDLE, S_PH_WAIT, S_PH_PRE, S_PH_STAB,
-    S_PH_RDY, S_PH_RUN, S_PH_DONE, S_PH_FLT, S_USB_EXIT, S_P_HEAT,
-    S_NAV_SET, S_T_SET, S_SET_SOUND, S_SET_PRE, S_SET_AIR, S_RAMP_STEP,
-    S_ON, S_OFF, S_PANEL_SET, S_SET_PCT,
+    S_PH_RDY, S_PH_RUN, S_PH_DONE, S_PH_FLT, S_USB_EXIT, S_HEAT,
+    S_NAV_SET, S_NAV_SET, S_SET_DELAY, S_BTN_START, S_OFF, S_OFF,
+    S_ON, S_OFF, S_OFF, S_BTN_CANCEL,
 };
 
 static char s_buf[BUF_LEN];

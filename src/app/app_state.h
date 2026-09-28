@@ -5,9 +5,7 @@
 #include "app_config.h"
 
 typedef enum {
-    VIEW_HOME = 0,
-    VIEW_USB,
-    VIEW_SETTINGS
+    VIEW_HOME = 0
 } view_t;
 
 typedef enum {
@@ -127,6 +125,7 @@ typedef struct {
     uint8_t       atune_cycles;
     uint8_t       atune_cycles_target;
     int16_t       atune_hyst_c_x10;
+    uint16_t      atune_max_s;     /* timeout global RUN (s); EEPROM / CFG=T */
     uint8_t       atune_relay_on;
     uint16_t      atune_elapsed_s;
     uint8_t       atune_stream;    /* 1 = $HP a 1 Hz con campos de atune */

@@ -101,6 +101,7 @@ void telemetry_emit_cfg(const app_state_t *st)
     kv_u(PSTR(",AIR="), st->cooldown_air_en);
     kv_u(PSTR(",SND="), st->buzz_nav_en);
     kv_u(PSTR(",RN="), st->ramp_n);
+    kv_u(PSTR(",AMS="), st->atune_max_s);
     avr_uart_transmit_pstr(PROTO_CRLF);
 }
 

@@ -3,8 +3,8 @@
 #include <avr/eeprom.h>
 
 /*
- * EEPROM v5: global (PID + atune + safety + preheat_pct) + ee_heat/tune + rampas.
- * v4 no se migra: magic/ver distintos cargan defaults.
+ * EEPROM v6: global (PID + atune + atune_max_s + safety + preheat_pct)
+ * + ee_heat/tune + rampas. Ver distinta (p.ej. v5) → defaults, sin migración.
  */
 
 typedef struct {
@@ -18,6 +18,7 @@ typedef struct {
     uint8_t  atune_cycles_target;
     int16_t  atune_hyst_c_x10;
     uint8_t  preheat_pct;
+    uint16_t atune_max_s;
     uint8_t  cs;
 } cfg_g_t;
 
@@ -79,6 +80,7 @@ void cfg_store_defaults(app_state_t *st)
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
     st->atune_cycles_target = ATUNE_MIN_CYCLES;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
+    st->atune_max_s = ATUNE_MAX_S_DEFAULT;
     st->t_set_c = 150;
     st->delay_s = 60;
     st->ramp_n = 2;
@@ -125,6 +127,7 @@ uint8_t cfg_load_global(app_state_t *st)
         ? b.atune_cycles_target : ATUNE_MIN_CYCLES;
     st->atune_hyst_c_x10 = (b.atune_hyst_c_x10 > 0 && b.atune_hyst_c_x10 < 100)
         ? b.atune_hyst_c_x10 : ATUNE_HYST_C_X10;
+    st->atune_max_s = clamp_u16(b.atune_max_s, ATUNE_MAX_S_LO, ATUNE_MAX_S_HI);
     return 1;
 }
 
@@ -151,6 +154,7 @@ void cfg_save_global(const app_state_t *st)
     b.temp_max_c = st->temp_max_c;
     b.atune_cycles_target = st->atune_cycles_target;
     b.atune_hyst_c_x10 = st->atune_hyst_c_x10;
+    b.atune_max_s = st->atune_max_s;
     b.cs = CS(b);
     eeprom_update_block(&b, ee_g, sizeof(b));
 }

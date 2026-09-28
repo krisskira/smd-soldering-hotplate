@@ -20,33 +20,33 @@ Firmware `firmware/avr/`, ATmega16 @ 8 MHz. Actualizado: 2026-09-27.
 ## Core vs shell
 
 **Core:** HEAT, PREHEAT, PID/autotune, rampas EEPROM, estado, alarmas, AT.  
-**Shell:** Home (Heat \| Settings), Ajustes (Sonido, ESTAB, P%, Aire), USB (solo AT), LCD/i18n. El shell no cambia la secuencia.
+**Shell:** Home (Heat \| Settings embebido), overlay USB en Heat (solo AT), LCD/i18n. El shell no cambia la secuencia.
 
 ## Programas
 
 | Nombre | UI | USB | Entradas | Salidas |
 |--------|----|-----|----------|---------|
 | HEAT | Sí | Sí | `delay_s`, rampas, `preheat_en`, `preheat_pct`, PID, temp_min/max | Si ESTAB: PID al % de Ramp1 y banda ±2 °C; luego rampas a T plena. `ALARM:2`. Aire solo si está habilitado |
-| PID_TUNE | No | Sí | `AT+RUN=2,temp,ciclos,hyst` | `$HP` 1 Hz (`A=10` + `AP/AC/AK/AI/AD`); `AT+CFG=A` → EEPROM |
+| PID_TUNE | No | Sí | `AT+RUN=2,temp,ciclos,hyst[,max_s]`; `AT+CFG=T` | `$HP` 1 Hz (`A=10` + `AP/AC/AK/AI/AD`); fan en medio OFF; `AT+CFG=A` → EEPROM |
 
 Detalle de fases: [program_flows.md](program_flows.md).
 
 ## Home
 
-Dos casillas: **Heat** | **Settings**.  
-Heat: 1º PRESS edita `delay_s` (±1 min, desde **0**); 2º PRESS arranca.  
-USB: solo `AT+MODE=1` → vista propia.
+Dos casillas: **Heat** | **Settings**. Sin vistas aparte.  
+Heat: header `HEAT`, temp centrada, fase, `Rx Tset mm:ss`; pie **Iniciar ↵** / **Cancelar ↵**. Cancel UI → IDLE (no LISTO).  
+USB: header `USB MODE`, temp; pie **Salir ↵** → MANUAL.  
+Settings: header **Ajustes** + R1…R4 + Retraso. PRESS entra al listado; **Salir ↵** → Heat. Aire solo AT.
 
-## Ajustes
+## Ajustes (panel Home)
 
 | Fila | Efecto |
 |------|--------|
-| Sonido | Silencia el beep `NAV` (`AT+CFG=H` campo snd) |
-| ESTAB | `preheat_en` (`AT+CFG=H` campo en) |
-| P% | `preheat_pct` 50..100 paso 5 (`AT+CFG=H` campo pct) |
-| Aire | `cooldown_air_en` (`AT+CFG=H` campo air) |
+| R1…R4 | Temp/hold; T→bajo desactiva (R1 mínimo = `temp_min`); límites `temp_min`…`temp_max` |
+| Retraso | `delay_s` de HEAT (±1 min, desde 0) |
 
-PID Kp/Ki/Kd y autotune: solo AT (`AT+CFG=P`, `AT+RUN=2`, `AT+CFG=A`).
+Aire (`cooldown_air_en`), sonido / ESTAB / P% / PID / autotune: solo AT.  
+Timeout autotune (`atune_max_s` / `$CF AMS=`): 120..3600 s, default 600.
 
 ## Alarmas
 
@@ -56,9 +56,9 @@ Detalle en [program_flows.md](program_flows.md). Contrato corto:
 - La columna Beep nombra una categoría (ancho del pulso + repeticiones), no una frecuencia en Hz.
 - El token de fase va en `$HP` `ACTION`, no en una línea UART de alarma.
 
-## EEPROM v5
+## EEPROM v6
 
-Global: ganancias PID, `atune_cycles_target`, `atune_hyst_c_x10`, `temp_min_c`, `temp_max_c`, `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque v4 no se migra: vuelven los defaults.  
+Global: ganancias PID, `atune_cycles_target`, `atune_hyst_c_x10`, `atune_max_s`, `temp_min_c`, `temp_max_c`, `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque con ver distinta (p.ej. v5) no se migra: vuelven los defaults.  
 Programas: `ee_heat` (delay), `ee_tune`. Rampas: `ee_ramp`. No hay `ee_pre`.  
 Picos de autotune y la fase viva no se guardan.
 

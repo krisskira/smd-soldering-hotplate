@@ -18,11 +18,11 @@ MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
 |---------|------------|-----------|
 | `AT` | no | `OK` |
 | `AT+MODE=1` | no | Entra USB si libre → `$HP` + `OK`. Ocupado → `ERROR:4`. Ya USB → `OK` |
-| `AT+MODE=0` | no | Sale a MANUAL (STOP de sesión), HOME si vista USB → `$HP` + `OK` |
+| `AT+MODE=0` | no | Sale a MANUAL (STOP de sesión), quita overlay USB en Heat → `$HP` + `OK` |
 
 `AT+STAT?` no exige USB. El resto (`CFG`, `CFG?`, `RUN`, `STOP`) sí → si no, `ERROR:3`.
 
-PRESS en vista USB: para todo, HOME, `ERROR:8`. Beep CONFIRM ×2.
+`AT+MODE=1`: overlay en casilla Heat (temp + `USB MODE` + Salir). PRESS Salir: MANUAL, `ERROR:8`, beep CONFIRM ×2.
 
 ## Códigos ERROR
 
@@ -37,7 +37,7 @@ PRESS en vista USB: para todo, HOME, `ERROR:8`. Beep CONFIRM ×2.
 | 5 | PROGRAM_BUSY | `RUN` con ciclo o autotune activo |
 | 6 | SENSOR_INVALID | `RUN` sin sensor válido |
 | 7 | OVER_TEMPERATURE | Corte safety (`temp_max_c`) |
-| 8 | ABORTED_BY_DEVICE | PRESS en vista USB |
+| 8 | ABORTED_BY_DEVICE | PRESS Salir en overlay USB |
 
 ## Códigos ALARM
 
@@ -45,7 +45,7 @@ Espontáneos con sesión USB: `ALARM:<n>\r\n`
 
 | n | Nombre | Cuándo |
 |--:|--------|--------|
-| 2 | DONE | HEAT fin de rampas (o STOP que cierra como fin) |
+| 2 | DONE | HEAT fin de rampas (o `AT+STOP` en marcha, que cierra como fin). Cancel UI → IDLE sin ALARM |
 
 No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a la rampa.
 
@@ -84,11 +84,12 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 | `AT+STAT?` | no | Emite `$HP` de proceso | — | `$HP` + `OK` |
 | `AT+MODE=0\|1` | no | MANUAL/USB | — | `$HP` + `OK` |
 | `AT+RUN=1` | sí | Arranca HEAT | — | `OK` / `ERROR:n` |
-| `AT+RUN=2,<°C>,<ciclos>,<hyst>` | sí | Arranca PID_TUNE y abre stream | global + `ee_tune` | `OK` / `ERROR:n` |
+| `AT+RUN=2,<°C>,<ciclos>,<hyst>[,<max_s>]` | sí | Arranca PID_TUNE y abre stream | global + `ee_tune` | `OK` / `ERROR:n` |
 | `AT+STOP` | sí | Parada | — | **solo `OK`** (sin `$HP`) |
 | `AT+CFG=S,<min>,<max>` | sí | `temp_min_c`, `temp_max_c` | global | `OK` |
 | `AT+CFG=H,<en>,<pct>,<stab>,<delay>,<air>,<snd>` | sí | Flujo HEAT | global + `ee_heat` | `OK` |
 | `AT+CFG=P,<kp>,<ki>,<kd>` | sí | Ganancias ×10, 0..999 | global | `OK` |
+| `AT+CFG=T,<ciclos>,<hyst>,<max_s>` | sí | Params autotune (sin arrancar) | global | `OK` |
 | `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0..3 | `ee_ramp` | `OK` |
 | `AT+CFG=R?` | sí | Emite `$R` (escalones) | — | `$R` + `OK` |
 | `AT+CFG=A` | sí | Copia resultado autotune → PID si `ATUNE_DONE` | global | `OK` |
@@ -100,7 +101,9 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 
 `CFG=R`: °C dentro de min..max, hold 1..3600. Escribir un escalón define el perfil (`ramp_n` crece hasta cubrir el índice). `CFG=R?` lee los cuatro huecos (`$R`); no achica `N`.
 
-`RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99.
+`RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 600 s). Si se omite, usa el valor guardado.
+
+`CFG=T`: ciclos 3..10, hyst 1..99, `max_s` 120..3600. No arranca el proceso.
 
 ## Lectura — proceso `$HP`
 
@@ -135,10 +138,11 @@ Solo `AT+CFG?`. No sale a 1 Hz.
 
 ```
 $CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,KD=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
-DLY=<s>,AIR=0|1,SND=0|1,RN=<ramp_n>
+DLY=<s>,AIR=0|1,SND=0|1,RN=<ramp_n>,AMS=<max_s>
 ```
 
 `RN` es cuántos escalones cuenta el programa (`ramp_n`, 1..4). No trae °C ni hold; eso sale en `$R`.
+`AMS` = timeout global del autotune en segundos (`atune_max_s`, 120..3600).
 
 No se exponen dirty flags ni se permite forzar calentadores fuera del runner/PID.
 
@@ -175,11 +179,14 @@ AT+RUN=1
 ### PID_TUNE (`P=2`)
 
 ```
-AT+RUN=2,150,5,15
+AT+CFG=T,5,15,1200
+AT+RUN=2,150,5,15,1200
 ```
 
 - Fuera de rango → `ERROR:2` (no hay `OK` vacío).
 - Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI,AD` mientras corre.
+- En medio-ciclo OFF: fan ON (acelera enfriamiento / reduce tiempo sobre consigna).
+- Timeout global: `AMS` / `max_s` (default 600 s); FAIL si se supera.
 - Al terminar: una trama con `AP=2` y `AK/AI/AD`.
 - Aplicar al PID de trabajo: `AT+CFG=A` → EEPROM. Si no DONE → `ERROR:2`.
 

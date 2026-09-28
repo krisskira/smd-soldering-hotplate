@@ -237,7 +237,8 @@ static void test_pid_tune_at_sequence(void)
     /* Secuencia documentada: MODE → RUN=2 → CFG=A → STOP */
     static const char *seq[] = {
         "AT+MODE=1",
-        "AT+RUN=2,150,5,15",
+        "AT+CFG=T,5,15,1200",
+        "AT+RUN=2,150,5,15,1200",
         "AT+CFG=A",
         "AT+STOP",
         nullptr
