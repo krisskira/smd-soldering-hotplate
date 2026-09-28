@@ -35,7 +35,7 @@ Detalle de fases: [program_flows.md](program_flows.md).
 
 Dos casillas: **Heat** | **Settings**. Sin vistas aparte.  
 Heat: temp **FONT_8X12** (margen 3 px + gaps 4 px), fase, `Rx Tset mm:ss`; pie **Iniciar ↵** / **Para ↵**. Cancel UI → IDLE.  
-USB: temp + icono USB ×3; pie **Salir ↵**. Lateral ×3: plancha / llave. Ajustes sin header.  
+USB: temp + `USB` + icono 16×16; pie **Salir ↵**. Lateral 16×16: plancha / llave. Ajustes sin header.  
 Settings: header **Ajustes** + R1…R4 + Retraso. PRESS entra al listado; **Salir ↵** → Heat. Aire solo AT.
 
 ## Ajustes (panel Home)

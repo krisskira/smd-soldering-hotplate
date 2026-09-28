@@ -1,6 +1,22 @@
 #include "ui_text.h"
 #include "ui_digits.h"
 
+uint8_t ui_u16_digits(uint16_t v, char *dst)
+{
+    char tmp[5];
+    uint8_t n = 0, i = 0;
+
+    if (v >= 10000u)
+        v = 9999u;
+    do {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    } while (v && n < 5u);
+    while (n)
+        dst[i++] = tmp[--n];
+    return i;
+}
+
 uint8_t ui_str_len(const char *s)
 {
     uint8_t n = 0;

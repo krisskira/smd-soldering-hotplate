@@ -198,11 +198,14 @@ static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
         return;
 
     if (mode == 2u) {
+        /* temp → USB → icono */
+        panel_center(y_phase, LINE_H, i18n_tr_hash(I18N_TITLE_USB), 0u);
+        y_info = (uint8_t)(y_phase + LINE_H + LINE_GAP);
         usb.f = &FONT_ICONS;
         usb.str = s_usb_ch;
         usb.x = (uint8_t)(PANEL_X + (PANEL_W - ICO_PX) / 2u);
-        st7920_draw_band(PANEL_X, PANEL_W, y_phase,
-                         (uint8_t)(UI_FOOT_Y - y_phase), &usb, 1u, 0u);
+        st7920_draw_band(PANEL_X, PANEL_W, y_info,
+                         (uint8_t)(UI_FOOT_Y - y_info), &usb, 1u, 0u);
         return;
     }
     panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);
@@ -264,7 +267,7 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
     }
     ui_line_put(buf, 0, i18n_tr_hash(I18N_SET_DELAY));
     if (ed == SET_EDIT_DELAY)
-        buf[7] = '*'; /* tras "RETRASO" */
+        buf[3] = '*'; /* tras "DLY" */
     ui_mmss_to_str(st->delay_s, v);
     n = ui_str_len(v); /* 5 = mm:ss */
     if (n < PCOLS)
