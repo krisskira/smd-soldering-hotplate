@@ -70,7 +70,7 @@
 
 #define USB_SEL_COUNT     2u
 
-#define PID_WINDOW_MS     2000u
+#define PID_WINDOW_MS     1000u
 #define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,400 */
 #define PID_KI_DEFAULT    10
 #define PID_KD_DEFAULT    400

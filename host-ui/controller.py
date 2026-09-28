@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox
 
 import protocol as proto
 import ramps_store
+import theme as ui_theme
 import tune_store
 from constants import POLL_MS
 from serial_link import SerialLink
@@ -60,9 +61,32 @@ class AppController:
             lambda i, v: self.heat.ramp_temp[i].set(v),
             lambda i, v: self.heat.ramp_hold[i].set(v),
         )
+        self.heat.ramp_active[0].set(True)
         self.heat.refresh_objetivo()
         self.refresh_chrome()
         self.root.after(POLL_MS, self._poll_rx)
+
+    def apply_theme(self) -> None:
+        ui_theme.apply_ttk(self.root)
+        self.conn.apply_theme()
+        self.heat.apply_theme()
+        if hasattr(self.tune, "chart"):
+            self.tune.chart.apply_theme()
+
+    def save_theme(self) -> None:
+        partial = self.settings.collect_theme()
+        ui_theme.save(partial)
+        self.apply_theme()
+        messagebox.showinfo(
+            "Tema",
+            "Apariencia aplicada y guardada (ui_theme.json).",
+        )
+
+    def reset_theme(self) -> None:
+        ui_theme.reset_defaults()
+        self.settings.reload_theme_vars()
+        self.apply_theme()
+        messagebox.showinfo("Tema", "Tema restaurado a los valores por defecto.")
 
     # ---- chrome / sesión ----
 
@@ -134,7 +158,15 @@ class AppController:
 
     # ---- comandos ----
 
-    def send(self, cmd: str, after_ok: Optional[Callable] = None) -> None:
+    def send(
+        self,
+        cmd: str,
+        after_ok: Optional[Callable] = None,
+        after_err: Optional[Callable] = None,
+        *,
+        ok_msg: Optional[str] = None,
+        err_title: str = "Error",
+    ) -> None:
         if not self.link.connected:
             messagebox.showwarning("Serie", "Conecta primero")
             return
@@ -151,22 +183,76 @@ class AppController:
                 result = self.link.send(cmd)
             except Exception as exc:
                 self.root.after(0, lambda: self.conn.log_line("!!", str(exc)))
+                if ok_msg is not None or after_err is not None:
+                    self.root.after(
+                        0,
+                        lambda: messagebox.showerror(err_title, str(exc)),
+                    )
+                if after_err:
+                    self.root.after(0, lambda: after_err(None))
                 return
-            if after_ok and result.kind == "OK":
-                self.root.after(0, after_ok)
+            if result.kind == "OK":
+                def _ok() -> None:
+                    if after_ok:
+                        after_ok()
+                    if ok_msg:
+                        messagebox.showinfo("Guardado", ok_msg)
+
+                self.root.after(0, _ok)
+            else:
+                detail = getattr(result, "raw", None) or str(result.kind)
+                if getattr(result, "fields", None):
+                    detail = (
+                        f"{result.fields.get('name', detail)} "
+                        f"(código {result.fields.get('code', '?')})"
+                    )
+
+                def _err() -> None:
+                    if after_err:
+                        after_err(result)
+                    elif ok_msg is not None:
+                        messagebox.showerror(
+                            err_title, f"El equipo respondió ERROR:\n{detail}"
+                        )
+
+                self.root.after(0, _err)
 
         threading.Thread(target=work, daemon=True).start()
 
     def ping(self) -> None:
-        self.send(proto.cmd_at())
+        self.send(proto.cmd_at(), err_title="Ping")
 
     def query_stat(self) -> None:
-        self.send(proto.cmd_stat())
+        self.send(proto.cmd_stat(), err_title="Estado")
+
+    def _unlock_heat_poll(self) -> None:
+        self.conn.set_poll_locked(False)
+        self.heat.set_heat_running(False)
+
+    def _lock_heat_poll(self) -> None:
+        self.conn.set_poll_locked(True)
+        self.toggle_stat_poll()
+        self.heat.set_heat_running(True)
 
     def stop(self) -> None:
+        was_heat = self.state.recording_heat or self.heat.is_heat_running()
         self.state.recording_heat = False
         self.tune.stop_recording()
-        self.send(proto.cmd_stop())
+        if was_heat:
+            self._unlock_heat_poll()
+        self.send(proto.cmd_stop(), err_title="Detener")
+
+    def toggle_heat(self) -> None:
+        if self.heat.is_heat_running() or self.state.recording_heat:
+            self.stop()
+        else:
+            self.start_heat()
+
+    def toggle_tune(self) -> None:
+        if self.tune.is_tune_running() or self.tune.recording:
+            self.stop()
+        else:
+            self.run_tune()
 
     def start_heat(self) -> None:
         if not self.heat.has_active_ramps():
@@ -180,31 +266,90 @@ class AppController:
         self.heat.chart.clear()
         self.heat.sync_chart_ylim()
         self.state.recording_heat = True
-        self.send(proto.cmd_run_heat())
+        self._lock_heat_poll()
+
+        def _fail(_r=None) -> None:
+            self.state.recording_heat = False
+            self._unlock_heat_poll()
+            messagebox.showerror(
+                "HEAT",
+                "No se pudo iniciar HEAT. Revisa modo USB y rampas en el equipo.",
+            )
+
+        self.send(
+            proto.cmd_run_heat(),
+            after_err=_fail,
+            err_title="HEAT",
+        )
 
     def read_ramps(self) -> None:
-        self.send(proto.cmd_cfg_ramps_query())
+        self.send(proto.cmd_cfg_ramps_query(), err_title="Rampas")
 
     def read_cfg(self) -> None:
-        self.send(proto.cmd_cfg_query())
+        self.send(proto.cmd_cfg_query(), err_title="Ajustes")
 
     def write_ramp(self, idx: int) -> None:
-        try:
-            temp = int(self.heat.ramp_temp[idx].get())
-            hold = int(self.heat.ramp_hold[idx].get())
-        except ValueError:
-            messagebox.showerror("Rampas", "Temperatura y tiempo deben ser numéricos")
-            return
-        err = proto.validate_ramp(idx, temp, hold, self.state.tmin, self.state.tmax)
-        if err:
-            messagebox.showerror("Rampas", err)
-            return
-        self.send(proto.cmd_cfg_ramp(idx, temp, hold), after_ok=self._save_ramps)
+        """Guarda el perfil activo completo (un solo escalón no debe achicar N)."""
+        self.write_all_ramps()
 
     def write_all_ramps(self) -> None:
+        """Escribe escalones activos 0..n-1; el último fija N en el equipo."""
+        self.heat.ramp_active[0].set(True)
+        self.heat._on_ramp_active_toggle()
+        active, temps, holds = self.heat.ramp_snapshot()
+        n = 0
         for i in range(4):
-            if self.heat.ramp_active[i].get():
-                self.write_ramp(i)
+            if active[i]:
+                n = i + 1
+            elif any(active[j] for j in range(i + 1, 4)):
+                messagebox.showerror(
+                    "Rampas",
+                    "Los escalones activos deben ser contiguos desde la rampa 1.",
+                )
+                return
+        if n < 1:
+            messagebox.showerror("Rampas", "Se requiere al menos la rampa 1")
+            return
+        cmds: list[tuple[int, int, int]] = []
+        for i in range(n):
+            try:
+                temp = int(temps[i])
+                hold = int(holds[i])
+            except ValueError:
+                messagebox.showerror("Rampas", f"Rampa {i + 1}: valores numéricos")
+                return
+            err = proto.validate_ramp(i, temp, hold, self.state.tmin, self.state.tmax)
+            if err:
+                messagebox.showerror("Rampas", f"Rampa {i + 1}: {err}")
+                return
+            cmds.append((i, temp, hold))
+
+        def step(i: int) -> None:
+            if i >= len(cmds):
+                self._save_ramps()
+                messagebox.showinfo(
+                    "Guardado",
+                    f"Perfil de rampas guardado en el equipo (N={n}).\n"
+                    "Leyendo de vuelta para confirmar…",
+                )
+                self.read_ramps()
+                return
+            idx, temp, hold = cmds[i]
+
+            def _fail(_r=None) -> None:
+                messagebox.showerror(
+                    "Rampas",
+                    f"Error al guardar el escalón {idx + 1}. Perfil incompleto.",
+                )
+
+            self.send(
+                proto.cmd_cfg_ramp(idx, temp, hold),
+                after_ok=lambda: step(i + 1),
+                after_err=_fail,
+                err_title="Rampas",
+            )
+
+        step(0)
 
     def _save_ramps(self) -> None:
         active, temps, holds = self.heat.ramp_snapshot()
@@ -225,7 +370,12 @@ class AppController:
             self.state.tmin = mn
             self.state.tmax = mx
 
-        self.send(proto.cmd_cfg_safety(mn, mx), after_ok=_ok)
+        self.send(
+            proto.cmd_cfg_safety(mn, mx),
+            after_ok=_ok,
+            ok_msg="Límites de temperatura guardados.",
+            err_title="Límites",
+        )
 
     def write_heat(self) -> None:
         """Persiste AT+CFG=H (precalentado + arranque/fin juntos)."""
@@ -245,7 +395,11 @@ class AppController:
         if err:
             messagebox.showerror("Flujo HEAT", err)
             return
-        self.send(proto.cmd_cfg_heat(*vals))
+        self.send(
+            proto.cmd_cfg_heat(*vals),
+            ok_msg="Parámetros de flujo HEAT guardados (AT+CFG=H).",
+            err_title="Flujo HEAT",
+        )
 
     def write_pid(self) -> None:
         try:
@@ -259,7 +413,16 @@ class AppController:
         if err:
             messagebox.showerror("PID", err)
             return
-        self.send(proto.cmd_cfg_pid(kp, ki, kd))
+
+        def _ok() -> None:
+            self.tune.apply_working_pid({"KP": kp, "KI": ki, "KD": kd})
+
+        self.send(
+            proto.cmd_cfg_pid(kp, ki, kd),
+            after_ok=_ok,
+            ok_msg="Ganancias PID guardadas en el equipo.",
+            err_title="PID",
+        )
 
     def save_tune_params(self) -> None:
         """Valida, envía AT+CFG=T al equipo y guarda caché local."""
@@ -283,15 +446,14 @@ class AppController:
             return
         tune_store.save_tune(temp, cycles, hyst, max_s)
         self.tune.sync_chart_ylim()
-
-        def _ok() -> None:
-            messagebox.showinfo(
-                "Autoajuste",
-                "Parámetros guardados en el equipo (AT+CFG=T → EEPROM)\n"
-                f"y en el host (timeout {max_s} s).",
-            )
-
-        self.send(proto.cmd_cfg_tune(cycles, hyst, max_s), after_ok=_ok)
+        self.send(
+            proto.cmd_cfg_tune(cycles, hyst, max_s),
+            ok_msg=(
+                "Parámetros de autoajuste guardados (AT+CFG=T → EEPROM)\n"
+                f"y caché local (timeout {max_s} s)."
+            ),
+            err_title="Autoajuste",
+        )
 
     def run_tune(self) -> None:
         try:
@@ -311,14 +473,48 @@ class AppController:
         tune_store.save_tune(temp, cycles, hyst, max_s)
         self.state.recording_heat = False
         self.tune.begin_run()
-        self.send(proto.cmd_run_tune(temp, cycles, hyst, max_s))
+
+        def _fail(_r=None) -> None:
+            self.tune.stop_recording()
+            messagebox.showerror(
+                "Autoajuste",
+                "No se pudo iniciar el autoajuste. Revisa modo USB y parámetros.",
+            )
+
+        self.send(
+            proto.cmd_run_tune(temp, cycles, hyst, max_s),
+            after_err=_fail,
+            err_title="Autoajuste",
+        )
 
     def apply_atune(self) -> None:
-        self.send(proto.cmd_cfg_apply_atune())
+        def _ok() -> None:
+            self.tune._atune_result_ready = False
+            self.read_cfg()
+            messagebox.showinfo(
+                "Guardado",
+                "Ganancias del autoajuste aplicadas al PID del equipo.",
+            )
+
+        def _fail(_r=None) -> None:
+            messagebox.showerror(
+                "Autoajuste",
+                "No se pudieron aplicar las ganancias (¿autoajuste en DONE?).",
+            )
+
+        self.send(
+            proto.cmd_cfg_apply_atune(),
+            after_ok=_ok,
+            after_err=_fail,
+            err_title="Autoajuste",
+        )
 
     # ---- sondeo STAT ----
 
     def toggle_stat_poll(self) -> None:
+        if self.conn._poll_locked:
+            self.conn.poll_stat.set(True)
+            self.conn.stat_interval.set("1 s")
         self._cancel_stat()
         if (
             self.conn.poll_stat.get()
@@ -374,6 +570,7 @@ class AppController:
         elif p.kind == "CF":
             self.state.last_cf = p.fields
             self.settings.apply_cf(p.fields, self.state)
+            self.tune.apply_working_pid(p.fields)
             if "AMS" in p.fields:
                 self.tune.var_tmax_s.set(str(p.fields["AMS"]))
             self.heat.refresh_objetivo()
@@ -427,6 +624,7 @@ class AppController:
                 float(t) if t is not None else float("nan"),
                 plot_set,
                 float(fields.get("DU", float("nan"))),
+                proto.chart_phase_label(a, fields.get("RI")),
             )
             # Usar trace completo (no la ventana samples) para no “cortar” ni
             # desplazar el origen del eje X al llenarse el deque.
@@ -435,8 +633,10 @@ class AppController:
             )
             if heat_ending:
                 self.state.recording_heat = False
+                self._unlock_heat_poll()
         elif self.state.recording_heat and not heat_running:
             self.state.recording_heat = False
+            self._unlock_heat_poll()
 
     def clear_plot(self) -> None:
         self.state.clear_samples()
@@ -458,9 +658,20 @@ class AppController:
             return
         with open(path, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
-            w.writerow(["t_s", "T_C", "SET_C", "DU_pct"])
+            w.writerow(
+                [
+                    "Tiempo (s)",
+                    "Temperatura medida (°C)",
+                    "Temperatura consignada / SET (°C)",
+                    "Potencia calentador (%)",
+                    "Fase del proceso",
+                ]
+            )
             for row in rows:
-                w.writerow(row)
+                cells = list(row)
+                if len(cells) < 5:
+                    cells.extend([""] * (5 - len(cells)))
+                w.writerow(cells)
         messagebox.showinfo(
             "CSV", f"Guardado {path}\n{len(rows)} muestras (histórico completo)"
         )

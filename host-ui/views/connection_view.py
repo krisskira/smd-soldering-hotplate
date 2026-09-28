@@ -21,6 +21,7 @@ class ConnectionView:
         self.poll_stat = tk.BooleanVar(value=True)
         self.stat_interval = tk.StringVar(value="1 s")
         self.port_var = tk.StringVar()
+        self._poll_locked = False
 
         port_box = ttk.LabelFrame(parent, text="Puerto serie")
         port_box.pack(fill=tk.X, padx=8, pady=(8, 4))
@@ -58,9 +59,10 @@ class ConnectionView:
         poll.grid(row=0, column=1, sticky=tk.NSEW, padx=(4, 0))
         row3 = ttk.Frame(poll)
         row3.pack(fill=tk.X, padx=8, pady=8)
-        ttk.Checkbutton(
+        self.poll_cb = ttk.Checkbutton(
             row3, text="Activar", variable=self.poll_stat, command=ctrl.toggle_stat_poll
-        ).pack(side=tk.LEFT)
+        )
+        self.poll_cb.pack(side=tk.LEFT)
         ttk.Label(row3, text="cada").pack(side=tk.LEFT, padx=(12, 4))
         self.interval_cb = ttk.Combobox(
             row3,
@@ -79,9 +81,37 @@ class ConnectionView:
         ttk.Button(log_hdr, text="Limpiar consola", command=self.clear_log).pack(
             side=tk.RIGHT
         )
-        self.log = tk.Text(parent, height=36, wrap=tk.NONE, font=("Menlo", 11))
+        self.log = tk.Text(parent, height=36, wrap=tk.NONE)
         self.log.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 8))
+        self.apply_theme()
         self.refresh_ports()
+
+    def set_poll_locked(self, locked: bool) -> None:
+        """Durante HEAT: fuerza Activar + 1 s y bloquea los controles."""
+        self._poll_locked = bool(locked)
+        if locked:
+            self.poll_stat.set(True)
+            self.stat_interval.set("1 s")
+            self.poll_cb.config(state=tk.DISABLED)
+            self.interval_cb.config(state=tk.DISABLED)
+        else:
+            self.poll_cb.config(state=tk.NORMAL)
+            self.interval_cb.config(state="readonly")
+
+    def apply_theme(self) -> None:
+        import theme as ui_theme
+
+        t = ui_theme.get()
+        fam = t.get("console_font_family") or "Menlo"
+        self.log.configure(
+            font=(fam, int(t["console_font_size"])),
+            bg=str(t["console_bg"]),
+            fg=str(t["console_fg"]),
+            insertbackground=str(t["console_fg"]),
+            highlightbackground=str(t["console_border"]),
+            highlightcolor=str(t["console_border"]),
+            highlightthickness=1,
+        )
 
     def refresh_ports(self) -> None:
         ports = list_serial_ports()
@@ -117,7 +147,8 @@ class ConnectionView:
         self.btn_mode.config(state=cmd)
         self.btn_stat.config(state=cmd)
         self.btn_ping.config(state=(tk.NORMAL if online else tk.DISABLED))
-        self.interval_cb.config(state="readonly")
+        if not self._poll_locked:
+            self.interval_cb.config(state="readonly")
 
     def stat_interval_ms(self) -> int:
         return STAT_INTERVALS_MS.get(self.stat_interval.get(), 1_000)

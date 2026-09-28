@@ -19,6 +19,11 @@ uint16_t delay_ms(void)
     return s_ms;
 }
 
+uint16_t delay_sec(void)
+{
+    return (uint16_t)(s_ms / 1000u);
+}
+
 void outputs_bank_set(uint8_t *state, uint8_t on)
 {
     if (!state)

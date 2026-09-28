@@ -38,8 +38,13 @@ class SessionState:
         self.t0 = None
 
     def append_sample(
-        self, t_s: float, t_c: float, set_c: float, du: float
+        self,
+        t_s: float,
+        t_c: float,
+        set_c: float,
+        du: float,
+        phase: str = "",
     ) -> None:
-        row = (t_s, t_c, set_c, du)
+        row = (t_s, t_c, set_c, du, phase)
         self.trace.append(row)
         self.samples.append(row)

@@ -41,7 +41,7 @@ static void feed_oscillation(app_state_t *st, uint8_t half_cycles)
     int16_t lo = (int16_t)(set_x10 - st->atune_hyst_c_x10 - 5);
 
     for (uint8_t i = 0; i < half_cycles && st->atune_phase == ATUNE_RUN; i++) {
-        host_advance_ms(500);
+        host_advance_ms(1000); /* 1 s por medio-ciclo → Tu medible con delay_sec() */
         if (st->atune_relay_on)
             st->sensor.temp_c_x10 = hi;
         else

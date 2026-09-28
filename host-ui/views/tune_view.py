@@ -14,6 +14,9 @@ import tune_store
 from chart import LiveChart
 from constants import (
     MAX_SAMPLES,
+    PID_KD_DEFAULT,
+    PID_KI_DEFAULT,
+    PID_KP_DEFAULT,
     TUNE_CYCLES_DEFAULT,
     TUNE_HYST_X10_DEFAULT,
     TUNE_MAX_S_DEFAULT,
@@ -32,7 +35,7 @@ class TuneView:
         self._ctrl = ctrl
         # Ventana de visualización (últimas N) vs historial completo (CSV)
         self.samples: deque = deque(maxlen=MAX_SAMPLES)
-        self.history: list[tuple[float, float, float, float]] = []
+        self.history: list[tuple[float, float, float, float, str]] = []
         self._t0: Optional[float] = None
         self._cycles_target = TUNE_CYCLES_DEFAULT
         self.recording = False
@@ -98,32 +101,60 @@ class TuneView:
         self.var_phase = tk.StringVar(value="—")
         self.var_pct = tk.StringVar(value="0 %")
         self.var_cycles = tk.StringVar(value="0 / —")
-        ttk.Label(prog, text="Fase").grid(row=0, column=0, padx=8, pady=4, sticky=tk.NW)
-        ttk.Label(prog, textvariable=self.var_phase, anchor=tk.E, width=ENTRY_W).grid(
-            row=0, column=1, padx=8, pady=4, sticky=tk.NE
+        self._tune_running = False
+        btn_tune_bar = ttk.Frame(prog)
+        btn_tune_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=8)
+        self.btn_tune = ttk.Button(
+            btn_tune_bar, text="Iniciar autoajuste", command=ctrl.toggle_tune
         )
-        ttk.Label(prog, text="Progreso").grid(
-            row=1, column=0, padx=8, pady=4, sticky=tk.NW
+        self.btn_tune.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ToolTip(
+            self.btn_tune,
+            "Inicia o detiene el autoajuste (AT+RUN=2 / AT+STOP).",
         )
-        ttk.Label(prog, textvariable=self.var_pct, anchor=tk.E, width=ENTRY_W).grid(
-            row=1, column=1, padx=8, pady=4, sticky=tk.NE
+        prog_body = ttk.Frame(prog)
+        prog_body.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+        ttk.Label(prog_body, text="Fase").grid(
+            row=0, column=0, padx=0, pady=4, sticky=tk.NW
         )
+        ttk.Label(
+            prog_body, textvariable=self.var_phase, anchor=tk.E, width=ENTRY_W
+        ).grid(row=0, column=1, padx=0, pady=4, sticky=tk.NE)
+        ttk.Label(prog_body, text="Progreso").grid(
+            row=1, column=0, padx=0, pady=4, sticky=tk.NW
+        )
+        ttk.Label(
+            prog_body, textvariable=self.var_pct, anchor=tk.E, width=ENTRY_W
+        ).grid(row=1, column=1, padx=0, pady=4, sticky=tk.NE)
         self.progress = ttk.Progressbar(
-            prog, maximum=100, mode="determinate", length=140
+            prog_body, maximum=100, mode="determinate", length=140
         )
-        self.progress.grid(row=2, column=0, columnspan=2, sticky=tk.EW, padx=8, pady=4)
-        ttk.Label(prog, text="Ciclos sensados").grid(
-            row=3, column=0, padx=8, pady=4, sticky=tk.NW
+        self.progress.grid(row=2, column=0, columnspan=2, sticky=tk.EW, padx=0, pady=4)
+        ttk.Label(prog_body, text="Ciclos sensados").grid(
+            row=3, column=0, padx=0, pady=4, sticky=tk.NW
         )
-        ttk.Label(prog, textvariable=self.var_cycles, anchor=tk.E, width=ENTRY_W).grid(
-            row=3, column=1, padx=8, pady=4, sticky=tk.NE
-        )
+        ttk.Label(
+            prog_body, textvariable=self.var_cycles, anchor=tk.E, width=ENTRY_W
+        ).grid(row=3, column=1, padx=0, pady=4, sticky=tk.NE)
+        prog_body.columnconfigure(1, weight=1)
 
         # --- Ganancias + guardar ---
         result = ttk.LabelFrame(row1, text="Ganancias Kp / Ki / Kd (×10)")
-        self.var_ak = tk.StringVar(value="—")
-        self.var_ai = tk.StringVar(value="—")
-        self.var_ad = tk.StringVar(value="—")
+        self.var_ak = tk.StringVar(value=str(PID_KP_DEFAULT))
+        self.var_ai = tk.StringVar(value=str(PID_KI_DEFAULT))
+        self.var_ad = tk.StringVar(value=str(PID_KD_DEFAULT))
+        self._atune_result_ready = False
+        apply_bar = ttk.Frame(result)
+        apply_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=8)
+        self.btn_apply = ttk.Button(
+            apply_bar,
+            text="Guardar ganancias en PID",
+            command=ctrl.apply_atune,
+            state=tk.DISABLED,
+        )
+        self.btn_apply.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        result_body = ttk.Frame(result)
+        result_body.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
         for r, (lab, var, key) in enumerate(
             [
                 ("Kp", self.var_ak, "AK"),
@@ -131,23 +162,19 @@ class TuneView:
                 ("Kd", self.var_ad, "AD"),
             ]
         ):
-            ttk.Label(result, text=lab).grid(row=r, column=0, padx=8, pady=4, sticky=tk.NW)
-            val_lbl = ttk.Label(result, textvariable=var, width=ENTRY_W, anchor=tk.E)
-            val_lbl.grid(row=r, column=1, padx=8, pady=4, sticky=tk.NE)
+            ttk.Label(result_body, text=lab).grid(
+                row=r, column=0, padx=0, pady=4, sticky=tk.NW
+            )
+            val_lbl = ttk.Label(
+                result_body, textvariable=var, width=ENTRY_W, anchor=tk.E
+            )
+            val_lbl.grid(row=r, column=1, padx=0, pady=4, sticky=tk.NE)
             ToolTip(
                 val_lbl,
-                f"{lab} resultado del autoajuste (×10)\n"
-                f"Trama: $HP {key}= (solo con stream)",
+                f"{lab} del equipo (×10), mismo que Ajustes / $CF.\n"
+                f"Tras autoajuste DONE: $HP {key}= y se puede guardar en PID.",
             )
-        self.btn_apply = ttk.Button(
-            result,
-            text="Guardar ganancias en PID",
-            command=ctrl.apply_atune,
-            state=tk.DISABLED,
-        )
-        self.btn_apply.grid(
-            row=3, column=0, columnspan=2, sticky=tk.EW, padx=8, pady=(8, 8)
-        )
+        result_body.columnconfigure(1, weight=1)
 
         self._top_frames = (params, prog, result)
         for i, fr in enumerate(self._top_frames):
@@ -158,19 +185,19 @@ class TuneView:
                 padx=(0 if i == 0 else 8, 0),
                 pady=4,
             )
+        row1.columnconfigure(0, weight=1, uniform="tune")
+        row1.columnconfigure(1, weight=1, uniform="tune")
+        row1.columnconfigure(2, weight=1, uniform="tune")
 
-        # Fila 2: gráfico (controles Iniciar/Detener/CSV en el header)
+        # Fila 2: gráfico (CSV / limpiar en el header)
         row2 = ttk.Frame(parent)
         row2.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 8))
         self.chart = LiveChart(
             row2,
             title="Curva de calibración",
-            on_start=ctrl.run_tune,
-            on_stop=ctrl.stop,
             on_export=ctrl.export_tune_csv,
             on_clear=self.clear_chart,
-            start_label="Iniciar autoajuste",
-            figsize=(8, 3.8),
+            figsize=(8, 4.8),
             x_span_s=float(TUNE_MAX_S_DEFAULT),
             x_locked=True,
         )
@@ -216,6 +243,7 @@ class TuneView:
         except ValueError:
             self._cycles_target = TUNE_CYCLES_DEFAULT
         self.recording = True
+        self.set_tune_running(True)
         self.samples.clear()
         self.history.clear()
         self._t0 = None
@@ -226,13 +254,24 @@ class TuneView:
         self.var_pct.set("0 %")
         self.var_cycles.set(f"0 / {self._cycles_target}")
         self.var_phase.set("—")
-        self.var_ak.set("—")
-        self.var_ai.set("—")
-        self.var_ad.set("—")
+        self._atune_result_ready = False
         self.btn_apply.config(state=tk.DISABLED)
+        # Kp/Ki/Kd siguen mostrando el PID del equipo hasta DONE.
+
+    def set_tune_running(self, running: bool) -> None:
+        self._tune_running = bool(running)
+        self.btn_tune.config(
+            text=(
+                "Detener autoajuste" if self._tune_running else "Iniciar autoajuste"
+            )
+        )
+
+    def is_tune_running(self) -> bool:
+        return self._tune_running
 
     def stop_recording(self) -> None:
         self.recording = False
+        self.set_tune_running(False)
 
     def clear_chart(self) -> None:
         self.samples.clear()
@@ -259,9 +298,12 @@ class TuneView:
             self.progress["value"] = pct
             self.var_pct.set(f"{pct} %")
             self.var_cycles.set(f"{ac} / {tgt}")
-            self.var_ak.set(str(fields.get("AK", "—")))
-            self.var_ai.set(str(fields.get("AI", "—")))
-            self.var_ad.set(str(fields.get("AD", "—")))
+            # Solo al terminar el autoajuste se sustituyen las ganancias de trabajo.
+            if int(ap) == 2:
+                self.var_ak.set(str(fields.get("AK", "—")))
+                self.var_ai.set(str(fields.get("AI", "—")))
+                self.var_ad.set(str(fields.get("AD", "—")))
+                self._atune_result_ready = True
             self.btn_apply.config(
                 state=(tk.NORMAL if int(ap) == 2 else tk.DISABLED)
             )
@@ -291,6 +333,7 @@ class TuneView:
             float(t) if t is not None else float("nan"),
             set_c,
             du,
+            proto.chart_atune_label(ap_i) if ap_i >= 0 else "",
         )
         self.history.append(row)
         self.samples.append(row)
@@ -301,6 +344,18 @@ class TuneView:
 
         if finished:
             self.recording = False
+            self.set_tune_running(False)
+
+    def apply_working_pid(self, fields: dict[str, Any]) -> None:
+        """Copia KP/KI/KD del device ($CF o Ajustes) si no hay resultado de tune."""
+        if self._atune_result_ready:
+            return
+        if "KP" in fields:
+            self.var_ak.set(str(fields["KP"]))
+        if "KI" in fields:
+            self.var_ai.set(str(fields["KI"]))
+        if "KD" in fields:
+            self.var_ad.set(str(fields["KD"]))
 
     def hyst_band(self, set_c: float) -> tuple[float, float] | None:
         try:

@@ -99,7 +99,7 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 
 `CFG=S`: min 30..100, max 40..250, min ≤ max.
 
-`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir un escalón define el perfil (`ramp_n` crece hasta cubrir el índice). `CFG=R?` lee los cuatro huecos (`$R`); no achica `N`.
+`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir escalón `i` **fija** `ramp_n = i+1` y limpia huecos altos (así se puede achicar N reescribiendo el último activo). **`temp=0`** (`i≥1`): deshabilita desde `i`. `CFG=R?` → `$R`.
 
 `RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 2000 s). Si se omite, usa el valor guardado.
 
@@ -200,7 +200,7 @@ PRESS local → `ERROR:8` (no es STOP).
 
 ## Gaps
 
-Sin comando AT: `alarm_duration_s`, `alarm_period_s`. `ramp_n` solo crece al escribir un índice alto; no hay forma de achicarlo por AT.
+Sin comando AT: `alarm_duration_s`, `alarm_period_s`. Achicar `ramp_n`: reescribir el último escalón activo (`AT+CFG=R,<n-1>,°C,s` fija N) o `AT+CFG=R,<i>,0,<hold>` con `i≥1`.
 
 ## Streams
 

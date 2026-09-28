@@ -11,6 +11,9 @@ import protocol as proto
 from chart import LiveChart
 from constants import CHART_HEAT_X_SPAN_S
 
+# Margen del eje Y de temperatura por encima del escalón más alto activo.
+CHART_HEAT_Y_MARGIN_C = 50.0
+
 if TYPE_CHECKING:
     from controller import AppController
 
@@ -69,10 +72,11 @@ class HeatView:
 
         top = ttk.Frame(parent)
         top.pack(fill=tk.X, padx=8, pady=6)
-        ttk.Button(top, text="Iniciar HEAT", command=ctrl.start_heat).pack(
-            side=tk.LEFT, padx=2
+        self._heat_running = False
+        self.btn_heat = ttk.Button(
+            top, text="Iniciar HEAT", command=ctrl.toggle_heat
         )
-        ttk.Button(top, text="Detener", command=ctrl.stop).pack(side=tk.LEFT, padx=2)
+        self.btn_heat.pack(side=tk.LEFT, padx=2)
 
         self.banner = tk.Label(
             top, text="", font=("", 11, "bold"), fg="#a00", anchor=tk.W
@@ -94,7 +98,7 @@ class HeatView:
             title="Curva en vivo",
             on_export=ctrl.export_csv,
             on_clear=ctrl.clear_plot,
-            figsize=(9, 4.2),
+            figsize=(9, 5.2),
             show_live_info=True,
             x_span_s=CHART_HEAT_X_SPAN_S,
             x_locked=True,
@@ -116,29 +120,55 @@ class HeatView:
 
         body = ttk.Frame(frame)
         body.pack(anchor=tk.NW, padx=4, pady=4)
+        self._section_title_labels: list[ttk.Label] = []
+        self._status_key_labels: list[ttk.Label] = []
+        self._status_value_labels: list[ttk.Label] = []
+        import theme as ui_theme
+
         for col_i, sections in enumerate(STATUS_COLUMNS):
             col = ttk.Frame(body)
             col.grid(row=0, column=col_i, sticky=tk.NW, padx=4, pady=2)
             row = 0
             for section_title, fields in sections:
-                ttk.Label(
-                    col, text=section_title, font=("", 10, "bold"), anchor=tk.W
-                ).grid(row=row, column=0, columnspan=2, sticky=tk.W, padx=4, pady=(6, 0))
+                st_lbl = ttk.Label(
+                    col,
+                    text=section_title,
+                    font=ui_theme.font_tuple(
+                        "section_title_size", "section_title_weight"
+                    ),
+                    foreground=ui_theme.get()["section_title_color"],
+                    anchor=tk.W,
+                )
+                st_lbl.grid(
+                    row=row, column=0, columnspan=2, sticky=tk.W, padx=4, pady=(6, 0)
+                )
+                self._section_title_labels.append(st_lbl)
                 row += 1
                 ttk.Separator(col, orient=tk.HORIZONTAL).grid(
                     row=row, column=0, columnspan=2, sticky=tk.EW, padx=4, pady=(0, 4)
                 )
                 row += 1
                 for key, label in fields:
-                    ttk.Label(col, text=label, anchor=tk.W).grid(
-                        row=row, column=0, sticky=tk.W, padx=(8, 8), pady=1
+                    k_lbl = ttk.Label(
+                        col,
+                        text=label,
+                        anchor=tk.W,
+                        font=ui_theme.font_tuple("status_key_size", "status_key_weight"),
+                        foreground=ui_theme.get()["status_key_color"],
                     )
-                    ttk.Label(
+                    k_lbl.grid(row=row, column=0, sticky=tk.W, padx=(8, 8), pady=1)
+                    self._status_key_labels.append(k_lbl)
+                    v_lbl = ttk.Label(
                         col,
                         textvariable=self.proc_vars[key],
                         anchor=tk.W,
-                        font=("", 11),
-                    ).grid(row=row, column=1, sticky=tk.W, padx=4, pady=1)
+                        font=ui_theme.font_tuple(
+                            "status_value_size", "status_value_weight"
+                        ),
+                        foreground=ui_theme.get()["status_value_color"],
+                    )
+                    v_lbl.grid(row=row, column=1, sticky=tk.W, padx=4, pady=1)
+                    self._status_value_labels.append(v_lbl)
                     row += 1
 
     def _build_ramps_panel(self, parent: ttk.Frame) -> None:
@@ -148,8 +178,9 @@ class HeatView:
         ttk.Label(
             box,
             text=(
-                "HEAT sigue estos escalones. El número en el equipo solo crece "
-                "al guardar un índice más alto."
+                "HEAT sigue escalones contiguos desde la rampa 1 (siempre activa). "
+                "«Guardar» / «Guardar rampas activas» envía 0…N-1; el último fija N "
+                "en el equipo. «Leer rampas» pide AT+CFG=R? ($R)."
             ),
             wraplength=380,
         ).pack(anchor=tk.W, padx=6, pady=(4, 2))
@@ -165,6 +196,7 @@ class HeatView:
         self.ramp_temp: list[tk.StringVar] = []
         self.ramp_hold: list[tk.StringVar] = []
         self.ramp_row_labels: list[ttk.Label] = []
+        self._ramp_checks: list[ttk.Checkbutton] = []
 
         body = ttk.Frame(box)
         body.pack(padx=6, pady=4)
@@ -175,7 +207,14 @@ class HeatView:
             self.ramp_active.append(av)
             self.ramp_temp.append(tv)
             self.ramp_hold.append(hv)
-            ttk.Checkbutton(body, variable=av).grid(row=i, column=0, padx=2)
+            cb = ttk.Checkbutton(body, variable=av)
+            if i == 0:
+                av.set(True)
+                cb.state(["disabled"])
+            else:
+                cb.config(command=self._on_ramp_active_toggle)
+            cb.grid(row=i, column=0, padx=2)
+            self._ramp_checks.append(cb)
             rl = ttk.Label(body, text=f"Rampa {i + 1}", width=10)
             rl.grid(row=i, column=1, sticky=tk.W)
             self.ramp_row_labels.append(rl)
@@ -201,6 +240,26 @@ class HeatView:
         for v in self.ramp_temp + self.ramp_active:
             v.trace_add("write", lambda *_: self._on_ramp_edit())
 
+    def _on_ramp_active_toggle(self) -> None:
+        """Fuerza prefijo contiguo: rampa 1 siempre ON; sin huecos."""
+        self.ramp_active[0].set(True)
+        saw_off = False
+        for i in range(1, 4):
+            if saw_off:
+                self.ramp_active[i].set(False)
+            elif not self.ramp_active[i].get():
+                saw_off = True
+        self._on_ramp_edit()
+
+    def set_heat_running(self, running: bool) -> None:
+        self._heat_running = bool(running)
+        self.btn_heat.config(
+            text=("Detener HEAT" if self._heat_running else "Iniciar HEAT")
+        )
+
+    def is_heat_running(self) -> bool:
+        return self._heat_running
+
     def _on_ramp_edit(self) -> None:
         self._sync_chart_ylim()
         self.refresh_objetivo()
@@ -213,6 +272,7 @@ class HeatView:
         )
 
     def ramp_ymax(self) -> float:
+        """Tope del eje Y: max(°C de rampas activas) + 50 °C."""
         active, temps, _ = self.ramp_snapshot()
         vals: list[float] = []
         for on, t in zip(active, temps):
@@ -228,7 +288,8 @@ class HeatView:
                     vals.append(float(t))
                 except ValueError:
                     pass
-        return max(vals) if vals else 100.0
+        base = max(vals) if vals else 100.0
+        return base + CHART_HEAT_Y_MARGIN_C
 
     def sync_chart_ylim(self) -> None:
         if hasattr(self, "chart"):
@@ -238,12 +299,18 @@ class HeatView:
         self.sync_chart_ylim()
 
     def apply_ramps_frame(self, n: int, steps: list[tuple[int, int]]) -> None:
+        """Aplica `$R`: N define activos; °C/hold de cada hueco."""
+        n = max(0, min(int(n), 4))
         for i in range(4):
             if i < len(steps):
                 t, h = steps[i]
-                self.ramp_temp[i].set(str(t))
-                self.ramp_hold[i].set(str(h))
+                if t > 0:
+                    self.ramp_temp[i].set(str(t))
+                if h > 0:
+                    self.ramp_hold[i].set(str(h))
+            # Solo N cuenta: checkboxes no dependen de temp residual en EEPROM
             self.ramp_active[i].set(i < n)
+        self.ramp_active[0].set(True)
         self._sync_chart_ylim()
         self.refresh_objetivo()
 
@@ -320,5 +387,28 @@ class HeatView:
     def set_banner(self, text: str, color: str = "#a00") -> None:
         self.banner.config(text=text, fg=color, font=("", 11, "bold"))
 
+    def apply_theme(self) -> None:
+        import theme as ui_theme
+
+        t = ui_theme.get()
+        for lbl in self._section_title_labels:
+            lbl.configure(
+                font=ui_theme.font_tuple("section_title_size", "section_title_weight"),
+                foreground=t["section_title_color"],
+            )
+        for lbl in self._status_key_labels:
+            lbl.configure(
+                font=ui_theme.font_tuple("status_key_size", "status_key_weight"),
+                foreground=t["status_key_color"],
+            )
+        for lbl in self._status_value_labels:
+            lbl.configure(
+                font=ui_theme.font_tuple("status_value_size", "status_value_weight"),
+                foreground=t["status_value_color"],
+            )
+        if hasattr(self, "chart"):
+            self.chart.apply_theme()
+
     def has_active_ramps(self) -> bool:
-        return any(v.get() for v in self.ramp_active)
+        self.ramp_active[0].set(True)
+        return True

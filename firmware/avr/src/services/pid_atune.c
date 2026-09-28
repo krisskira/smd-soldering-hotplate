@@ -6,21 +6,14 @@
 #include "lib/ports/ports.h"
 
 /*
- * Autotune bang-bang SSR (Åström–Hägglund) → Ziegler–Nichols.
- * Salida: MOC3021 + BT136. Ciclos/hyst/timeout desde app_state (EEPROM v7).
- * Fan ON en medio-ciclo OFF (enfriamiento) para acortar Tu y limitar
- * tiempo de componentes SMD por encima de la consigna.
+ * Relé SSR → Ku,Tu → Z–N método 2 lazo cerrado, regla PI
+ * (Kp=0.45 Ku, Ti=Tu/1.2, Kd=0). Planta térmica lenta: Td del PID
+ * Z–N satura el techo ×10=999. A tras descartar 1.er ciclo. Fan en OFF.
  */
 
-static int16_t  s_peak_hi;
-static int16_t  s_peak_lo;
-static int16_t  s_kp;
-static int16_t  s_ki;
-static int16_t  s_kd;
-/* Suma de medio-periodos en s (delay_ms wrap ~65 s; Tu real ≫ eso). */
-static uint16_t s_half_sum_s;
+static int16_t  s_peak_hi, s_peak_lo, s_kp, s_ki, s_kd;
+static uint16_t s_half_sum_s, s_t0_s;
 static uint8_t  s_half_n;
-static uint16_t s_t0_s;
 
 static void heaters_off(app_state_t *st)
 {
@@ -29,21 +22,9 @@ static void heaters_off(app_state_t *st)
     st->atune_relay_on = 0;
 }
 
-static void cool_assist_on(void)
-{
-    fan_on();
-}
-
-static void cool_assist_off(void)
-{
-    fan_off();
-}
-
 void pid_atune_init(app_state_t *st)
 {
-    s_kp = 0;
-    s_ki = 0;
-    s_kd = 0;
+    s_kp = s_ki = s_kd = 0;
     if (!st)
         return;
     st->atune_phase = ATUNE_IDLE;
@@ -51,7 +32,7 @@ void pid_atune_init(app_state_t *st)
     st->atune_relay_on = 0;
     st->atune_elapsed_s = 0;
     at_cmd_set_stream(st, 0);
-    cool_assist_off();
+    fan_off();
 }
 
 void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd)
@@ -69,7 +50,7 @@ void pid_atune_cancel(app_state_t *st)
     if (!st)
         return;
     heaters_off(st);
-    cool_assist_off();
+    fan_off();
     st->atune_phase = ATUNE_IDLE;
     at_cmd_set_stream(st, 0);
     pid_reset(st);
@@ -98,25 +79,21 @@ uint8_t pid_atune_start(app_state_t *st)
     st->atune_elapsed_s = 0;
     st->atune_relay_on = 1;
     st->duty_pct = 100;
-    cool_assist_off();
+    fan_off();
     outputs_bank_set(st->out_state, 1);
 
     t = st->sensor.temp_c_x10;
-    s_peak_hi = t;
-    s_peak_lo = t;
-    s_kp = 0;
-    s_ki = 0;
-    s_kd = 0;
+    s_peak_hi = s_peak_lo = t;
+    s_kp = s_ki = s_kd = 0;
     s_half_sum_s = 0;
     s_half_n = 0;
     s_t0_s = delay_sec();
     return 0u;
 }
 
-/* tu_s = periodo medio de oscilación (s). */
 static void finish_ok(app_state_t *st, uint16_t tu_s, int16_t amp)
 {
-    int32_t ku, kp, ki, kd, tu10;
+    int32_t ku, kp, ki, tu10;
 
     if (amp < 5)
         amp = 5;
@@ -125,42 +102,37 @@ static void finish_ok(app_state_t *st, uint16_t tu_s, int16_t amp)
         ku = 1;
     if (ku > 999)
         ku = 999;
-
     if (tu_s < 1u)
         tu_s = 1u;
-    tu10 = (int32_t)tu_s * 10L; /* décimas de segundo */
+    tu10 = (int32_t)tu_s * 10L;
     if (tu10 < 10)
         tu10 = 10;
 
-    kp = (ku * 6L) / 10L;
+    /* Z–N PI (método 2): Kp=0.45 Ku, Ti=Tu/1.2, Kd=0 */
+    kp = (ku * 45L) / 100L;
     if (kp < 1)
         kp = 1;
     if (kp > 999)
         kp = 999;
-    ki = (kp * 100L) / tu10;
+    ki = (kp * 120L) / tu10;
     if (ki < 0)
         ki = 0;
     if (ki > 999)
         ki = 999;
-    kd = (kp * tu10) / 80L;
-    if (kd < 0)
-        kd = 0;
-    if (kd > 999)
-        kd = 999;
 
     s_kp = (int16_t)kp;
     s_ki = (int16_t)ki;
-    s_kd = (int16_t)kd;
+    s_kd = 0;
     st->atune_phase = ATUNE_DONE;
     heaters_off(st);
-    cool_assist_off();
+    fan_off();
 }
 
 static void fail(app_state_t *st)
 {
     st->atune_phase = ATUNE_FAIL;
     heaters_off(st);
-    cool_assist_off();
+    fan_off();
 }
 
 void pid_atune_on_sample(app_state_t *st)
@@ -199,9 +171,8 @@ void pid_atune_on_sample(app_state_t *st)
     if (st->atune_relay_on) {
         if (t < hi)
             return;
-        /* Cruce alto → OFF calentador + fan para acelerar enfriamiento */
         heaters_off(st);
-        cool_assist_on();
+        fan_on();
         if (s_half_n > 0)
             s_half_sum_s = (uint16_t)(s_half_sum_s + dt_s);
         s_half_n++;
@@ -210,17 +181,13 @@ void pid_atune_on_sample(app_state_t *st)
             uint16_t tu_s = (uint16_t)((s_half_sum_s * 2u) / (uint16_t)(s_half_n - 1u));
             int16_t amp = (int16_t)((s_peak_hi - s_peak_lo) / 2);
             finish_ok(st, tu_s, amp);
-            return;
         }
-        s_peak_hi = t;
-        s_peak_lo = t;
         return;
     }
 
     if (t > lo)
         return;
-    /* Cruce bajo → ON calentador, fan OFF */
-    cool_assist_off();
+    fan_off();
     outputs_bank_set(st->out_state, 1);
     st->duty_pct = 100;
     st->atune_relay_on = 1;
@@ -229,8 +196,10 @@ void pid_atune_on_sample(app_state_t *st)
     s_half_n++;
     s_t0_s = now_s;
     st->atune_cycles = (uint8_t)(s_half_n / 2u);
-    s_peak_hi = t;
-    s_peak_lo = t;
+    if (s_half_n == 2u) {
+        s_peak_hi = t;
+        s_peak_lo = t;
+    }
 }
 
 void pid_atune_apply(app_state_t *st)

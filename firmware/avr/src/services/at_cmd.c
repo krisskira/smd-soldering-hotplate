@@ -301,24 +301,44 @@ static uint8_t cfg_tune(app_state_t *st, const char *args)
     return 0u;
 }
 
-/* AT+CFG=R,i,°C,s */
+/* AT+CFG=R,i,°C,s — escribe escalón i y fija ramp_n = i+1 (define el perfil).
+ * temp=0 (i≥1): deshabilita desde i (ramp_n = i) y limpia huecos altos. */
 static uint8_t cfg_ramp(app_state_t *st, const char *args)
 {
     const char *p = args;
     uint16_t idx, temp, hold;
+    uint8_t i;
 
     if (take_u(&p, &idx, 0u) || take_u(&p, &temp, 0u) || take_u(&p, &hold, 1u))
         return 1u;
     if (idx >= RAMP_STEPS_MAX)
         return 1u;
+    if (temp == 0u) {
+        if (idx == 0u)
+            return 1u;
+        for (i = (uint8_t)idx; i < RAMP_STEPS_MAX; i++) {
+            st->ramp_step[i].temp_c = 0u;
+            st->ramp_step[i].hold_s = TIMER_STEP_S;
+        }
+        st->ramp_n = (uint8_t)idx;
+        st->ramps_en = (st->ramp_n > 0u) ? 1u : 0u;
+        cfg_save_ramps(st);
+        st->telem_dirty = 1u;
+        reply_ok(st);
+        return 0u;
+    }
     if (temp < st->temp_min_c || temp > st->temp_max_c)
         return 1u;
     if (hold < 1u || hold > 3600u)
         return 1u;
     st->ramp_step[(uint8_t)idx].temp_c = temp;
     st->ramp_step[(uint8_t)idx].hold_s = hold;
-    if (st->ramp_n < (uint8_t)(idx + 1u))
-        st->ramp_n = (uint8_t)(idx + 1u);
+    /* Fija N al índice escrito (permite achicar al reescribir el último activo). */
+    st->ramp_n = (uint8_t)(idx + 1u);
+    for (i = st->ramp_n; i < RAMP_STEPS_MAX; i++) {
+        st->ramp_step[i].temp_c = 0u;
+        st->ramp_step[i].hold_s = TIMER_STEP_S;
+    }
     st->ramps_en = 1u;
     cfg_save_ramps(st);
     st->telem_dirty = 1u;

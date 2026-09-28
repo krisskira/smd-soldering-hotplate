@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from constants import CHART_X_SPAN_S
+import theme as ui_theme
 
 
 def _x_major_step(span_s: float) -> float:
@@ -66,9 +67,9 @@ def _crossings_t_set(
 
 
 def _duty_edges(
-    xs: Sequence[float], dus: Sequence[float], thr: float = 50.0
+    xs: Sequence[float], dus: Sequence[float], thr: float = 0.0
 ) -> List[Tuple[float, str]]:
-    """Bordes de calentador: (t, 'on'|'off')."""
+    """Bordes de calentador: (t, 'on'|'off'). ON si la potencia pasa de 0."""
     out: List[Tuple[float, str]] = []
     prev: Optional[bool] = None
     for t, du in zip(xs, dus):
@@ -78,11 +79,81 @@ def _duty_edges(
         on = df > thr
         if prev is None:
             prev = on
+            if on:
+                out.append((tf, "on"))
             continue
         if on != prev:
             out.append((tf, "on" if on else "off"))
             prev = on
     return out
+
+
+def _crests(
+    xs: Sequence[float], ys: Sequence[float], min_drop: float = 5.0
+) -> List[Tuple[float, float]]:
+    """Punto más alto de cada cresta que sube y luego baja al menos min_drop °C."""
+    pts: List[Tuple[float, float]] = []
+    for x, y in zip(xs, ys):
+        yf = float(y)
+        if yf == yf:
+            pts.append((float(x), yf))
+    if len(pts) < 3:
+        return []
+    out: List[Tuple[float, float]] = []
+    trough = pts[0][1]
+    peak = pts[0]
+    rising = False
+    for t, y in pts:
+        if not rising:
+            if y <= trough:
+                trough = y
+                peak = (t, y)
+            elif y >= trough + min_drop:
+                rising = True
+                peak = (t, y)
+            continue
+        if y >= peak[1]:
+            peak = (t, y)
+        elif peak[1] - y >= min_drop:
+            out.append(peak)
+            rising = False
+            trough = y
+            peak = (t, y)
+    return out
+
+
+def _phase_spans(
+    xs: Sequence[float], phases: Sequence[str]
+) -> List[Tuple[float, float, str]]:
+    """Tramos continuos de la misma fase: (t0, t1, nombre)."""
+    n = min(len(xs), len(phases))
+    spans: List[Tuple[float, float, str]] = []
+    i = 0
+    while i < n and not phases[i]:
+        i += 1
+    if i >= n:
+        return spans
+    start = i
+    name = str(phases[i])
+    for j in range(i + 1, n):
+        cur = str(phases[j]) if phases[j] else name
+        if cur != name:
+            spans.append((float(xs[start]), float(xs[j]), name))
+            start = j
+            name = cur
+    spans.append((float(xs[start]), float(xs[n - 1]), name))
+    return spans
+
+
+_PHASE_COLORS = (
+    "#0e6655",
+    "#1a5276",
+    "#6c3483",
+    "#b9770e",
+    "#1b4f72",
+    "#7b241c",
+)
+_MARK_FONT = 10
 
 
 class LiveChart:
@@ -161,18 +232,20 @@ class LiveChart:
         self.ax.grid(True, which="minor", linestyle=":", linewidth=0.4, alpha=0.2)
         self.ax.set_axisbelow(True)
 
+        cc = ui_theme.chart_colors()
+        self.ax.set_facecolor(cc["face"])
         (self.line_t,) = self.ax.plot(
             [],
             [],
             label="Temperatura medida (°C)",
-            color="#c0392b",
+            color=cc["temp"],
             linewidth=1.8,
         )
         (self.line_set,) = self.ax.plot(
             [],
             [],
             label="Temperatura objetivo / SET (°C)",
-            color="#2980b9",
+            color=cc["set"],
             linestyle="--",
             linewidth=1.4,
         )
@@ -180,7 +253,7 @@ class LiveChart:
             [],
             [],
             label="Potencia calentador DU (%)",
-            color="#27ae60",
+            color=cc["duty"],
             alpha=0.65,
             linewidth=1.2,
         )
@@ -190,38 +263,55 @@ class LiveChart:
             [],
             linestyle="None",
             marker="^",
-            color="#8e44ad",
-            markersize=7,
-            label="Cruce T↑SET",
+            color=cc["mark_up"],
+            markersize=9,
+            label="Cruce T sube el SET",
         )
         self._mark_down = Line2D(
             [],
             [],
             linestyle="None",
             marker="v",
-            color="#d35400",
-            markersize=7,
-            label="Cruce T↓SET",
+            color=cc["mark_down"],
+            markersize=9,
+            label="Cruce T baja el SET",
         )
         self._mark_on = Line2D(
             [],
             [],
             linestyle="None",
             marker="|",
-            color="#27ae60",
-            markersize=10,
-            markeredgewidth=2,
-            label="PTC ON",
+            color=cc["mark_on"],
+            markersize=14,
+            markeredgewidth=2.4,
+            label="Calentador ON",
         )
         self._mark_off = Line2D(
             [],
             [],
             linestyle="None",
             marker="|",
-            color="#7f8c8d",
-            markersize=10,
-            markeredgewidth=2,
-            label="PTC OFF",
+            color=cc["mark_off"],
+            markersize=14,
+            markeredgewidth=2.4,
+            label="Calentador OFF",
+        )
+        self._mark_peak = Line2D(
+            [],
+            [],
+            linestyle="None",
+            marker="D",
+            color=cc["mark_peak"],
+            markersize=8,
+            label="Cresta (máximo)",
+        )
+        self._mark_phase = Line2D(
+            [],
+            [],
+            linestyle="--",
+            color=cc["phase"],
+            linewidth=1.6,
+            label="Inicio de fase",
         )
         self._handles = [
             self.line_t,
@@ -229,26 +319,49 @@ class LiveChart:
             self.line_du,
             self._mark_up,
             self._mark_down,
+            self._mark_peak,
             self._mark_on,
             self._mark_off,
+            self._mark_phase,
         ]
         self.fig.legend(
             self._handles,
             [h.get_label() for h in self._handles],
             loc="lower center",
-            ncol=4,
-            fontsize=7,
+            ncol=3,
+            fontsize=10,
             frameon=True,
             fancybox=False,
+            borderpad=0.5,
+            labelspacing=0.45,
+            columnspacing=1.4,
+            handletextpad=0.5,
             bbox_to_anchor=(0.5, 0.0),
         )
-        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.95, bottom=0.28)
+        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.40)
+        self.axp = self.fig.add_axes([0.08, 0.205, 0.84, 0.075])
+        self._reset_phase_axis()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
     def set_live_info(self, phase: str, temp_c: str) -> None:
         self.var_phase.set(f"Fase: {phase}")
         self.var_temp.set(f"T medida: {temp_c}")
+
+    def apply_theme(self) -> None:
+        """Reaplica colores de series/marcadores desde el tema actual."""
+        cc = ui_theme.chart_colors()
+        self.ax.set_facecolor(cc["face"])
+        self.line_t.set_color(cc["temp"])
+        self.line_set.set_color(cc["set"])
+        self.line_du.set_color(cc["duty"])
+        self._mark_up.set_color(cc["mark_up"])
+        self._mark_down.set_color(cc["mark_down"])
+        self._mark_on.set_color(cc["mark_on"])
+        self._mark_off.set_color(cc["mark_off"])
+        self._mark_peak.set_color(cc["mark_peak"])
+        self._mark_phase.set_color(cc["phase"])
+        self.canvas.draw_idle()
 
     def _apply_x_measures(self) -> None:
         from matplotlib.ticker import FuncFormatter, MultipleLocator
@@ -259,6 +372,7 @@ class LiveChart:
         self.ax.xaxis.set_major_formatter(
             FuncFormatter(lambda v, _pos: f"{int(round(v))}")
         )
+        self._sync_phase_xlim()
 
     def set_x_span(self, span_s: float) -> None:
         """Fija el largo del eje X y sus marcas a `span_s` segundos."""
@@ -272,6 +386,20 @@ class LiveChart:
         self.ax.set_ylim(0, self._y_max)
         self.canvas.draw_idle()
 
+    def _reset_phase_axis(self) -> None:
+        self.axp.cla()
+        self.axp.set_ylim(0, 1)
+        self.axp.set_yticks([])
+        self.axp.tick_params(axis="x", labelbottom=False, length=0)
+        self.axp.set_xlim(self.ax.get_xlim())
+        for spine in self.axp.spines.values():
+            spine.set_visible(False)
+        self.axp.set_facecolor("#f4f6f7")
+
+    def _sync_phase_xlim(self) -> None:
+        if hasattr(self, "axp"):
+            self.axp.set_xlim(self.ax.get_xlim())
+
     def _clear_overlays(self) -> None:
         for coll in list(self.ax.collections):
             coll.remove()
@@ -281,6 +409,8 @@ class LiveChart:
             except Exception:
                 pass
         self._overlay_artists.clear()
+        if hasattr(self, "axp"):
+            self._reset_phase_axis()
 
     def _draw_event_markers(
         self,
@@ -288,19 +418,23 @@ class LiveChart:
         ys: Sequence[float],
         sets: Sequence[float],
         dus: Sequence[float],
+        phases: Sequence[str],
     ) -> None:
         crosses = _crossings_t_set(xs, ys, sets)
         edges = _duty_edges(xs, dus)
+        crests = _crests(xs, ys)
+        spans = _phase_spans(xs, phases)
 
         up = [(t, y) for t, y, k in crosses if k == "up"]
         down = [(t, y) for t, y, k in crosses if k == "down"]
+        cc = ui_theme.chart_colors()
         if up:
             sc = self.ax.scatter(
                 [p[0] for p in up],
                 [p[1] for p in up],
                 marker="^",
-                s=36,
-                c="#8e44ad",
+                s=64,
+                c=cc["mark_up"],
                 zorder=5,
                 label="_nolegend_",
             )
@@ -310,48 +444,152 @@ class LiveChart:
                 [p[0] for p in down],
                 [p[1] for p in down],
                 marker="v",
-                s=36,
-                c="#d35400",
+                s=64,
+                c=cc["mark_down"],
                 zorder=5,
                 label="_nolegend_",
             )
             self._overlay_artists.append(sc)
 
-        # Etiquetas de tiempo en cruces (limitar densidad)
-        annotate = len(crosses) <= 28
-        if annotate:
+        if len(crosses) <= 28:
             for t, y, _k in crosses:
                 txt = self.ax.annotate(
                     f"{t:.0f}s",
                     xy=(t, y),
-                    xytext=(0, 8),
+                    xytext=(0, 10),
                     textcoords="offset points",
-                    fontsize=6,
+                    fontsize=_MARK_FONT,
                     color="#2c3e50",
                     ha="center",
                     zorder=6,
                 )
                 self._overlay_artists.append(txt)
 
+        if crests:
+            sc = self.ax.scatter(
+                [p[0] for p in crests],
+                [p[1] for p in crests],
+                marker="D",
+                s=42,
+                c=cc["mark_peak"],
+                edgecolors="white",
+                linewidths=0.6,
+                zorder=6,
+                label="_nolegend_",
+            )
+            self._overlay_artists.append(sc)
+            for t, y in crests:
+                txt = self.ax.annotate(
+                    f"{y:.1f}°C  {t:.0f}s",
+                    xy=(t, y),
+                    xytext=(5, 6),
+                    textcoords="offset points",
+                    rotation=90,
+                    fontsize=_MARK_FONT,
+                    color=cc["mark_peak"],
+                    ha="left",
+                    va="bottom",
+                    zorder=7,
+                    clip_on=True,
+                )
+                self._overlay_artists.append(txt)
+
         y_lo, y_hi = self.ax.get_ylim()
+        x_span = max(self.ax.get_xlim()[1] - self.ax.get_xlim()[0], 1.0)
+        label_gap = max(x_span * 0.012, 4.0)
+        last_edge_label: Optional[float] = None
         for t, kind in edges:
-            color = "#27ae60" if kind == "on" else "#7f8c8d"
+            color = cc["mark_on"] if kind == "on" else cc["mark_off"]
+            word = "ON" if kind == "on" else "OFF"
             ln = self.ax.axvline(
-                t, color=color, alpha=0.35, linewidth=1.0, zorder=2
+                t, color=color, alpha=0.55, linewidth=1.15, zorder=2
             )
             self._overlay_artists.append(ln)
-            # marca en el borde inferior del eje T
             mk = self.ax.plot(
                 [t],
-                [y_lo + 0.02 * (y_hi - y_lo)],
+                [y_lo + 0.015 * (y_hi - y_lo)],
                 marker="|",
-                markersize=12,
-                markeredgewidth=2.0,
+                markersize=16,
+                markeredgewidth=2.4,
                 color=color,
                 linestyle="None",
                 zorder=5,
             )
             self._overlay_artists.extend(mk)
+            if last_edge_label is not None and (t - last_edge_label) < label_gap:
+                continue
+            last_edge_label = t
+            near_left = t <= x_span * 0.02
+            txt = self.ax.annotate(
+                f"{word} {t:.0f}s",
+                xy=(t, y_lo),
+                xytext=(8 if near_left else 0, 6),
+                textcoords="offset points",
+                rotation=90,
+                fontsize=_MARK_FONT,
+                color=color,
+                ha="left" if near_left else "center",
+                va="bottom",
+                zorder=7,
+                clip_on=True,
+            )
+            self._overlay_artists.append(txt)
+
+        x0, x1 = self.ax.get_xlim()
+        self._reset_phase_axis()
+        dpi = float(self.fig.dpi)
+        px = max(self.fig.get_figwidth() * dpi * 0.84, 1.0)
+        sec_per_px = max(x1 - x0, 1.0) / px
+        char_px = _MARK_FONT * (dpi / 72.0) * 0.62
+        for i, (t0, t1, name) in enumerate(spans):
+            color = _PHASE_COLORS[i % len(_PHASE_COLORS)]
+            t_end = t1 if t1 > t0 else t0 + max(x1 - x0, 1.0) * 0.008
+            bars = self.axp.barh(
+                0.5,
+                t_end - t0,
+                left=t0,
+                height=0.92,
+                color=color,
+                align="center",
+                zorder=2,
+            )
+            rect = bars.patches[0]
+            ln = self.ax.axvline(
+                t0,
+                color=color,
+                linestyle="--",
+                linewidth=1.6,
+                alpha=0.9,
+                zorder=3,
+            )
+            self._overlay_artists.append(ln)
+            width_s = t_end - t0
+
+            def _fits(text: str) -> bool:
+                return len(text) * char_px * sec_per_px <= width_s * 0.92
+
+            full = f"{name}  {t0:.0f}s"
+            bar_px = width_s / sec_per_px
+            if _fits(full):
+                shown = full
+            elif bar_px >= 36:
+                shown = name
+            else:
+                shown = ""
+            if shown:
+                txt = self.axp.text(
+                    t0 + width_s / 2.0,
+                    0.5,
+                    shown,
+                    ha="center",
+                    va="center",
+                    color="white",
+                    fontsize=_MARK_FONT,
+                    zorder=3,
+                )
+                txt.set_clip_path(rect)
+        self.axp.set_xlim(x0, x1)
+        self.axp.set_ylim(0, 1)
 
     def redraw(
         self,
@@ -366,6 +604,7 @@ class LiveChart:
         ys = [s[1] for s in samples]
         sets = [s[2] for s in samples]
         dus = [s[3] for s in samples]
+        phases = [s[4] if len(s) > 4 else "" for s in samples]
         self.line_t.set_data(xs, ys)
         self.line_set.set_data(xs, sets)
         self.line_du.set_data(xs, dus)
@@ -389,8 +628,8 @@ class LiveChart:
         self._clear_overlays()
         if band is not None:
             lo, hi = band
-            self.ax.axhspan(lo, hi, color="#f1c40f", alpha=0.15)
-        self._draw_event_markers(xs, ys, sets, dus)
+            self.ax.axhspan(lo, hi, color=ui_theme.chart_colors()["band"], alpha=0.15)
+        self._draw_event_markers(xs, ys, sets, dus, phases)
         self.canvas.draw_idle()
 
     def clear(self) -> None:

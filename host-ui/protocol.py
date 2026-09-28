@@ -158,6 +158,13 @@ def validate_ramp(
 ) -> Optional[str]:
     if not (0 <= idx <= 3):
         return "índice de rampa debe ser 0..3"
+    # temp=0: deshabilitar desde idx (firmware); rampa 1 (idx 0) no.
+    if temp == 0:
+        if idx == 0:
+            return "la rampa 1 no se puede deshabilitar (temp=0)"
+        if not (1 <= hold <= 3600):
+            return "hold debe estar en 1..3600"
+        return None
     if not (tmin <= temp <= tmax):
         return f"temp debe estar en {tmin}..{tmax}"
     if not (1 <= hold <= 3600):
@@ -286,6 +293,21 @@ def parse_line(line: str) -> Parsed:
 
 def phase_name(a: int) -> str:
     return PHASE_NAMES.get(a, str(a))
+
+
+def chart_phase_label(a: int, ri: Any = None) -> str:
+    """Nombre corto para el marcador de fase en la curva."""
+    if a == 1:
+        return "Espera"
+    if a == 5:
+        if isinstance(ri, int):
+            return f"Rampa {ri + 1}"
+        return "Rampa"
+    return PHASE_NAMES.get(a, str(a))
+
+
+def chart_atune_label(ap: int) -> str:
+    return {0: "Inactivo", 1: "Ajuste", 2: "Listo", 3: "Fallido"}.get(ap, str(ap))
 
 
 def prog_name(p: int) -> str:

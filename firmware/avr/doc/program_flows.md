@@ -138,7 +138,7 @@ No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_p
 
 ## PID_ATUNE (`PROG_PID_TUNE`)
 
-Solo AT: `AT+CFG=T,ciclos,hyst,max_s` (persiste sin arrancar) y `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → ganancias en estáticos de `pid_atune` → `AT+CFG=A` (`pid_atune_apply` + `cfg_save_global`).
+Solo AT: `AT+CFG=T,ciclos,hyst,max_s` (persiste sin arrancar) y `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Oscilación bang-bang (relé) con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → identifica \(K_u\approx 4d/(\pi A)\) y \(T_u\) → **Ziegler–Nichols método 2** (ganancia límite, lazo cerrado, regla **PI**: \(K_p=0.45K_u\), \(T_i=T_u/1.2\), \(K_d=0\); la regla PID saturaría \(K_d\times10>999\) con \(T_u\) térmico) → `AT+CFG=A`. \(A=(T_{max}-T_{min})/2\) tras descartar el 1.er ciclo (heat-up).
 
 Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default **2000** s; rango 120..3600; `$CF AMS=`).
 
