@@ -22,7 +22,7 @@ MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
 
 `AT+STAT?` no exige USB. El resto (`CFG`, `CFG?`, `RUN`, `STOP`) sí → si no, `ERROR:3`.
 
-`AT+MODE=1`: overlay en casilla Heat (temp + `USB MODE` + Salir). PRESS Salir: MANUAL, `ERROR:8`, beep CONFIRM ×2.
+`AT+MODE=1`: overlay en casilla Heat (temp + etiqueta **`USB`** + icono 16×16; pie **`OUT`**). PRESS `OUT`: MANUAL, `ERROR:8`, beep CONFIRM ×2.
 
 ## Códigos ERROR
 
@@ -37,7 +37,7 @@ MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
 | 5 | PROGRAM_BUSY | `RUN` con ciclo o autotune activo |
 | 6 | SENSOR_INVALID | `RUN` sin sensor válido |
 | 7 | OVER_TEMPERATURE | Corte safety (`temp_max_c`) |
-| 8 | ABORTED_BY_DEVICE | PRESS Salir en overlay USB |
+| 8 | ABORTED_BY_DEVICE | PRESS `OUT` en overlay USB |
 
 ## Códigos ALARM
 
@@ -186,7 +186,7 @@ AT+RUN=2,150,5,15,1200
 - Fuera de rango → `ERROR:2` (no hay `OK` vacío).
 - Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI,AD` mientras corre.
 - En medio-ciclo OFF: fan ON (acelera enfriamiento / reduce tiempo sobre consigna).
-- Timeout global: `AMS` / `max_s` (default 600 s); FAIL si se supera.
+- Timeout global: `AMS` / `max_s` (default **720** s); FAIL si se supera.
 - Al terminar: una trama con `AP=2` y `AK/AI/AD`.
 - Aplicar al PID de trabajo: `AT+CFG=A` → EEPROM. Si no DONE → `ERROR:2`.
 
@@ -222,11 +222,4 @@ python host-ui/app.py
 
 ## Nota Flash
 
-Medición LTO (`make size`), mismo árbol, UI todavía enlazada:
-
-| | Program |
-|--|--------:|
-| Catálogo AT anterior (22 comandos, `$HP` con settings) | 16098 B |
-| Verbos `MODE/RUN/CFG/STAT` + `$HP` de proceso | 15618 B |
-| + `CFG=R?` / trama `$R` | **15738 B** |
-| **Δ** vs catálogo anterior | **−360 B** |
+ATmega16: **16384 B**. Medir siempre con `make size` tras cambios (LTO). Build actual (2026-09-28): **16384 B (100%)** con FONT_5X7 + FONT_8X12 + FONT_ICONS 16×16. No hay margen libre: cualquier string/glifo nuevo exige recorte equivalente.

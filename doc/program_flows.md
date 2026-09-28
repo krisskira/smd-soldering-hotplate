@@ -3,7 +3,7 @@
 Fuente de verdad del orden de fases, actuadores, EEPROM y alarmas.
 Arquitectura: [architecture.md](architecture.md). AT: [usb-automation.md](usb-automation.md).
 
-Última actualización: 2026-09-27. EEPROM global **v6**.
+Última actualización: 2026-09-28. EEPROM global **v6**.
 
 ## Actuadores
 
@@ -13,7 +13,7 @@ Arquitectura: [architecture.md](architecture.md). AT: [usb-automation.md](usb-au
 | Bomba de aire | Fan | `fan_on` / `fan_off` | FIN de HEAT (`PH_ALARM`/`PH_COOLDOWN` si `cooldown_air_en`); autotune en medio-ciclo OFF |
 | Buzzer | Piezo | `buzzer_seq_beep_cat` | Nav, alarma, confirm |
 
-BOM / datasheets: `smd-soldering-hotplate-pcb/smd-soldering-hotplate-pcb.csv` (BT136-600, MOC3021M).
+BOM / datasheets: `hardware/pcb/` (CSV BOM) y `hardware/datasheets/` (BT136, MOC3021, …).
 
 ## EEPROM vs estado RAM
 
@@ -22,7 +22,7 @@ BOM / datasheets: `smd-soldering-hotplate-pcb/smd-soldering-hotplate-pcb.csv` (B
 | Kp/Ki/Kd ×10 | sí | `pid_kp/ki/kd_x10` | Tras autotune o edición |
 | `atune_cycles_target` | sí | igual | Ciclos a completar en autotune |
 | `atune_hyst_c_x10` | sí | igual | Histéresis autotune |
-| `atune_max_s` | sí | igual | Timeout global autotune (s), 120..3600; default 600 |
+| `atune_max_s` | sí | igual | Timeout global autotune (s), 120..3600; default **720** |
 | `temp_min_c` | sí | igual | Piso rampas/consignas + OFF aire |
 | `temp_max_c` | sí | igual | Techo + corte safety |
 | `preheat_en` | sí | igual | 0: HEAT salta PREHEAT→STABILIZE |
@@ -48,7 +48,7 @@ La columna **Beep** no es una frecuencia en Hz ni una duración única. Nombra u
 | Evento | UART (sesión USB) | Beep | `$HP` ACTION | Notas |
 |--------|-------------------|------|--------------|-------|
 | HEAT fin de rampas | línea `ALARM:2` | `READY`: 3 pulsos de 50 ms ON / 80 ms OFF | `ALARM` | PTC OFF; aire si `cooldown_air_en`. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
-| Sobretemperatura | línea `OT` | ninguno | `FAULT` | `OT` significa **over-temperature**: texto literal de UART cuando la lectura válida llega a `temp_max_c`. No es un pitido ni un código de fase. PTC1 y PTC2 OFF, fase `PH_FAULT` |
+| Sobretemperatura | `ERROR:7` | ninguno | `FAULT` | Corte safety: lectura válida ≥ `temp_max_c`. PTC1 y PTC2 OFF, fase `PH_FAULT`. No es pitido ni código de fase aparte |
 | Cambio de fase | sin línea UART | ver abajo | token de la fase nueva | El token va dentro de `$HP`, no como línea de alarma |
 | Abort USB (PRESS vista) | línea `ERROR:ABORTED-BY-DEVICE` | `CONFIRM`: 2 pulsos de 30 ms ON / 60 ms OFF | — | Todo OFF → HOME |
 
@@ -118,7 +118,7 @@ flowchart TD
 
 ### UI delay
 
-1º PRESS en Heat: edita `delay_s` (±60 s, **incluye 0**). 2º PRESS: guarda EEPROM y `program_start`.
+`delay_s` se edita en **Ajustes → DLY** (±60 s, incluye 0). En casilla Heat, un PRESS arranca HEAT (`program_start`); no hay edición de delay en Heat.
 
 ---
 
@@ -140,7 +140,7 @@ No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_p
 
 Solo AT: `AT+CFG=T,ciclos,hyst,max_s` (persiste sin arrancar) y `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Oscilación bang-bang con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → Ziegler–Nichols → ganancias en estáticos de `pid_atune` → `AT+CFG=A` (`pid_atune_apply` + `cfg_save_global`).
 
-Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default 600 s; rango 120..3600; `$CF AMS=`).
+Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default **720** s; rango 120..3600; `$CF AMS=`).
 
 Enfriamiento asistido: en el medio-ciclo OFF (calentador apagado) el fan queda ON para acortar la bajada y limitar el tiempo de componentes SMD por encima de la consigna. En medio-ciclo ON y al DONE/FAIL/cancel, fan OFF. (Independiente de `cooldown_air_en`, que solo aplica al fin de HEAT.)
 

@@ -1,6 +1,6 @@
 /*
- * font8x12 — temperatura grande. No entra al binario mientras NO_FONT_8X12.
- * Juego: "-.0123456789°". El menos y el punto hacen falta para el valor.
+ * font8x12 — temperatura grande (enlazado en el build estándar).
+ * Juego: "-.0123456789". El menos y el punto hacen falta para el valor.
  * Trazo de 2 px; avance 9.
  * Formato FONT_ROWS: 1 byte por fila, MSB = izquierda.
  */

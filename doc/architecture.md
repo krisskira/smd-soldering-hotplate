@@ -76,14 +76,14 @@ flowchart LR
   usb["overlay USB en Heat"]
   home -->|Heat PRESS| run
   home -->|Settings PRESS| set
-  set -->|Salir| home
+  set -->|OUT| home
   set --> pid
-  run -->|Cancelar| home
+  run -->|STOP| home
   atUsb["AT MODE=1"] --> usb
-  usb -->|PRESS| home
+  usb -->|OUT| home
 ```
 
-PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: R1…R4 + Retraso. Aire / ESTAB / P% / PID solo AT.
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: R1…R4 + **DLY** (sin header). Aire / ESTAB / P% / PID solo AT.
 
 ## Super-loop
 
@@ -105,9 +105,9 @@ Detalle de fases: [program_flows.md](program_flows.md).
 ## Seguridad
 
 - Boot, fault y sobretemperatura: PTC y fan OFF.
-- `temp ≥ temp_max_c` (lectura válida) → UART `OT` (over-temperature, no es un pitido), fase `PH_FAULT`, `$HP` `ACTION=FAULT`.
+- `temp ≥ temp_max_c` (lectura válida) → UART **`ERROR:7`**, fase `PH_FAULT`, `$HP` `A=FAULT`.
 - Sensor inválido con programa activo (salvo DELAY/ALARM) → fault.
 
 ## Flash
 
-Medir con `make size` tras cada cambio. Gates actuales: `UI_NO_ICONS`, `NO_FONT_6X8` (revisables si hay margen).
+Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Build tipico actual: **100%**. Fuentes enlazadas: `FONT_5X7`, `FONT_8X12`, `FONT_ICONS` (16×16). Gates históricos `UI_NO_ICONS` / `NO_FONT_6X8` ya no aplican al Makefile actual.

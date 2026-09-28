@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* Safety / consignas (también en EEPROM v5) */
+/* Safety / consignas (también en EEPROM v6) */
 #define TEMP_MIN_C_DEFAULT     50u   /* OFF aire + piso default */
 #define TEMP_MAX_C_DEFAULT     240u  /* corte safety default */
 #define TEMP_MIN_C_LO          50u
