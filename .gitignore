@@ -44,3 +44,7 @@ AgentStores/
 ## Misc
 *.log
 .idea/
+
+# KiCad locks
+**/~*.lck
+**/*.lck
