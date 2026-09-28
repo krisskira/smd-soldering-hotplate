@@ -71,13 +71,11 @@ void telemetry_emit(const app_state_t *st)
          (uint8_t)(st->phase == PH_FAULT || st->sensor.fault));
     if (st->atune_stream) {
         int16_t kp, ki, kd;
-
         pid_atune_result(&kp, &ki, &kd);
         kv_u(PSTR(",AP="), (uint16_t)st->atune_phase);
         kv_u(PSTR(",AC="), st->atune_cycles);
         kv_i(PSTR(",AK="), kp);
         kv_i(PSTR(",AI="), ki);
-        kv_i(PSTR(",AD="), kd);
     }
     avr_uart_transmit_pstr(PROTO_CRLF);
 }

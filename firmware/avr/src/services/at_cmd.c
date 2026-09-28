@@ -255,7 +255,7 @@ static uint8_t cfg_heat(app_state_t *st, const char *args)
     return 0u;
 }
 
-/* AT+CFG=P,kp,ki,kd  (×10, 0..999) */
+/* AT+CFG=P,kp,ki,kd  (×10, 0..999); kd se guarda, el lazo usa PI+lookahead */
 static uint8_t cfg_pid(app_state_t *st, const char *args)
 {
     const char *p = args;

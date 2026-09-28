@@ -61,16 +61,7 @@ void ui_temp_to_str(const sensor_reading_t *r, char *dst)
         t10 = (int16_t)(-t10);
     }
     a = (uint16_t)t10;
-    if (a >= 1000u) {
-        dst[i++] = (char)('0' + (a / 1000u));
-        a = (uint16_t)(a % 1000u);
-        dst[i++] = (char)('0' + (a / 100u));
-        a = (uint16_t)(a % 100u);
-    } else if (a >= 100u) {
-        dst[i++] = (char)('0' + (a / 100u));
-        a = (uint16_t)(a % 100u);
-    }
-    dst[i++] = (char)('0' + (a / 10u));
+    i = (uint8_t)(i + ui_u16_digits((uint16_t)(a / 10u), dst + i));
     dst[i++] = '.';
     dst[i++] = (char)('0' + (a % 10u));
     dst[i] = '\0';

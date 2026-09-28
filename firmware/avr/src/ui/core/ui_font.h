@@ -3,9 +3,10 @@
 
 /*
  * Fuentes en uso:
- *   UI_FONT_SMALL / NORMAL  FONT_5X7     menús / footer
- *   UI_FONT_LARGE           FONT_8X12    temperatura
- *   UI_FONT_ICONS           FONT_ICONS   sidebar / USB
+ *   UI_FONT_SMALL / NORMAL  FONT_5X7
+ *   UI_FONT_LARGE           FONT_5X7_X2 (5×7 a 2×)
+ *   UI_FONT_ICONS           FONT_ICONS sidebar / USB
+ * FONT_8X12 no se enlaza (presupuesto flash).
  */
 
 #include <stdint.h>
@@ -21,14 +22,13 @@ typedef enum {
 
 typedef enum {
     UI_X1 = 1,
-    UI_X2 = 2,
-    UI_X3 = 3
+    UI_X2 = 2
 } ui_scale_t;
 
 static inline const font_t *ui_font_get(ui_font_t font)
 {
     switch (font) {
-    case UI_FONT_LARGE:  return &FONT_8X12;
+    case UI_FONT_LARGE:  return &FONT_5X7_X2;
     case UI_FONT_ICONS:  return &FONT_ICONS;
     default:             return &FONT_5X7;
     }

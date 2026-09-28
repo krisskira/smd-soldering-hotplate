@@ -39,7 +39,7 @@ void st7920_draw_text_gdram(uint8_t x, uint8_t y, const char *str);
 void st7920_draw_text_gdram_inv(uint8_t x, uint8_t y, uint8_t h, const char *str);
 
 /**
- * Texto GDRAM con escala 1..3 y flags:
+ * Texto GDRAM con escala 1..2 y flags:
  * bit0 = invertido, bit1 = negrita (doble trazo horizontal).
  * h = alto de banda a reescribir (recomendado: 8 * scale).
  */
@@ -50,8 +50,8 @@ void st7920_draw_text_gdram_styled(uint8_t x, uint8_t y, uint8_t h,
                                    uint8_t flags);
 
 /**
- * Texto con cualquier fuente de lib/fonts (FONT_5X7, FONT_8X12,
- * FONT_ICONS). Escala 1..3.
+ * Texto con cualquier fuente de lib/fonts (FONT_5X7, FONT_5X7_X2,
+ * FONT_ICONS). Escala 1..2.
  * y = borde superior de la banda; h = alto de banda (0 = alto del glifo).
  * El glifo va centrado en vertical dentro de la banda. inv = fondo ON.
  */

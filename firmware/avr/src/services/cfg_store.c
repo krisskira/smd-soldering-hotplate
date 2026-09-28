@@ -3,8 +3,9 @@
 #include <avr/eeprom.h>
 
 /*
- * EEPROM v7: global (PID + atune + atune_max_s + safety + preheat_pct)
- * + ee_heat/tune + rampas. Ver distinta (p.ej. v6) → defaults, sin migración.
+ * EEPROM v7: global (PID + atune + safety + preheat_pct)
+ * + ee_heat/tune + rampas. Ver distinta → defaults, sin migración.
+ * rise/lookahead: compile-time en app_config.h (presupuesto flash).
  */
 
 typedef struct {
@@ -97,7 +98,8 @@ uint8_t cfg_load_global(app_state_t *st)
         return 0;
     eeprom_read_block(&b, ee_g, sizeof(b));
     if (b.magic != CFG_EEPROM_MAGIC || b.ver != CFG_EEPROM_VER || b.cs != CS(b)
-        || b.kp_x10 < 0 || b.kp_x10 > 999) {
+        || b.kp_x10 < 0 || b.kp_x10 > 999
+        || b.ki_x10 < 0 || b.ki_x10 > 999) {
         cfg_store_defaults(st);
         return 0;
     }

@@ -86,8 +86,12 @@ flowchart TD
   wait -->|cuenta 0| phen{"preheat_en?"}
   phen -->|no| r1["PH_RUN Ramp1 PID + hold_s"]
   phen -->|si| pre["PH_PREHEAT t = preheat_pct% de Ramp1"]
-  pre --> stab["PH_STABILIZE banda ±2 C en ese t"]
-  stab --> r1["PH_RUN Ramp1 PID + hold_s"]
+  pre --> hi{"T > tope + 2 C?"}
+  hi -->|no y T <= tope| stab["PH_STABILIZE banda ±2 C en ese t"]
+  hi -->|si| ov["timeout overheat 60 s"]
+  ov -->|T vuelve <= tope| stab
+  ov -->|vence y tope < T < Ramp1| r1["PH_RUN Ramp1 PID + hold_s"]
+  stab --> r1
   r1 --> more{Mas rampas?}
   more -->|si| rn["PH_RUN Ramp i + PID + hold_s"]
   rn --> more
@@ -103,36 +107,38 @@ flowchart TD
 | Fase | PTC (SSR) | Fan | Condición de avance |
 |------|-----------|-----|---------------------|
 | DELAY | OFF | OFF | `t_remain_s` → 0 |
-| PREHEAT / STABILIZE | PID AUTO al `preheat_pct` % de Ramp1 | OFF | en banda ±2 °C de **ese tope** durante `stabilize_s`. Si `preheat_en=0`, estas fases no corren |
-| RUN (rampa i) | PID AUTO a `ramp_step[i].temp_c` | OFF | `hold_s` agotado → `ramp_idx++` |
+| PREHEAT / STABILIZE | PID AUTO al `preheat_pct` % de Ramp1 | OFF | En banda ±2 °C **y T ≤ tope** durante `stabilize_s`. Si T pasa el tope + 2 °C, timeout `PREHEAT_OVERHEAT_S` (60 s): al vencer, si el tope < T < T(Ramp1), sigue a Ramp1 sin estabilizar. Si `preheat_en=0`, estas fases no corren |
+| RUN (rampa i) | PID AUTO a `ramp_step[i].temp_c` | OFF | `hold_s` es reloj de pared desde la entrada; al agotarse → `ramp_idx++`. Perfil Ramp1..n **no decreciente** (si no, `ERROR:2` al arrancar) |
 | ALARM (fin) | OFF | ON si aire | timeout/ACK → COOLDOWN o DONE |
 | COOLDOWN | OFF | ON | `temp ≤ temp_min_c` → fan OFF, DONE |
 | DONE | OFF | OFF | — |
 
 ### RAMPS
 
-- No se lanzan solos. Si `preheat_en`, primero se sube solo hasta `preheat_pct` % de T(Ramp1) (default 80) y se estabiliza ahí. Así el tiempo de banda no se cumple con la placa ya en, o por encima de, la temperatura de la rampa. Después **Ramp1 corre su hold completo a T plena**, luego 2..n.
+- No se lanzan solos. Si `preheat_en`, primero se sube hasta `preheat_pct` % de T(Ramp1) (default 80). La meseta (`stabilize_s`) solo corre con T ≤ ese tope, dentro de ±2 °C. Si la inercia pasa el tope + 2 °C, esa cola es parte del precalentado: se espera `PREHEAT_OVERHEAT_S` (60 s) a que baje. Si al vencer sigue por encima del tope y por debajo de T(Ramp1), el precalentado vale y entra Ramp1 (empieza su `hold_s`) sin quedarse en STABILIZE. Si T ≥ T(Ramp1), no avanza hasta bajar de Ramp1 o volver a ≤ tope (ahí sí estabiliza). Después **Ramp1 corre su hold completo a T plena**, luego 2..n.
 - `preheat_en=0` (Ajustes → ESTAB, o `AT+CFG=H` con en=0) salta PREHEAT y STABILIZE y entra en Ramp1.
 - `preheat_pct` (Ajustes → P%, 50..100, paso 5) es el tope de ese tramo. No cambia la consigna del `PH_RUN`.
 - Preheat del pipeline **no** sustituye Ramp1.
 
 ### UI delay
 
-`delay_s` se edita en **Ajustes → DLY** (±60 s, incluye 0). En casilla Heat, un PRESS arranca HEAT (`program_start`); no hay edición de delay en Heat.
+`delay_s` se edita en **Ajustes → DELAY** (±60 s, incluye 0). En casilla Heat, un PRESS arranca HEAT (`program_start`); no hay edición de delay en Heat.
 
 ---
 
 ## PREHEAT
 
-No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_pct`, `stabilize_s`). No hay `ee_pre` ni `AT+RUN=0`.
+No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_pct`, `stabilize_s`, timeout de sobrepaso `PREHEAT_OVERHEAT_S`). No hay `ee_pre` ni `AT+RUN=0`.
 
 ---
 
 ## PID (lazo)
 
 - Ventana time-proportioning (`PID_WINDOW_MS`): duty % → tiempo ON del banco PTC (gate MOC3021/BT136).
-- Activo en `PH_PREHEAT`, `PH_STABILIZE`, `PH_RUN` y `PH_HOLD`.
-- Ganancias: EEPROM global / `AT+CFG=P`. Ajustes no edita PID.
+- Activo en `PH_PREHEAT`, `PH_STABILIZE`, `PH_RUN` (y `PH_HOLD` si se usara).
+- **PI predictivo:** referencia interna `t_ref` sube hacia `t_set` a `RISE_C_X10_DEFAULT` (0,7 °C/s, compile-time) y el error usa \(T + \dot T\cdot\)`LOOKAHEAD_S_DEFAULT` (30 s) para cortar antes por inercia. Sin término D sobre error (Kd default 0; autotune PI).
+- Anti-windup: no integra si el duty previo está saturado a favor del error. Entre rampas **no** se resetea el integral (solo al start/stop/fault).
+- Ganancias Kp/Ki: EEPROM / `AT+CFG=P`. Ajustes UI no edita PID. `rise`/`lookahead` no van en EEPROM (presupuesto flash).
 
 ---
 
@@ -144,11 +150,11 @@ Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default **2000** s
 
 Enfriamiento asistido: en el medio-ciclo OFF (calentador apagado) el fan queda ON para acortar la bajada y limitar el tiempo de componentes SMD por encima de la consigna. En medio-ciclo ON y al DONE/FAIL/cancel, fan OFF. (Independiente de `cooldown_air_en`, que solo aplica al fin de HEAT.)
 
-Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state`) cuenta ciclos ya cerrados. `AK`/`AI`/`AD` de `$HP` salen de `pid_atune_result`.
+Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state`) cuenta ciclos ya cerrados. `AK`/`AI` de `$HP` salen de `pid_atune_result` (AD omitido: siempre 0).
 
 | Origen | Qué se publica |
 |--------|----------------|
-| USB (`CTRL_USB`) | `atune_stream=1`. `$HP` de proceso a 1 Hz, más `AP,AC,AK,AI,AD`, y una trama al pasar a DONE o FAIL |
+| USB (`CTRL_USB`) | `atune_stream=1`. `$HP` de proceso a 1 Hz, más `AP,AC,AK,AI`, y una trama al pasar a DONE o FAIL |
 | UI | no lanza autotune ni dibuja la curva |
 
 La banda de oscilación es `t_set ± atune_hyst_c_x10`. No hay trama `$HP,PLOT`.

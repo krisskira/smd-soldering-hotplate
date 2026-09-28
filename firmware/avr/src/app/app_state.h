@@ -91,6 +91,7 @@ typedef struct {
     program_id_t    program;
     process_phase_t phase;
     uint16_t        t_set_c;
+    int16_t         t_ref_x10;     /* referencia gobernada (°C·10) */
     uint16_t        t_remain_s;
     uint16_t        t_elapsed_s;
     uint16_t        delay_s;       /* HEAT: 0 = inmediato */
@@ -118,7 +119,7 @@ typedef struct {
 
     int16_t    pid_kp_x10;
     int16_t    pid_ki_x10;
-    int16_t    pid_kd_x10;
+    int16_t    pid_kd_x10;     /* guardado AT/EEPROM; lazo usa PI + lookahead */
     pid_loop_t pid_loop;
 
     atune_phase_t atune_phase;

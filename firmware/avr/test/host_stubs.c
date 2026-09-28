@@ -40,10 +40,12 @@ void fan_off(void)
 {
 }
 
+#ifndef PID_HOST_TEST
 void pid_reset(app_state_t *st)
 {
     (void)st;
 }
+#endif
 
 void at_cmd_set_stream(app_state_t *st, uint8_t on)
 {

@@ -1,6 +1,6 @@
 /*
- * ST7920 texto: FONT_ROWS (8×12 + iconos 16×16) y blit dedicado FONT_5X7.
- * Tinta 1:1 (sin escala por píxel).
+ * ST7920 texto: FONT_ROWS (iconos 16×16) y blit dedicado FONT_5X7 / FONT_5X7_X2.
+ * FONT_ROWS con tinta 1:1; la 5×7 admite 1× o 2×.
  */
 #include "st7920.h"
 #include "st7920_private.h"
@@ -39,15 +39,16 @@ void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
     }
 }
 
+/* sh = 0 (1×) o 1 (2×: cada píxel se pinta 2×2). */
 static void glyph5x7_row(uint16_t *row_buf, uint8_t row_y, uint8_t glyph,
-                         uint8_t tx, uint8_t ty, uint8_t clear)
+                         uint8_t tx, uint8_t ty, uint8_t sh, uint8_t clear)
 {
     const uint8_t *p;
-    uint8_t gy, gx, col;
+    uint8_t gy, gx, col, px, k;
 
     if (glyph == FONT_NO_GLYPH || row_y < ty)
         return;
-    gy = (uint8_t)(row_y - ty);
+    gy = (uint8_t)((uint8_t)(row_y - ty) >> sh);
     if (gy >= 7u)
         return;
     p = font5x7_data + (uint16_t)glyph * 5u;
@@ -55,10 +56,13 @@ static void glyph5x7_row(uint16_t *row_buf, uint8_t row_y, uint8_t glyph,
         col = pgm_read_byte(p + gx);
         if (!(col & (uint8_t)(1u << gy)))
             continue;
-        if (clear)
-            st7920_row_clear_pixel(row_buf, (uint8_t)(tx + gx));
-        else
-            st7920_row_set_pixel(row_buf, (uint8_t)(tx + gx));
+        px = (uint8_t)(tx + (gx << sh));
+        for (k = 0; k <= sh; k++, px++) {
+            if (clear)
+                st7920_row_clear_pixel(row_buf, px);
+            else
+                st7920_row_set_pixel(row_buf, px);
+        }
     }
 }
 
@@ -73,8 +77,9 @@ static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
         return;
     while ((c = (uint8_t)*str++) != 0u && x < LCD_W) {
         gid = font_glyph(f, c);
-        if (f == &FONT_5X7)
-            glyph5x7_row(row_buf, row_y, gid, (uint8_t)x, ty, clear);
+        if (f->data == font5x7_data)
+            glyph5x7_row(row_buf, row_y, gid, (uint8_t)x, ty,
+                         (uint8_t)(f->h > 7u), clear);
         else
             st7920_glyph_row(row_buf, row_y, f, gid, (uint8_t)x, ty, clear);
         x = (uint16_t)(x + f->advance);

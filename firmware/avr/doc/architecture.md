@@ -76,14 +76,14 @@ flowchart LR
   usb["overlay USB en Heat"]
   home -->|Heat PRESS| run
   home -->|Settings PRESS| set
-  set -->|OUT| home
+  set -->|EXIT| home
   set --> pid
   run -->|STOP| home
   atUsb["AT MODE=1"] --> usb
-  usb -->|OUT| home
+  usb -->|EXIT| home
 ```
 
-PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: R1…R4 + **DLY** (sin header). Aire / ESTAB / P% / PID solo AT.
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: header `SETTINGS` + R1…R4 + **DELAY**. Aire / ESTAB / P% / PID solo AT.
 
 ## Super-loop
 
@@ -110,4 +110,4 @@ Detalle de fases: [program_flows.md](program_flows.md).
 
 ## Flash
 
-Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Build tipico actual: **100%**. Fuentes enlazadas: `FONT_5X7`, `FONT_8X12`, `FONT_ICONS` (16×16). Gates históricos `UI_NO_ICONS` / `NO_FONT_6X8` ya no aplican al Makefile actual.
+Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Fuentes enlazadas: `FONT_5X7` (1× y 2× vía `FONT_5X7_X2`, misma tabla), `FONT_ICONS` (16×16). Sin escala 3×. `FONT_8X12` no se enlaza (presupuesto flash para PI predictivo).

@@ -261,6 +261,16 @@ class AppController:
                 "No hay escalones activos. Configura y guarda al menos la rampa 1.",
             )
             return
+        active, temps, _holds = self.heat.ramp_snapshot()
+        try:
+            int_temps = [int(temps[i]) if active[i] else 0 for i in range(4)]
+        except ValueError:
+            messagebox.showerror("HEAT", "Temperaturas de rampa inválidas")
+            return
+        err = proto.validate_ramp_profile(int_temps, list(active))
+        if err:
+            messagebox.showerror("HEAT", err)
+            return
         self.tune.stop_recording()
         self.state.clear_samples()
         self.heat.chart.clear()
@@ -310,7 +320,18 @@ class AppController:
         if n < 1:
             messagebox.showerror("Rampas", "Se requiere al menos la rampa 1")
             return
+        int_temps: list[int] = []
+        for i in range(4):
+            try:
+                int_temps.append(int(temps[i]) if active[i] else 0)
+            except ValueError:
+                int_temps.append(0)
+        err = proto.validate_ramp_profile(int_temps, list(active))
+        if err:
+            messagebox.showerror("Rampas", err)
+            return
         cmds: list[tuple[int, int, int]] = []
+        prev: int | None = None
         for i in range(n):
             try:
                 temp = int(temps[i])
@@ -318,11 +339,14 @@ class AppController:
             except ValueError:
                 messagebox.showerror("Rampas", f"Rampa {i + 1}: valores numéricos")
                 return
-            err = proto.validate_ramp(i, temp, hold, self.state.tmin, self.state.tmax)
+            err = proto.validate_ramp(
+                i, temp, hold, self.state.tmin, self.state.tmax, prev_temp=prev
+            )
             if err:
                 messagebox.showerror("Rampas", f"Rampa {i + 1}: {err}")
                 return
             cmds.append((i, temp, hold))
+            prev = temp
 
         def step(i: int) -> None:
             if i >= len(cmds):

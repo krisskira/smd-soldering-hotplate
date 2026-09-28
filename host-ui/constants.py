@@ -21,7 +21,7 @@ TEMP_MIN_C_DEFAULT = 50
 TEMP_MAX_C_DEFAULT = 250
 PID_KP_DEFAULT = 246
 PID_KI_DEFAULT = 10
-PID_KD_DEFAULT = 400
+PID_KD_DEFAULT = 0  # autotune PI; lazo usa lookahead compile-time
 
 STAT_INTERVALS_MS = {
     "1 s": 1_000,

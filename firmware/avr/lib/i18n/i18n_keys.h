@@ -12,24 +12,24 @@
 #define I18N_PHASE_RUN ((uint8_t)5u)
 #define I18N_PHASE_DONE ((uint8_t)6u)    /* FIN */
 #define I18N_PHASE_FAULT ((uint8_t)7u)   /* ERR */
-#define I18N_USB_EXIT ((uint8_t)8u)      /* OUT — pie */
+#define I18N_USB_EXIT ((uint8_t)8u)      /* EXIT — pie */
 #define I18N_PHASE_COOL ((uint8_t)9u)    /* AIR */
-#define I18N_SET_DELAY ((uint8_t)10u)    /* DLY */
+#define I18N_SET_DELAY ((uint8_t)10u)    /* DELAY */
 #define I18N_BTN_START ((uint8_t)11u)    /* RUN (comparte S_RUN) */
 #define I18N_OFF ((uint8_t)12u)
 #define I18N_BTN_CANCEL ((uint8_t)13u)   /* PARA */
 #define I18N_TITLE_USB ((uint8_t)14u)    /* USB */
+#define I18N_TITLE_SETTINGS ((uint8_t)15u) /* SETTINGS */
 
 /* Alias legacy (mismo slot OFF / cool). */
 #define I18N_PANEL_RAMP I18N_OFF
 #define I18N_PROG_HEAT I18N_PHASE_COOL
 #define I18N_NAV_SETTINGS I18N_OFF
-#define I18N_TITLE_SETTINGS I18N_OFF
 #define I18N_SET_AIR I18N_OFF
 #define I18N_RAMP_STEP I18N_OFF
 #define I18N_ON I18N_OFF
 #define I18N_PANEL_SET I18N_OFF
 
-#define I18N_PRODUCT_COUNT ((uint8_t)15u)
+#define I18N_PRODUCT_COUNT ((uint8_t)16u)
 
 #endif

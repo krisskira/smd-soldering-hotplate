@@ -98,8 +98,6 @@ int main(void)
                     telemetry_tick(&g_state);
                     ui_router_on_sensor_update(&g_state);
 
-                    if (g_state.phase == PH_HOLD && s_prev_phase != PH_HOLD)
-                        buzzer_seq_beep_cat(&g_state, BEEP_READY, 3);
                     if (g_state.phase == PH_DONE && s_prev_phase != PH_DONE)
                         buzzer_seq_beep_cat(&g_state, BEEP_READY, 2);
                     if (g_state.atune_stream && device_session_is_usb(&g_state)

@@ -77,7 +77,7 @@ src/services/at_cmd.c / telemetry.c
 ## Huecos / límites
 
 - Sin vista aparte de alarma (`PH_ALARM` en Home/USB).
-- Settings UI: R1…R4 + DLY. PID / aire / ESTAB / P% / autotune solo AT.
+- Settings UI: R1…R4 + DELAY. PID / aire / ESTAB / P% / autotune solo AT.
 - Autotune: `$HP` 1 Hz; picos en `pid_atune` (no en `app_state`); sin `$HP,PLOT`.
 - Sin guía eléctrica aparte del KiCad + datasheets en `hardware/`.
 

@@ -22,7 +22,7 @@ MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
 
 `AT+STAT?` no exige USB. El resto (`CFG`, `CFG?`, `RUN`, `STOP`) sí → si no, `ERROR:3`.
 
-`AT+MODE=1`: overlay en casilla Heat (temp + etiqueta **`USB`** + icono 16×16; pie **`OUT`**). PRESS `OUT`: MANUAL, `ERROR:8`, beep CONFIRM ×2.
+`AT+MODE=1`: overlay en casilla Heat (temp + etiqueta **`USB`** + icono 16×16; pie **`EXIT`**). PRESS `EXIT`: MANUAL, `ERROR:8`, beep CONFIRM ×2.
 
 ## Códigos ERROR
 
@@ -37,7 +37,7 @@ MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
 | 5 | PROGRAM_BUSY | `RUN` con ciclo o autotune activo |
 | 6 | SENSOR_INVALID | `RUN` sin sensor válido |
 | 7 | OVER_TEMPERATURE | Corte safety (`temp_max_c`) |
-| 8 | ABORTED_BY_DEVICE | PRESS `OUT` en overlay USB |
+| 8 | ABORTED_BY_DEVICE | PRESS `EXIT` en overlay USB |
 
 ## Códigos ALARM
 
@@ -47,7 +47,7 @@ Espontáneos con sesión USB: `ALARM:<n>\r\n`
 |--:|--------|--------|
 | 2 | DONE | HEAT fin de rampas (o `AT+STOP` en marcha, que cierra como fin). Cancel UI → IDLE sin ALARM |
 
-No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a la rampa.
+No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar, o al vencer el timeout de sobrepaso entre el tope y Ramp1, pasa a la rampa.
 
 ## PROGRAM / ACTION (`$HP`)
 
@@ -99,7 +99,7 @@ No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar pasa a
 
 `CFG=S`: min 30..100, max 40..250, min ≤ max.
 
-`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir escalón `i` **fija** `ramp_n = i+1` y limpia huecos altos (así se puede achicar N reescribiendo el último activo). **`temp=0`** (`i≥1`): deshabilita desde `i`. `CFG=R?` → `$R`.
+`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir escalón `i` **fija** `ramp_n = i+1` y limpia huecos altos (así se puede achicar N reescribiendo el último activo). **`temp=0`** (`i≥1`): deshabilita desde `i`. HEAT exige perfil **no decreciente** al `AT+RUN=1` (`ERROR:2` si no). `CFG=R?` → `$R`.
 
 `RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 2000 s). Si se omite, usa el valor guardado.
 
@@ -184,7 +184,7 @@ AT+RUN=2,150,5,15,1200
 ```
 
 - Fuera de rango → `ERROR:2` (no hay `OK` vacío).
-- Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI,AD` mientras corre.
+- Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI` mientras corre.
 - En medio-ciclo OFF: fan ON (acelera enfriamiento / reduce tiempo sobre consigna).
 - Timeout global: `AMS` / `max_s` (default **2000** s); FAIL si se supera.
 - Al terminar: una trama con `AP=2` y `AK/AI/AD`.
@@ -222,4 +222,4 @@ python host-ui/app.py
 
 ## Nota Flash
 
-ATmega16: **16384 B**. Medir siempre con `make size` tras cambios (LTO). Build actual (2026-09-28): **16384 B (100%)** con FONT_5X7 + FONT_8X12 + FONT_ICONS 16×16. No hay margen libre: cualquier string/glifo nuevo exige recorte equivalente.
+ATmega16: **16384 B**. Medir siempre con `make size` tras cambios (LTO). Fuentes: FONT_5X7 + FONT_ICONS. Margen mínimo: cualquier string/glifo nuevo exige recorte equivalente.

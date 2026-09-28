@@ -18,15 +18,13 @@
 #define PANEL_W    96u
 #define BOX_H      32u
 #define TEMP_TOP   3u    /* aire bajo el borde superior */
-#define TEMP_H     12u   /* FONT_8X12.h */
-#define TEMP_ADV   9u
+#define TEMP_H     14u   /* FONT_5X7_X2 */
+#define TEMP_ADV   12u
 #define LINE_H     8u    /* 5×7 + 1 */
 #define LINE_GAP   4u    /* entre temp / fase / info */
 #define PCOLS      ((128u - PANEL_TX) / 6u) /* ~15 cols visibles */
 #define ICO_PX     16u /* nativo 16×16; centrado en sidebar 32 */
 #define ICO_SIDE_X ((32u - ICO_PX) / 2u) /* 8 */
-/* FONT_ICONS first=1 → carácter = id+1 */
-static const char s_usb_ch[2] = { (char)(ICO_USB + 1u), '\0' };
 
 /* 0=heat 1=set 2=usb — wipe del panel solo al cambiar de modo. */
 static uint8_t s_panel_mode;
@@ -123,23 +121,32 @@ static void panel_center(uint8_t y, uint8_t h, const char *str, uint8_t inv)
     panel_band(y, h, line, inv);
 }
 
+/* Texto FONT_5X7_X2 centrado en el panel. */
+static void panel_center_x2(uint8_t y, const char *str)
+{
+    st7920_span_t s;
+    uint8_t tw = (uint8_t)(ui_str_len(str) * TEMP_ADV);
+
+    s.f = &FONT_5X7_X2;
+    s.str = str;
+    s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
+    st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
+}
+
+/* "123.4°C" a 2× (7 × 12 px = 84 ≤ PANEL_W); sin sensor "ERR". */
 static void draw_centered_temp(const app_state_t *st, uint8_t y)
 {
     char val[10];
-    st7920_span_t s;
-    uint8_t n, tw;
+    uint8_t n;
 
-    if (st->sensor.valid)
-        ui_temp_to_str(&st->sensor, val);
-    else {
-        val[0] = '-'; val[1] = '-'; val[2] = '-'; val[3] = '\0';
+    ui_temp_to_str(&st->sensor, val);
+    if (st->sensor.valid) {
+        n = ui_str_len(val);
+        val[n++] = (char)FONT_DEG_CHAR;
+        val[n++] = 'C';
+        val[n] = '\0';
     }
-    n = ui_str_len(val);
-    tw = (uint8_t)(n * TEMP_ADV);
-    s.f = &FONT_8X12;
-    s.str = val;
-    s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
-    st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
+    panel_center_x2(y, val);
 }
 
 /* "R1 150 01:30" — rampa | T objetivo | remain/delay. */
@@ -179,7 +186,6 @@ static void draw_heat_info(const app_state_t *st, uint8_t y)
 static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
 {
     uint8_t y_phase, y_info, mode;
-    st7920_span_t usb;
 
     y_phase = (uint8_t)(TEMP_TOP + TEMP_H + LINE_GAP);
     y_info = (uint8_t)(y_phase + LINE_H + LINE_GAP);
@@ -198,14 +204,7 @@ static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
         return;
 
     if (mode == 2u) {
-        /* temp → USB → icono */
-        panel_center(y_phase, LINE_H, i18n_tr_hash(I18N_TITLE_USB), 0u);
-        y_info = (uint8_t)(y_phase + LINE_H + LINE_GAP);
-        usb.f = &FONT_ICONS;
-        usb.str = s_usb_ch;
-        usb.x = (uint8_t)(PANEL_X + (PANEL_W - ICO_PX) / 2u);
-        st7920_draw_band(PANEL_X, PANEL_W, y_info,
-                         (uint8_t)(UI_FOOT_Y - y_info), &usb, 1u, 0u);
+        panel_center_x2(y_phase, i18n_tr_hash(I18N_TITLE_USB));
         return;
     }
     panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);
@@ -244,34 +243,30 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
 {
     char v[6];
     uint8_t ed = st->edit_armed;
-    uint8_t n;
 
     if (idx <= SET_IDX_RAMP3) {
         buf[0] = 'R';
         buf[1] = (char)('1' + idx);
-        buf[2] = ':';
         if (!ramp_on(st, idx) || st->ramp_step[idx].temp_c == 0u) {
-            ui_line_put(buf, 4, i18n_tr_hash(I18N_OFF));
+            ui_line_put(buf, (uint8_t)(PCOLS - 3u), i18n_tr_hash(I18N_OFF));
             return;
         }
+        /* Hueco del '*': temp cierra en col 8, tiempo en col 14. */
         if (ed == SET_EDIT_TEMP && st->settings_sel == idx)
-            buf[3] = '*';
+            buf[5] = '*';
         ui_u16_to_str(st->ramp_step[idx].temp_c, v);
-        ui_line_put(buf, 4, v);
-        buf[7] = ' ';
+        ui_line_put(buf, (uint8_t)(9u - ui_str_len(v)), v);
         if (ed == SET_EDIT_TIME && st->settings_sel == idx)
-            buf[8] = '*';
+            buf[10] = '*';
         ui_u16_to_str(st->ramp_step[idx].hold_s, v);
-        ui_line_put(buf, 9, v);
+        ui_line_put(buf, (uint8_t)(PCOLS - ui_str_len(v)), v);
         return;
     }
     ui_line_put(buf, 0, i18n_tr_hash(I18N_SET_DELAY));
     if (ed == SET_EDIT_DELAY)
-        buf[3] = '*'; /* tras "DLY" */
+        buf[9] = '*';
     ui_mmss_to_str(st->delay_s, v);
-    n = ui_str_len(v); /* 5 = mm:ss */
-    if (n < PCOLS)
-        ui_line_put(buf, (uint8_t)(PCOLS - n), v);
+    ui_line_put(buf, (uint8_t)(PCOLS - 5u), v);
 }
 
 static void draw_set_panel(const app_state_t *st)
@@ -283,6 +278,7 @@ static void draw_set_panel(const app_state_t *st)
         panel_wipe();
         s_panel_mode = 1u;
     }
+    panel_center(0u, SET_HDR_H, i18n_tr_hash(I18N_TITLE_SETTINGS), 1u);
     armed = in_set(st);
     for (r = 0; r < SETTINGS_COUNT; r++) {
         ui_line_clear(buf);

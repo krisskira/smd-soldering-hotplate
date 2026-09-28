@@ -23,4 +23,4 @@ Presupuesto flash: **16384 B (100% típico)**. Tras cualquier cambio: `make size
 - Programas AT: `AT+RUN=1` (HEAT), `AT+RUN=2` (PID_TUNE). PREHEAT **no** es programa
 - Pipeline HEAT: delay? → PREHEAT/STABILIZE (si `preheat_en`) → RUN rampas → aire @ `temp_min`
 - Safety: `temp_min` 50..100, `temp_max` 40..250 (EEPROM)
-- Pies LCD: `RUN` / `STOP` / `OUT`
+- Pies LCD: `RUN` / `STOP` / `EXIT`

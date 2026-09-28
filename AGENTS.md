@@ -27,9 +27,9 @@
 
 | ID | UI | USB | Notas |
 |----|----|-----|-------|
-| HEAT | Home | `AT+RUN=1` | `delay_s` 0 = inmediato. PREHEAT es fase si `preheat_en` |
-| PID_TUNE | No | `AT+RUN=2` | Autotune → `AT+CFG=A` → EEPROM |
-| RAMPS | — | `AT+CFG=R` | No lanzable |
+| HEAT | Home | `AT+RUN=1` | `delay_s` 0 = inmediato. PREHEAT fase. Rampas no decrecientes. PI predictivo |
+| PID_TUNE | No | `AT+RUN=2` | Autotune PI → `AT+CFG=A` → EEPROM |
+| RAMPS | — | `AT+CFG=R` | No lanzable; perfil ascendente/igual |
 
 ## Skills / agents
 

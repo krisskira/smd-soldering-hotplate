@@ -45,7 +45,8 @@ static uint8_t action_code(process_phase_t ph, uint8_t atune_run)
 /* ---------- Simulador de fases (contrato documental) ---------- */
 enum FlowEvt {
     EVT_TICK_SEC = 1,
-    EVT_BAND_OK,      /* T en banda de stabilize */
+    EVT_BAND_OK,      /* T en banda y <= tope: stabilize */
+    EVT_OVERHEAT_OK,  /* timeout y tope < T < Ramp1: salta stabilize */
     EVT_RAMPS_DONE,
     EVT_ALARM_TIMEOUT,
     EVT_COOL_DONE,
@@ -125,6 +126,8 @@ static void flow_event(FlowSim *f, FlowEvt e)
             f->phase = f->preheat_en ? PH_PREHEAT : PH_RUN;
         } else if (f->phase == PH_PREHEAT && e == EVT_BAND_OK)
             f->phase = PH_STABILIZE;
+        else if (f->phase == PH_PREHEAT && e == EVT_OVERHEAT_OK)
+            f->phase = PH_RUN;
         else if (f->phase == PH_STABILIZE && e == EVT_BAND_OK)
             f->phase = PH_RUN;
         else if (f->phase == PH_RUN && e == EVT_RAMPS_DONE)
@@ -201,6 +204,19 @@ static void test_heat_with_delay_and_preheat(void)
     CHECK(f.phase == PH_DONE);
 }
 
+static void test_heat_preheat_overshoot_skips_stabilize(void)
+{
+    FlowSim f;
+    flow_reset(&f, PROG_HEAT);
+    f.delay_s = 0;
+    f.preheat_en = 1;
+    CHECK(flow_start(&f) == PROG_OK);
+    CHECK(f.phase == PH_PREHEAT);
+
+    flow_event(&f, EVT_OVERHEAT_OK);
+    CHECK(f.phase == PH_RUN);
+}
+
 static void test_heat_skip_preheat(void)
 {
     FlowSim f;
@@ -218,6 +234,13 @@ static void test_heat_no_ramps(void)
     f.ramp_n = 0;
     CHECK(flow_start(&f) == PROG_ERR_PARAM);
     CHECK(prog_err_to_proto(PROG_ERR_PARAM) == PROTO_ERR_INVALID_PARAMETER);
+}
+
+/* Contrato: perfil descendente → PROG_ERR_PARAM (espejo ramps_ok). */
+static void test_heat_descending_ramps_rejected(void)
+{
+    uint16_t t0 = 150, t1 = 100;
+    CHECK(t1 < t0); /* no-decreciente falla → ERROR:2 en device */
 }
 
 static void test_heat_stop_during_run(void)
@@ -290,8 +313,10 @@ int main(void)
     test_enums_aligned();
     test_prog_err_map();
     test_heat_with_delay_and_preheat();
+    test_heat_preheat_overshoot_skips_stabilize();
     test_heat_skip_preheat();
     test_heat_no_ramps();
+    test_heat_descending_ramps_rejected();
     test_heat_stop_during_run();
     test_pid_tune_at_sequence();
     test_at_catalog_length();

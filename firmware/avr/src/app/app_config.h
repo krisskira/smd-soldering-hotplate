@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-/* Safety / consignas (también en EEPROM v7) */
+/* Safety / consignas (también en EEPROM v8) */
 #define TEMP_MIN_C_DEFAULT     50u   /* OFF aire + piso default */
 #define TEMP_MAX_C_DEFAULT     250u  /* corte safety default */
 #define TEMP_MIN_C_LO          50u
@@ -55,8 +55,9 @@
 #define SET_IDX_RAMP3     3u
 #define SET_IDX_DELAY     4u
 #define SET_VIS_ROWS      5u
-#define SET_ROW_Y0        0u
-#define SET_ROW_H         10u
+#define SET_HDR_H         11u  /* 2 px + glifo 7 + 2 px; "SETTINGS" invertido */
+#define SET_ROW_Y0        11u
+#define SET_ROW_H         8u   /* 11 + 5×8 = 51; pie en y=54 */
 
 #define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 #define SET_EDIT_NONE     0u
@@ -71,11 +72,14 @@
 #define USB_SEL_COUNT     2u
 
 #define PID_WINDOW_MS     1000u
-#define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,400 */
+#define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,0 */
 #define PID_KI_DEFAULT    10
-#define PID_KD_DEFAULT    400
+#define PID_KD_DEFAULT    0    /* autotune PI; D no se usa en el lazo */
+/* Pendiente máx. de t_ref (°C/s ×10) y horizonte de cola (s); compile-time */
+#define RISE_C_X10_DEFAULT    7u   /* 0.7 °C/s */
+#define LOOKAHEAD_S_DEFAULT   30u  /* ~20 °C cola @ 0.7 °C/s */
 
-/* Autotune (SSR bang-bang); defaults EEPROM v7 */
+/* Autotune (SSR bang-bang); defaults EEPROM v8 */
 #define ATUNE_MIN_CYCLES     3u
 #define ATUNE_MAX_CYCLES     10u
 #define ATUNE_CYCLES_DEFAULT 5u
@@ -88,6 +92,8 @@
 
 #define PREHEAT_STABLE_S_DEFAULT  30u
 #define PREHEAT_BAND_C_X10        20
+/* Cola por encima del tope: si no vuelve bajo el preheat, seguir a Ramp1. */
+#define PREHEAT_OVERHEAT_S        60u
 /* Tope del PREHEAT/STABILIZE de HEAT, en % de T(Ramp1). No es el setpoint del RUN. */
 #define PREHEAT_PCT_DEFAULT       80u
 #define PREHEAT_PCT_LO            50u
@@ -103,6 +109,7 @@
 #define AT_LINE_MAX       32u
 
 #define CFG_EEPROM_MAGIC  0xA5u
+/* v7 layout; rise/lookahead son compile-time (flash). Kd default 0. */
 #define CFG_EEPROM_VER    7u
 
 #endif

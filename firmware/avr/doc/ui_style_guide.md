@@ -19,7 +19,7 @@ Actualizado: 2026-09-28.
 | Papel | Fuente | Uso |
 |-------|--------|-----|
 | BODY / footer / fases | `FONT_5X7` | Menús, pies, labels i18n (~15 cols útiles en panel) |
-| Temperatura | `FONT_8X12` | Valor centrado en panel Heat/USB |
+| Temperatura / título USB | `FONT_5X7_X2` | 5×7 a 2× centrado en panel Heat/USB; temp con `°C` |
 | Iconos | `FONT_ICONS` | **16×16** nativos: Heat, Settings, USB (`ui_icons.h`) |
 
 No hay `FONT_6X8` ni iconos 8×8 en el Makefile actual. Flash ≈ **16384 B (100%)**.
@@ -30,11 +30,11 @@ No hay `FONT_6X8` ni iconos 8×8 en el Makefile actual. Flash ≈ **16384 B (100
 |------|---|-------|
 | Sidebar | 0..31 | Dos casillas 32 px (Heat / Settings), icono 16×16 centrado, separador x=31 |
 | Panel | 32..127 | Temp / fase / info o lista Settings / overlay USB |
-| Footer | y=54, h=10 | Labels: **`RUN`** / **`STOP`** / **`OUT`** (sin glifo ↵) |
+| Footer | y=54, h=10 | Labels: **`RUN`** / **`STOP`** / **`EXIT`** (sin glifo ↵) |
 
 Heat: temp (y≈3) → fase → `Rx Tset mm:ss`.  
 USB: temp → **`USB`** → icono 16×16.  
-Settings: **sin header**; filas R1…R4 + **`DLY`** desde y=0.
+Settings: header invertido **`SETTINGS`** (11 px, 2 px arriba y abajo del texto); filas de 8 px desde y=11. Nombre (`R1`…`R4`, `DELAY`) a la izquierda; temp y tiempo (o `OFF` / `mm:ss`) a la derecha.
 
 Pintado: bandas `st7920_draw_band` + dirty flags (`HOME_DIRTY_*`). `ui_display.c` / `ui_window.c` existen pero **no** se enlazan.
 
@@ -42,7 +42,7 @@ Pintado: bandas `st7920_draw_band` + dirty flags (`HOME_DIRTY_*`). `ui_display.c
 
 - Catálogo: `lib/i18n/i18n.c` + IDs en `i18n_keys.h`.
 - Call sites: `i18n_tr_hash(I18N_*)`.
-- Labels LCD: CAPS **inglés** abreviado (`PREHEAT`, `STABLE`, `ALM`, `ERR`, `DLY`, `OUT`, `USB`, …).
+- Labels LCD: CAPS **inglés** abreviado (`PREHEAT`, `STABLE`, `ALM`, `ERR`, `DELAY`, `EXIT`, `USB`, …).
 
 ## Checklist al tocar UI
 

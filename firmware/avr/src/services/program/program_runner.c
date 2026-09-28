@@ -15,11 +15,13 @@
 
 static uint16_t s_last_sec;
 static prog_cb_t s_preheat_cb;
+/* 0 = sin cola. 1 = timeout vencido. >1 = segundos que faltan. */
+static uint8_t s_over_left;
 
 static void hold_enter(app_state_t *st)
 {
+    /* Bumpless: no pid_reset entre etapas; t_ref e I siguen. */
     st->pid_loop = PID_AUTO;
-    pid_reset(st);
 }
 
 static void hold_leave(app_state_t *st)
@@ -45,8 +47,10 @@ static void preheat_fire(app_state_t *st, uint8_t result)
 static void preheat_start(app_state_t *st, prog_cb_t cb)
 {
     s_preheat_cb = cb;
+    s_over_left = 0;
     st->stabilize_left = st->stabilize_s;
     st->phase = PH_PREHEAT;
+    pid_reset(st);
     hold_enter(st);
     TELEM_DIRTY(st);
 }
@@ -62,20 +66,35 @@ static void preheat_cancel(app_state_t *st)
 static void preheat_tick(app_state_t *st)
 {
     int16_t err;
+    int16_t t;
+
     if (!preheat_active(st) || !st->sensor.valid)
         return;
-    err = (int16_t)((int16_t)(st->t_set_c * 10) - st->sensor.temp_c_x10);
+    t = st->sensor.temp_c_x10;
+    err = (int16_t)((int16_t)(st->t_set_c * 10) - t);
+    /* Cola: pasó el tope + 2 °C, o el timeout sigue y T aún > tope. */
+    if (err < -(int16_t)PREHEAT_BAND_C_X10 || (s_over_left && err < 0)) {
+        st->phase = PH_PREHEAT;
+        if (s_over_left == 0)
+            s_over_left = PREHEAT_OVERHEAT_S;
+        else if (s_over_left > 1)
+            s_over_left--;
+        else if (t < (int16_t)(st->ramp_step[0].temp_c * 10)) {
+            s_over_left = 0;
+            preheat_fire(st, PROG_CB_OK);
+        }
+        return;
+    }
+    s_over_left = 0;
     if (err < 0)
         err = (int16_t)(-err);
     if (st->phase == PH_PREHEAT) {
         if (err <= (int16_t)PREHEAT_BAND_C_X10) {
             st->phase = PH_STABILIZE;
             st->stabilize_left = st->stabilize_s;
-            TELEM_DIRTY(st);
         }
     } else if (err > (int16_t)PREHEAT_BAND_C_X10) {
         st->phase = PH_PREHEAT;
-        TELEM_DIRTY(st);
     } else if (st->stabilize_left > 0) {
         st->stabilize_left--;
     } else {
@@ -138,8 +157,20 @@ static void enter_run_timed(app_state_t *st, uint16_t sec)
 {
     st->t_remain_s = sec;
     st->phase = PH_RUN;
+    /* hold_s corre desde el instante de entrada (reloj de pared). */
     hold_enter(st);
     TELEM_DIRTY(st);
+}
+
+/* Ramp1..n no decrecientes (fan solo en cooldown). */
+static uint8_t ramps_ok(const app_state_t *st)
+{
+    uint8_t i;
+    for (i = 1u; i < st->ramp_n && i < RAMP_STEPS_MAX; i++) {
+        if (st->ramp_step[i].temp_c < st->ramp_step[i - 1u].temp_c)
+            return 0u;
+    }
+    return 1u;
 }
 
 static void enter_finish(app_state_t *st)
@@ -210,6 +241,7 @@ void program_init(app_state_t *st)
         st->t_remain_s = 0;
     st->t_elapsed_s = 0;
     st->duty_pct = 0;
+    st->t_ref_x10 = 0;
     st->preheat_en = 1;
     st->preheat_pct = PREHEAT_PCT_DEFAULT;
     st->ramps_en = 1;
@@ -289,11 +321,9 @@ void program_fault(app_state_t *st)
     if (preheat_active(st))
         preheat_cancel(st);
     hold_leave(st);
-    outputs_heaters_off(st->out_state);
     fan_off();
     st->out_state[OUT_FAN] = 0;
     st->phase = PH_FAULT;
-    st->duty_pct = 0;
     st->ctrl_src = CTRL_NONE;
     TELEM_DIRTY(st);
     pid_reset(st);
@@ -319,13 +349,11 @@ void program_stop(app_state_t *st, ctrl_src_t src)
     if (pid_atune_active(st))
         pid_atune_cancel(st);
     hold_leave(st);
-    outputs_heaters_off(st->out_state);
     fan_off();
     st->out_state[OUT_FAN] = 0;
     st->phase = PH_IDLE;
     st->t_remain_s = 0;
     st->t_elapsed_s = 0;
-    st->duty_pct = 0;
     st->ctrl_src = src;
     TELEM_DIRTY(st);
     pid_reset(st);
@@ -351,6 +379,7 @@ static void begin_pipeline(app_state_t *st)
         st->ramp_n = 1u;
     if (!st->preheat_en) {
         st->ramp_idx = 0;
+        pid_reset(st);
         enter_ramp_step(st);
         return;
     }
@@ -385,7 +414,7 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
 
     case PROG_HEAT:
         cfg_load_ramps(st);
-        if (st->ramp_n < 1u)
+        if (st->ramp_n < 1u || !ramps_ok(st))
             return PROG_ERR_PARAM;
         if (st->delay_s > 0) {
             st->t_remain_s = st->delay_s;

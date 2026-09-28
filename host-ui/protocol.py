@@ -154,7 +154,12 @@ def validate_pid(kp: int, ki: int, kd: int) -> Optional[str]:
 
 
 def validate_ramp(
-    idx: int, temp: int, hold: int, tmin: int, tmax: int
+    idx: int,
+    temp: int,
+    hold: int,
+    tmin: int,
+    tmax: int,
+    prev_temp: int | None = None,
 ) -> Optional[str]:
     if not (0 <= idx <= 3):
         return "índice de rampa debe ser 0..3"
@@ -169,6 +174,22 @@ def validate_ramp(
         return f"temp debe estar en {tmin}..{tmax}"
     if not (1 <= hold <= 3600):
         return "hold debe estar en 1..3600"
+    if prev_temp is not None and temp < prev_temp:
+        return "las rampas deben ser ascendentes o iguales (sin descenso)"
+    return None
+
+
+def validate_ramp_profile(
+    temps: list[int], active: list[bool]
+) -> Optional[str]:
+    """Perfil HEAT: escalones activos contiguos no decrecientes."""
+    prev: int | None = None
+    for on, t in zip(active, temps):
+        if not on:
+            break
+        if prev is not None and t < prev:
+            return "las rampas deben ser ascendentes o iguales (sin descenso)"
+        prev = t
     return None
 
 
