@@ -1,0 +1,113 @@
+# Arquitectura del firmware AVR
+
+Maestro de fases, alarmas y EEPROM: [program_flows.md](program_flows.md). Si este archivo discrepa, manda ese.  
+Producto: [product_features.md](product_features.md).  
+UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automation.md).
+
+Última revisión: 2026-09-27. Un solo binario (`make`). Sin perfiles PANEL/USB.
+
+## Core vs shell
+
+| Capa | Incluye | Regla |
+|------|---------|-------|
+| **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
+| **Shell** | `home_view` (Heat + Ajustes embebido + overlay USB), ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
+
+Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`**, no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`).
+
+## Actuador de calor
+
+Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). No es un relé mecánico. Ver BOM PCB y [program_flows.md](program_flows.md).
+
+## Árbol
+
+```
+firmware/avr/
+  src/main.c                 super-loop; g_state
+  src/app/                   app_state.h, app_config.h (EEPROM v6)
+  src/ui/                    home (Heat|Ajustes embebido|overlay USB)
+  src/ui/core/               window, bands, texto
+  src/services/program/      máquina de fases (HEAT con fase PREHEAT / PID_TUNE)
+  src/services/pid*.c        lazo + autotune
+  src/services/cfg_store.c   EEPROM global + heat/pre/tune + rampas
+  src/services/at_cmd.c      AT
+  lib/                       drivers + i18n
+```
+
+## Capas
+
+```mermaid
+flowchart TB
+  main["main.c g_state"]
+  shell["ui_router → home_view"]
+  coreUi["ui/core"]
+  svc["services program PID cfg AT safety"]
+  lib["lib ST7920 MAX31865 UART ports"]
+  main --> shell
+  main --> svc
+  shell --> coreUi
+  shell --> svc
+  svc --> lib
+  coreUi --> lib
+```
+
+## Estado
+
+Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PID_TUNE`. PREHEAT es fase de HEAT. **RAMPS** solo perfil EEPROM.
+
+| Campo clave | Rol |
+|-------------|-----|
+| `program` / `phase` | Qué corre y en qué etapa |
+| `delay_s` | HEAT: 0 = inmediato; >0 = PH_DELAY |
+| `ramp_*` | Perfil de escalones |
+| `temp_min_c` / `temp_max_c` | Safety + límites de consignas; aire OFF en min |
+| `pid_k*` / `atune_*` | Lazo y autoajuste. Picos en RAM. Stream `$HP` a 1 Hz solo si USB arrancó el autotune. Sin `$HP,PLOT` ni buffer de traza |
+| `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1 |
+| `device_mode` | MANUAL vs USB |
+
+## Navegación
+
+```mermaid
+flowchart LR
+  home["HOME Heat Settings"]
+  set["panel Ajustes en Home"]
+  pid["PID via AT only"]
+  run["HOME en marcha"]
+  usb["overlay USB en Heat"]
+  home -->|Heat PRESS| run
+  home -->|Settings PRESS| set
+  set -->|OUT| home
+  set --> pid
+  run -->|STOP| home
+  atUsb["AT MODE=1"] --> usb
+  usb -->|OUT| home
+```
+
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: R1…R4 + **DLY** (sin header). Aire / ESTAB / P% / PID solo AT.
+
+## Super-loop
+
+```mermaid
+flowchart TD
+  r[refresh UI] --> e[encoder]
+  e --> a[AT]
+  a --> s["1 Hz: sensor, muestra PID o atune, safety"]
+  s --> p[process_tick]
+  p --> t["telemetry si dirty"]
+  t --> b[buzzer]
+  b --> r
+```
+
+En ese tick de 1 Hz se arma el beep `READY` al entrar en `HOLD` o `DONE`, y el stream `$HP` si el autotune salió por USB.
+
+Detalle de fases: [program_flows.md](program_flows.md).
+
+## Seguridad
+
+- Boot, fault y sobretemperatura: PTC y fan OFF.
+- `temp ≥ temp_max_c` (lectura válida) → UART **`ERROR:7`**, fase `PH_FAULT`, `$HP` `A=FAULT`.
+- Sensor inválido con programa activo (salvo DELAY/ALARM) → fault.
+
+## Flash
+
+Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Build tipico actual: **100%**. Fuentes enlazadas: `FONT_5X7`, `FONT_8X12`, `FONT_ICONS` (16×16). Gates históricos `UI_NO_ICONS` / `NO_FONT_6X8` ya no aplican al Makefile actual.

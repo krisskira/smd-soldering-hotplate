@@ -1,28 +1,46 @@
-/build/*
-!build/.gitkeep
-*.o
-*.d
-*.elf
-*.hex
-*.bin
-*.map
-*.lst
-*.obj
-*.sym
-*.a
-*.lnk
-*.srec
-*.eep
-*.lss
-*.s
-*.s2e
-*.s19
-*.s28
-*.s37
+# SMI Soldering Hot Plate — monorepo
 
-# Ignore Sistem Operrative files, like mac files
+## OS / IDE
 .DS_Store
 Thumbs.db
+.vscode/
+.history/
+*.swp
+*~
 
-# Iconos animados regenerados bajo demanda (ver tools/gif_to_st7920_anim.py)
-icons/animated/
+## Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+## Firmware AVR
+firmware/avr/build/*
+!firmware/avr/build/.gitkeep
+firmware/avr/**/*.o
+firmware/avr/**/*.elf
+firmware/avr/**/*.hex
+firmware/avr/**/*.map
+firmware/avr/**/*.lss
+firmware/avr/**/*.eep
+firmware/avr/icons/animated/
+
+## KiCad / PCB
+hardware/pcb/**/*-backups/
+hardware/pcb/**/fp-info-cache
+hardware/pcb/**/*.kicad_prl
+hardware/pcb/kbplacer.log
+hardware/pcb/freerouting.dsn
+hardware/pcb/controller_*/
+hardware/pcb/**/*.FlatPrj
+hardware/pcb/**/.stl
+
+## Cursor / local
+.cursor/
+AgentStores/
+
+## Misc
+*.log
+.idea/

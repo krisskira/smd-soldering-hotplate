@@ -1,0 +1,129 @@
+/*
+ * ST7920 - Configuración, comandos y modo texto.
+ * SPI hardware (PB5 MOSI, PB7 SCK).
+ */
+#include "../../config/board_pins.h"
+#include "../avr_spi/avr_spi.h"
+#include "st7920.h"
+#include "st7920_private.h"
+#include <util/delay.h>
+
+#define LCD_CS_LOW()  LCD_CS_PORT &= ~(1 << LCD_CS_PIN)
+#define LCD_CS_HIGH() LCD_CS_PORT |= (1 << LCD_CS_PIN)
+
+static void st7920_write(uint8_t data, uint8_t rs)
+{
+    LCD_CS_HIGH();
+    if (rs)
+        avr_spi_transmit(0xFA);
+    else
+        avr_spi_transmit(0xF8);
+
+    avr_spi_transmit(data & 0xF0);
+    avr_spi_transmit((data << 4) & 0xF0);
+    _delay_us(10);
+}
+
+void st7920_cmd(uint8_t cmd)
+{
+    st7920_write(cmd, 0);
+}
+
+void st7920_data(uint8_t data)
+{
+    st7920_write(data, 1);
+}
+
+void st7920_init(void)
+{
+    LCD_CS_DDR |= (1 << LCD_CS_PIN);
+    LCD_CS_HIGH();
+    _delay_ms(50);
+
+    st7920_cmd(0x30);
+    _delay_ms(10);
+    st7920_cmd(0x30);
+    _delay_us(110);
+    st7920_cmd(0x0C);
+    _delay_us(110);
+    st7920_cmd(0x01);
+    _delay_ms(12);
+    st7920_cmd(0x06);
+    _delay_us(110);
+    LCD_CS_LOW();
+}
+
+void st7920_disable(void)
+{
+    LCD_CS_LOW();
+}
+
+void st7920_enable(void)
+{
+    LCD_CS_HIGH();
+}
+
+void st7920_set_gdram(uint8_t x, uint8_t y)
+{
+    if (y < 32)
+    {
+        st7920_cmd(0x80 | y);
+        st7920_cmd(0x80 | x);
+    }
+    else
+    {
+        st7920_cmd(0x80 | (y - 32));
+        st7920_cmd(0x88 | x);
+    }
+}
+
+void st7920_write_gdram(uint8_t x, uint8_t y, uint8_t left, uint8_t right)
+{
+    st7920_set_gdram(x, y);
+    st7920_data(left);
+    st7920_data(right);
+}
+
+void st7920_clear_gdram(void)
+{
+    for (uint8_t y = 0; y < 32; y++)
+    {
+        st7920_cmd(0x80 | y);
+        st7920_cmd(0x80);
+
+        for (uint8_t x = 0; x < 16; x++)
+        {
+            st7920_data(0x00);
+            st7920_data(0x00);
+        }
+    }
+
+    for (uint8_t y = 0; y < 32; y++)
+    {
+        st7920_cmd(0x80 | y);
+        st7920_cmd(0x88);
+
+        for (uint8_t x = 0; x < 16; x++)
+        {
+            st7920_data(0x00);
+            st7920_data(0x00);
+        }
+    }
+}
+
+void st7920_clear(void)
+{
+    st7920_cmd(0x01);
+    _delay_ms(10);
+}
+
+void st7920_graphics_mode(void)
+{
+    /* GDRAM ON: necesario para fuente 5x7, invertido, formas y gráficas.
+     * El modo texto DDRAM del ST7920 no permite dibujo por píxel. */
+    st7920_cmd(0x34); /* extended */
+    st7920_cmd(0x36); /* graphics ON */
+    st7920_clear_gdram();
+    st7920_clear_gdram_buffer();
+}
+
