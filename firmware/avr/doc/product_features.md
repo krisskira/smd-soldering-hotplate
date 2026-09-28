@@ -60,7 +60,7 @@ Detalle en [program_flows.md](program_flows.md). Contrato corto:
 
 ## EEPROM v7
 
-Global: ganancias PID (default Kp **246** / Ki **692** / Kd **216**), `atune_cycles_target` (default **5**), `atune_hyst_c_x10` (default **15**), `atune_max_s` (default **2000**), `temp_min_c` (default **50**), `temp_max_c` (default **250**), `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque con ver distinta (p.ej. v6) no se migra: vuelven los defaults.  
+Global: ganancias PID (default Kp **246** / Ki **10** / Kd **400**, ×10), `atune_cycles_target` (default **5**), `atune_hyst_c_x10` (default **15**), `atune_max_s` (default **2000**), `temp_min_c` (default **50**), `temp_max_c` (default **250**), `preheat_en`, `preheat_pct` (default 80), flags, alarmas. Un bloque con ver distinta (p.ej. v6) no se migra: vuelven los defaults.  
 Programas: `ee_heat` (delay), `ee_tune`. Rampas: `ee_ramp`. No hay `ee_pre`.  
 Picos de autotune y la fase viva no se guardan.
 

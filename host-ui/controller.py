@@ -428,8 +428,10 @@ class AppController:
                 plot_set,
                 float(fields.get("DU", float("nan"))),
             )
+            # Usar trace completo (no la ventana samples) para no “cortar” ni
+            # desplazar el origen del eje X al llenarse el deque.
             self.heat.chart.redraw(
-                self.state.samples, None, y_max=self.heat.ramp_ymax()
+                self.state.trace, None, y_max=self.heat.ramp_ymax()
             )
             if heat_ending:
                 self.state.recording_heat = False

@@ -71,9 +71,9 @@
 #define USB_SEL_COUNT     2u
 
 #define PID_WINDOW_MS     2000u
-#define PID_KP_DEFAULT    246
-#define PID_KI_DEFAULT    692
-#define PID_KD_DEFAULT    216
+#define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,400 */
+#define PID_KI_DEFAULT    10
+#define PID_KD_DEFAULT    400
 
 /* Autotune (SSR bang-bang); defaults EEPROM v7 */
 #define ATUNE_MIN_CYCLES     3u

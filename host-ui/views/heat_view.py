@@ -9,6 +9,7 @@ from tkinter import ttk
 
 import protocol as proto
 from chart import LiveChart
+from constants import CHART_HEAT_X_SPAN_S
 
 if TYPE_CHECKING:
     from controller import AppController
@@ -95,6 +96,8 @@ class HeatView:
             on_clear=ctrl.clear_plot,
             figsize=(9, 4.2),
             show_live_info=True,
+            x_span_s=CHART_HEAT_X_SPAN_S,
+            x_locked=True,
         )
         self._sync_chart_ylim()
 

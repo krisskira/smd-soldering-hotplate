@@ -17,9 +17,10 @@ static int16_t  s_peak_lo;
 static int16_t  s_kp;
 static int16_t  s_ki;
 static int16_t  s_kd;
-static uint16_t s_half_sum;
+/* Suma de medio-periodos en s (delay_ms wrap ~65 s; Tu real ≫ eso). */
+static uint16_t s_half_sum_s;
 static uint8_t  s_half_n;
-static uint16_t s_t0;
+static uint16_t s_t0_s;
 
 static void heaters_off(app_state_t *st)
 {
@@ -106,13 +107,14 @@ uint8_t pid_atune_start(app_state_t *st)
     s_kp = 0;
     s_ki = 0;
     s_kd = 0;
-    s_half_sum = 0;
+    s_half_sum_s = 0;
     s_half_n = 0;
-    s_t0 = delay_ms();
+    s_t0_s = delay_sec();
     return 0u;
 }
 
-static void finish_ok(app_state_t *st, uint16_t tu_ms, int16_t amp)
+/* tu_s = periodo medio de oscilación (s). */
+static void finish_ok(app_state_t *st, uint16_t tu_s, int16_t amp)
 {
     int32_t ku, kp, ki, kd, tu10;
 
@@ -124,7 +126,9 @@ static void finish_ok(app_state_t *st, uint16_t tu_ms, int16_t amp)
     if (ku > 999)
         ku = 999;
 
-    tu10 = ((int32_t)tu_ms * 10L) / 1000L;
+    if (tu_s < 1u)
+        tu_s = 1u;
+    tu10 = (int32_t)tu_s * 10L; /* décimas de segundo */
     if (tu10 < 10)
         tu10 = 10;
 
@@ -162,7 +166,7 @@ static void fail(app_state_t *st)
 void pid_atune_on_sample(app_state_t *st)
 {
     int16_t t, set_x10, hi, lo;
-    uint16_t now, dt, lim;
+    uint16_t now_s, dt_s, lim;
 
     if (!st || st->atune_phase != ATUNE_RUN)
         return;
@@ -189,8 +193,8 @@ void pid_atune_on_sample(app_state_t *st)
     if (t < s_peak_lo)
         s_peak_lo = t;
 
-    now = delay_ms();
-    dt = (uint16_t)(now - s_t0);
+    now_s = delay_sec();
+    dt_s = (uint16_t)(now_s - s_t0_s);
 
     if (st->atune_relay_on) {
         if (t < hi)
@@ -199,13 +203,13 @@ void pid_atune_on_sample(app_state_t *st)
         heaters_off(st);
         cool_assist_on();
         if (s_half_n > 0)
-            s_half_sum = (uint16_t)(s_half_sum + dt);
+            s_half_sum_s = (uint16_t)(s_half_sum_s + dt_s);
         s_half_n++;
-        s_t0 = now;
+        s_t0_s = now_s;
         if ((s_half_n / 2u) >= st->atune_cycles_target && s_half_n >= 4u) {
-            uint16_t tu = (uint16_t)((s_half_sum * 2u) / (s_half_n - 1u));
+            uint16_t tu_s = (uint16_t)((s_half_sum_s * 2u) / (uint16_t)(s_half_n - 1u));
             int16_t amp = (int16_t)((s_peak_hi - s_peak_lo) / 2);
-            finish_ok(st, tu, amp);
+            finish_ok(st, tu_s, amp);
             return;
         }
         s_peak_hi = t;
@@ -221,9 +225,9 @@ void pid_atune_on_sample(app_state_t *st)
     st->duty_pct = 100;
     st->atune_relay_on = 1;
     if (s_half_n > 0)
-        s_half_sum = (uint16_t)(s_half_sum + dt);
+        s_half_sum_s = (uint16_t)(s_half_sum_s + dt_s);
     s_half_n++;
-    s_t0 = now;
+    s_t0_s = now_s;
     st->atune_cycles = (uint8_t)(s_half_n / 2u);
     s_peak_hi = t;
     s_peak_lo = t;
