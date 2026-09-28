@@ -18,10 +18,6 @@ void st7920_row_clear_pixel(uint16_t *row_buf, uint8_t x);
 /* Fuentes de lib/fonts (st7920_text.c). ty = fila superior del glifo;
  * clear=1 borra píxeles (texto invertido sobre fondo ON). */
 void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
-                      uint8_t glyph, uint8_t tx, uint8_t ty, uint8_t scale,
-                      uint8_t clear);
-void st7920_font_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
-                     uint8_t tx, uint8_t ty, const char *str, uint8_t scale,
-                     uint8_t clear);
+                      uint8_t glyph, uint8_t tx, uint8_t ty, uint8_t clear);
 
 #endif

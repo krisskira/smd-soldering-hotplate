@@ -32,10 +32,9 @@ static void kv_i(const char *key_P, int16_t v)
     avr_uart_transmit_pstr(key_P);
     if (v < 0) {
         avr_uart_transmit_char('-');
-        proto_put_u16((uint16_t)(-v));
-    } else {
-        proto_put_u16((uint16_t)v);
+        v = (int16_t)(-v);
     }
+    proto_put_u16((uint16_t)v);
 }
 
 static void kv_b(const char *key_P, uint8_t on)
@@ -105,7 +104,6 @@ void telemetry_emit_cfg(const app_state_t *st)
     avr_uart_transmit_pstr(PROTO_CRLF);
 }
 
-/* $R,N=<n>,0=<°C>/<s>,1=...,2=...,3=... — siempre 4 huecos. */
 void telemetry_emit_ramps(const app_state_t *st)
 {
     uint8_t i;
@@ -128,11 +126,8 @@ void telemetry_emit_ramps(const app_state_t *st)
 
 void telemetry_tick(const app_state_t *st)
 {
-    app_state_t *mut;
-
     if (!st || !st->telem_dirty)
         return;
-    mut = (app_state_t *)st;
-    mut->telem_dirty = 0;
+    ((app_state_t *)st)->telem_dirty = 0;
     telemetry_emit(st);
 }

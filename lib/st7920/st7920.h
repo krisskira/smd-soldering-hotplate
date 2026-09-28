@@ -50,8 +50,8 @@ void st7920_draw_text_gdram_styled(uint8_t x, uint8_t y, uint8_t h,
                                    uint8_t flags);
 
 /**
- * Texto con cualquier fuente de lib/fonts (FONT_5X7, FONT_6X8_BOLD,
- * FONT_8X12, FONT_ICONS). Escala 1..3.
+ * Texto con cualquier fuente de lib/fonts (FONT_5X7, FONT_8X12,
+ * FONT_ICONS). Escala 1..3.
  * y = borde superior de la banda; h = alto de banda (0 = alto del glifo).
  * El glifo va centrado en vertical dentro de la banda. inv = fondo ON.
  */
@@ -63,8 +63,6 @@ typedef struct {
     const font_t *f;
     const char *str;
     uint8_t x;
-    uint8_t scale;
-    uint8_t bold; /* reservado; la negrita sintética se quitó por flash */
 } st7920_span_t;
 
 /**

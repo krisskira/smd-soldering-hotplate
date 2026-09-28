@@ -54,10 +54,9 @@
 #define SET_IDX_RAMP2     2u
 #define SET_IDX_RAMP3     3u
 #define SET_IDX_DELAY     4u
-#define SET_VIS_ROWS      4u
-#define SET_HDR_H         14u
-#define SET_ROW_Y0        16u
-#define SET_ROW_H         9u
+#define SET_VIS_ROWS      5u
+#define SET_ROW_Y0        0u
+#define SET_ROW_H         10u
 
 #define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 #define SET_EDIT_NONE     0u

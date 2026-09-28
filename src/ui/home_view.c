@@ -1,8 +1,8 @@
 #include "home_view.h"
 #include "ui_text.h"
 #include "ui_router.h"
-#include "ui_window.h"
 #include "ui_components.h"
+#include "ui_icons.h"
 #include "i18n/i18n_c.h"
 #include "../services/buzzer_seq.h"
 #include "../services/cfg_store.h"
@@ -15,12 +15,26 @@
 /* x0..30 barra | x31 | x32..127 panel. Dos casillas ~32 px. */
 #define PANEL_X    32u
 #define PANEL_TX   36u
+#define PANEL_W    96u
 #define BOX_H      32u
-#define TEMP_H     16u
-#define LINE_H     10u
+#define TEMP_TOP   3u    /* aire bajo el borde superior */
+#define TEMP_H     12u   /* FONT_8X12.h */
+#define TEMP_ADV   9u
+#define LINE_H     8u    /* 5×7 + 1 */
+#define LINE_GAP   4u    /* entre temp / fase / info */
 #define PCOLS      ((128u - PANEL_TX) / 6u) /* ~15 cols visibles */
+#define ICO_PX     16u /* nativo 16×16; centrado en sidebar 32 */
+#define ICO_SIDE_X ((32u - ICO_PX) / 2u) /* 8 */
+/* FONT_ICONS first=1 → carácter = id+1 */
+static const char s_usb_ch[2] = { (char)(ICO_USB + 1u), '\0' };
 
-static const char s_mark[2] = { 'H', 'A' };
+/* 0=heat 1=set 2=usb — wipe del panel solo al cambiar de modo. */
+static uint8_t s_panel_mode;
+
+static void panel_wipe(void)
+{
+    st7920_draw_band(PANEL_X, PANEL_W, 0u, UI_FOOT_Y, 0, 0u, 0u);
+}
 
 static uint8_t is_run(const app_state_t *st)
 {
@@ -58,20 +72,29 @@ static void dirty_all(app_state_t *st)
     st->row_dirty = HOME_DIRTY_ALL;
 }
 
+static void sel_rot(uint8_t *sel, uint8_t count, int8_t dir)
+{
+    if (!sel || count == 0u)
+        return;
+    if (dir > 0)
+        *sel = (uint8_t)((*sel + 1u) % count);
+    else
+        *sel = (*sel == 0u) ? (uint8_t)(count - 1u) : (uint8_t)(*sel - 1u);
+}
+
 static void side_box(uint8_t i, uint8_t inv)
 {
-    char ico[2];
+    uint8_t gid = (i == HOME_IDX_HEAT) ? (uint8_t)ICO_HEAT : (uint8_t)ICO_CFG;
     uint8_t y0 = (uint8_t)(i * BOX_H);
-    uint8_t iy = (uint8_t)(y0 + (BOX_H - 7u) / 2u);
+    uint8_t iy = (uint8_t)(y0 + (BOX_H - ICO_PX) / 2u);
     uint8_t py;
     uint16_t row[2], fill = inv ? 0xFFFFu : 0u;
 
-    ico[0] = s_mark[i];
-    ico[1] = '\0';
     for (py = y0; py < (uint8_t)(y0 + BOX_H); py++) {
         row[0] = fill;
-        row[1] = (uint16_t)(fill | 0x0001u);
-        st7920_font_row(row, py, &FONT_5X7, 12u, iy, ico, 1u, inv);
+        row[1] = fill;
+        st7920_glyph_row(row, py, &FONT_ICONS, gid, ICO_SIDE_X, iy, inv);
+        row[1] |= 0x0001u; /* separador x=31 */
         st7920_write_gdram(0, py, (uint8_t)(row[0] >> 8), (uint8_t)row[0]);
         st7920_write_gdram(1, py, (uint8_t)(row[1] >> 8), (uint8_t)row[1]);
     }
@@ -79,7 +102,11 @@ static void side_box(uint8_t i, uint8_t inv)
 
 static void panel_band(uint8_t y, uint8_t h, const char *s, uint8_t inv)
 {
-    st7920_span_t sp = { &FONT_5X7, s, PANEL_TX, 1u, 0u };
+    st7920_span_t sp;
+
+    sp.f = &FONT_5X7;
+    sp.str = s;
+    sp.x = PANEL_TX;
     st7920_draw_band(PANEL_X, (uint8_t)(128u - PANEL_X), y, h, &sp, 1u, inv);
 }
 
@@ -98,9 +125,9 @@ static void panel_center(uint8_t y, uint8_t h, const char *str, uint8_t inv)
 
 static void draw_centered_temp(const app_state_t *st, uint8_t y)
 {
-    char val[8];
+    char val[10];
     st7920_span_t s;
-    uint8_t n;
+    uint8_t n, tw;
 
     if (st->sensor.valid)
         ui_temp_to_str(&st->sensor, val);
@@ -108,12 +135,11 @@ static void draw_centered_temp(const app_state_t *st, uint8_t y)
         val[0] = '-'; val[1] = '-'; val[2] = '-'; val[3] = '\0';
     }
     n = ui_str_len(val);
+    tw = (uint8_t)(n * TEMP_ADV);
     s.f = &FONT_8X12;
     s.str = val;
-    s.x = (uint8_t)(PANEL_X + ((96u - (uint8_t)(n * 6u)) / 2u));
-    s.scale = 1u;
-    s.bold = 0u;
-    st7920_draw_band(PANEL_X, 96u, y, TEMP_H, &s, 1u, 0u);
+    s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
+    st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
 }
 
 /* "R1 150 01:30" — rampa | T objetivo | remain/delay. */
@@ -150,18 +176,37 @@ static void draw_heat_info(const app_state_t *st, uint8_t y)
     panel_center(y, LINE_H, body, 0u);
 }
 
-static void draw_heat_panel(const app_state_t *st)
+static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
 {
-    panel_center(0u, SET_HDR_H,
-                 is_usb(st) ? i18n_tr_hash(I18N_TITLE_USB)
-                            : i18n_tr_hash(I18N_PROG_HEAT),
-                 1u);
-    draw_centered_temp(st, SET_HDR_H);
-    if (is_usb(st))
+    uint8_t y_phase, y_info, mode;
+    st7920_span_t usb;
+
+    y_phase = (uint8_t)(TEMP_TOP + TEMP_H + LINE_GAP);
+    y_info = (uint8_t)(y_phase + LINE_H + LINE_GAP);
+    mode = is_usb(st) ? 2u : 0u;
+    if (s_panel_mode != mode) {
+        panel_wipe();
+        s_panel_mode = mode;
+        dirty = (uint8_t)(HOME_DIRTY_TEMP | HOME_DIRTY_BODY);
+    }
+
+    /* Banda = fondo+texto atómico. Sin wipe en cada tick → sin parpadeo. */
+    if (dirty & HOME_DIRTY_TEMP)
+        draw_centered_temp(st, TEMP_TOP);
+
+    if (!(dirty & HOME_DIRTY_BODY))
         return;
-    panel_center((uint8_t)(SET_HDR_H + TEMP_H), LINE_H,
-                 process_phase_name(st->phase), 0u);
-    draw_heat_info(st, (uint8_t)(SET_HDR_H + TEMP_H + LINE_H));
+
+    if (mode == 2u) {
+        usb.f = &FONT_ICONS;
+        usb.str = s_usb_ch;
+        usb.x = (uint8_t)(PANEL_X + (PANEL_W - ICO_PX) / 2u);
+        st7920_draw_band(PANEL_X, PANEL_W, y_phase,
+                         (uint8_t)(UI_FOOT_Y - y_phase), &usb, 1u, 0u);
+        return;
+    }
+    panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);
+    draw_heat_info(st, y_info);
 }
 
 static uint8_t ramp_on(const app_state_t *st, uint8_t idx)
@@ -210,7 +255,7 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
             buf[3] = '*';
         ui_u16_to_str(st->ramp_step[idx].temp_c, v);
         ui_line_put(buf, 4, v);
-        buf[7] = '/';
+        buf[7] = ' ';
         if (ed == SET_EDIT_TIME && st->settings_sel == idx)
             buf[8] = '*';
         ui_u16_to_str(st->ramp_step[idx].hold_s, v);
@@ -219,34 +264,28 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
     }
     ui_line_put(buf, 0, i18n_tr_hash(I18N_SET_DELAY));
     if (ed == SET_EDIT_DELAY)
-        buf[7] = '*';
+        buf[7] = '*'; /* tras "RETRASO" */
     ui_mmss_to_str(st->delay_s, v);
     n = ui_str_len(v); /* 5 = mm:ss */
     if (n < PCOLS)
         ui_line_put(buf, (uint8_t)(PCOLS - n), v);
 }
 
-static void draw_set_rows(const app_state_t *st)
+static void draw_set_panel(const app_state_t *st)
 {
     char buf[LINE_LEN + 1];
-    uint8_t top, r, idx, inv, armed;
+    uint8_t r, inv, armed;
 
+    if (s_panel_mode != 1u) {
+        panel_wipe();
+        s_panel_mode = 1u;
+    }
     armed = in_set(st);
-    top = armed ? ui_window_top(st->settings_sel < SETTINGS_COUNT
-                                    ? st->settings_sel
-                                    : (uint8_t)(SETTINGS_COUNT - 1u),
-                                SET_VIS_ROWS)
-                : 0u;
-    for (r = 0; r < SET_VIS_ROWS; r++) {
-        idx = (uint8_t)(top + r);
+    for (r = 0; r < SETTINGS_COUNT; r++) {
         ui_line_clear(buf);
-        if (idx < SETTINGS_COUNT)
-            build_set_item(st, idx, buf);
+        build_set_item(st, r, buf);
         buf[PCOLS] = '\0';
-        inv = (armed && idx == st->settings_sel
-               && st->settings_sel < SETTINGS_COUNT)
-                  ? 1u
-                  : 0u;
+        inv = (armed && r == st->settings_sel) ? 1u : 0u;
         panel_band((uint8_t)(SET_ROW_Y0 + r * SET_ROW_H), SET_ROW_H, buf, inv);
     }
 }
@@ -381,7 +420,7 @@ static void on_set_event(app_state_t *st, app_event_t evt)
         dirty_all(st);
         return;
     }
-    ui_window_rotate(&st->settings_sel, (uint8_t)(SETTINGS_COUNT + 1u), dir);
+    sel_rot(&st->settings_sel, (uint8_t)(SETTINGS_COUNT + 1u), dir);
     dirty_all(st);
     buzzer_seq_beep_cat(st, BEEP_NAV, 1);
 }
@@ -436,26 +475,27 @@ void home_view_refresh(app_state_t *st)
     }
     if (st->row_dirty & (HOME_DIRTY_TEMP | HOME_DIRTY_BODY)) {
         if (show_set(st)) {
-            panel_center(0u, SET_HDR_H, i18n_tr_hash(I18N_NAV_SETTINGS), 1u);
-            draw_set_rows(st);
+            /* Ajustes: solo BODY (el sensor no debe repintar la lista). */
+            if (st->row_dirty & HOME_DIRTY_BODY)
+                draw_set_panel(st);
         } else if (focus(st) == HOME_IDX_HEAT || is_run(st) || is_usb(st))
-            draw_heat_panel(st);
+            draw_heat_panel(st, st->row_dirty);
         else
             st7920_draw_band(PANEL_X, 96u, 0u, UI_FOOT_Y, 0, 0u, 0u);
     }
     if (st->row_dirty & HOME_DIRTY_FOOT) {
         if (is_usb(st))
-            ui_comp_draw_footer(PANEL_X, i18n_tr_hash(I18N_USB_EXIT), 1u);
+            ui_comp_draw_footer(PANEL_X, I18N_USB_EXIT, 1u);
         else if (in_set(st))
-            ui_comp_draw_footer(PANEL_X, i18n_tr_hash(I18N_USB_EXIT),
+            ui_comp_draw_footer(PANEL_X, I18N_USB_EXIT,
                                 (uint8_t)(st->settings_sel >= SETTINGS_COUNT));
         else if (st->phase == PH_DONE || st->phase == PH_FAULT)
-            ui_comp_draw_footer(PANEL_X, i18n_tr_hash(I18N_USB_EXIT), 1u);
+            ui_comp_draw_footer(PANEL_X, I18N_USB_EXIT, 1u);
         else if (focus(st) == HOME_IDX_HEAT) {
             if (is_run(st))
-                ui_comp_draw_footer(PANEL_X, i18n_tr_hash(I18N_BTN_CANCEL), 1u);
+                ui_comp_draw_footer(PANEL_X, I18N_BTN_CANCEL, 1u);
             else
-                ui_comp_draw_footer(PANEL_X, i18n_tr_hash(I18N_BTN_START), 1u);
+                ui_comp_draw_footer(PANEL_X, I18N_BTN_START, 1u);
         } else
             st7920_draw_band(PANEL_X, 96u, UI_FOOT_Y, UI_FOOT_H, 0, 0u, 0u);
     }
@@ -508,7 +548,7 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
     if (evt == EVT_ENCODER_NEXT || evt == EVT_ENCODER_PREV) {
         dir = (evt == EVT_ENCODER_NEXT) ? 1 : -1;
         old = st->home_sel;
-        ui_window_rotate(&st->home_sel, HOME_COUNT, dir);
+        sel_rot(&st->home_sel, HOME_COUNT, dir);
         if (st->home_sel != old) {
             if (st->home_sel == HOME_IDX_SETTINGS) {
                 cfg_load_ramps(st);
@@ -533,8 +573,10 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
 
 void home_view_on_sensor(app_state_t *st)
 {
-    if (!st)
+    if (!st || show_set(st))
         return;
-    st->row_dirty |= (uint8_t)(HOME_DIRTY_TEMP | HOME_DIRTY_BODY
-                               | HOME_DIRTY_FOOT);
+    /* Solo temperatura; fase/reloj si hay proceso activo (1 Hz). Sin pie. */
+    st->row_dirty |= HOME_DIRTY_TEMP;
+    if (is_run(st))
+        st->row_dirty |= HOME_DIRTY_BODY;
 }

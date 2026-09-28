@@ -2,12 +2,10 @@
 #define UI_FONT_H
 
 /*
- * Fuentes por papel en la UI:
- *   UI_FONT_SMALL   5×7        menús
- *   UI_FONT_NORMAL  6×8 negrita títulos / texto destacado
- *   UI_FONT_LARGE   8×12       temperatura ("-.0-9°"; la C va en 5×7)
- *   UI_FONT_ICONS   8×8        solo ICO_ENTER (texto con ui_icon_char)
- * Grado: "150" FONT_DEG "C".
+ * Fuentes en uso:
+ *   UI_FONT_SMALL / NORMAL  FONT_5X7     menús / footer
+ *   UI_FONT_LARGE           FONT_8X12    temperatura
+ *   UI_FONT_ICONS           FONT_ICONS   sidebar / USB
  */
 
 #include <stdint.h>
@@ -30,16 +28,7 @@ typedef enum {
 static inline const font_t *ui_font_get(ui_font_t font)
 {
     switch (font) {
-#ifdef NO_FONT_6X8
-    case UI_FONT_NORMAL: return &FONT_5X7;
-#else
-    case UI_FONT_NORMAL: return &FONT_6X8_BOLD;
-#endif
-#ifdef NO_FONT_8X12
-    case UI_FONT_LARGE:  return &FONT_5X7;
-#else
     case UI_FONT_LARGE:  return &FONT_8X12;
-#endif
     case UI_FONT_ICONS:  return &FONT_ICONS;
     default:             return &FONT_5X7;
     }

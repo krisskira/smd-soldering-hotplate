@@ -1,6 +1,6 @@
 /*
- * ST7920 - Texto con fuentes de lib/fonts (escala fija 1).
- * Compone fila a fila y escribe solo los bloques de la banda pedida.
+ * ST7920 texto: FONT_ROWS (8×12 + iconos 16×16) y blit dedicado FONT_5X7.
+ * Tinta 1:1 (sin escala por píxel).
  */
 #include "st7920.h"
 #include "st7920_private.h"
@@ -10,41 +10,55 @@
 #define LCD_H 64u
 
 void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
-                      uint8_t glyph, uint8_t tx, uint8_t ty, uint8_t scale,
-                      uint8_t clear)
+                      uint8_t glyph, uint8_t tx, uint8_t ty, uint8_t clear)
 {
     const uint8_t *p;
-    uint8_t gy, gx, bits = 0, on;
-    uint16_t px;
+    uint8_t gy, gx, bpr, bits = 0, px;
+    uint16_t gsz;
 
-    (void)scale;
     if (!f || glyph == FONT_NO_GLYPH || row_y < ty)
         return;
     gy = (uint8_t)(row_y - ty);
     if (gy >= f->h)
         return;
-
-    p = f->data + (uint16_t)glyph * font_glyph_bytes(f);
-    if (f->layout == FONT_ROWS)
-        p += gy;
-
+    bpr = (uint8_t)((f->w + 7u) >> 3);
+    gsz = (uint16_t)f->h * bpr;
+    p = f->data + (uint16_t)glyph * gsz + (uint16_t)gy * bpr;
     for (gx = 0; gx < f->w; gx++) {
-        if (f->layout == FONT_ROWS) {
-            if ((gx & 7u) == 0u)
-                bits = pgm_read_byte(p + (gx >> 3));
-            on = (uint8_t)(bits & (0x80u >> (gx & 7u)));
-        } else {
-            on = (uint8_t)(pgm_read_byte(p + gx) & (1u << gy));
-        }
-        if (!on)
+        if ((gx & 7u) == 0u)
+            bits = pgm_read_byte(p + (gx >> 3));
+        if (!(bits & (uint8_t)(0x80u >> (gx & 7u))))
             continue;
-        px = (uint16_t)tx + gx;
+        px = (uint8_t)(tx + gx);
         if (px >= LCD_W)
             break;
         if (clear)
-            st7920_row_clear_pixel(row_buf, (uint8_t)px);
+            st7920_row_clear_pixel(row_buf, px);
         else
-            st7920_row_set_pixel(row_buf, (uint8_t)px);
+            st7920_row_set_pixel(row_buf, px);
+    }
+}
+
+static void glyph5x7_row(uint16_t *row_buf, uint8_t row_y, uint8_t glyph,
+                         uint8_t tx, uint8_t ty, uint8_t clear)
+{
+    const uint8_t *p;
+    uint8_t gy, gx, col;
+
+    if (glyph == FONT_NO_GLYPH || row_y < ty)
+        return;
+    gy = (uint8_t)(row_y - ty);
+    if (gy >= 7u)
+        return;
+    p = font5x7_data + (uint16_t)glyph * 5u;
+    for (gx = 0; gx < 5u; gx++) {
+        col = pgm_read_byte(p + gx);
+        if (!(col & (uint8_t)(1u << gy)))
+            continue;
+        if (clear)
+            st7920_row_clear_pixel(row_buf, (uint8_t)(tx + gx));
+        else
+            st7920_row_set_pixel(row_buf, (uint8_t)(tx + gx));
     }
 }
 
@@ -53,25 +67,18 @@ static void font_row_adv(uint16_t *row_buf, uint8_t row_y, const font_t *f,
                          uint8_t clear)
 {
     uint16_t x = tx;
-    uint8_t c;
+    uint8_t c, gid;
 
     if (!f || !str)
         return;
     while ((c = (uint8_t)*str++) != 0u && x < LCD_W) {
-        if (c == FONT_UTF8_C2)
-            continue;
-        st7920_glyph_row(row_buf, row_y, f, font_glyph(f, c), (uint8_t)x, ty,
-                         1u, clear);
-        x += f->advance;
+        gid = font_glyph(f, c);
+        if (f == &FONT_5X7)
+            glyph5x7_row(row_buf, row_y, gid, (uint8_t)x, ty, clear);
+        else
+            st7920_glyph_row(row_buf, row_y, f, gid, (uint8_t)x, ty, clear);
+        x = (uint16_t)(x + f->advance);
     }
-}
-
-void st7920_font_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
-                     uint8_t tx, uint8_t ty, const char *str, uint8_t scale,
-                     uint8_t clear)
-{
-    (void)scale;
-    font_row_adv(row_buf, row_y, f, tx, ty, str, clear);
 }
 
 void st7920_draw_band(uint8_t x, uint8_t w, uint8_t y, uint8_t h,

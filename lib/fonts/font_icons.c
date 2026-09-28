@@ -1,53 +1,64 @@
 /*
- * font_icons — símbolos 8×8: ENTER, START, TIMER, CFG.
- * Glifo i = ICO_* ; en un texto el carácter es i+1 (el 0 termina la cadena).
- * Formato FONT_ROWS: 1 byte por fila, MSB = izquierda.
+ * font_icons — 16×16 nativos (1:1, sin escala). HEAT / CFG / USB.
+ * FONT_ROWS: 2 bytes/fila, MSB = izquierda. Sidebar 32 px → 8 px de aire.
  */
 #include "font.h"
 #include <avr/pgmspace.h>
 
 static const uint8_t font_icons_data[] PROGMEM = {
-    /* ENTER: retorno, asta a la derecha y punta hacia la izquierda */
-    0x01, /* .......# */
-    0x01, /* .......# */
-    0x11, /* ...#...# */
-    0x31, /* ..##...# */
-    0xFF, /* ######## */
-    0x30, /* ..##.... */
-    0x10, /* ...#.... */
-    0x00, /* ........ */
-
-    /* START: triángulo play apuntando a la derecha */
-    0x00, /* ........ */
-    0xC0, /* ##...... */
-    0xF0, /* ####.... */
-    0xFC, /* ######.. */
-    0xFF, /* ######## */
-    0xFC, /* ######.. */
-    0xF0, /* ####.... */
-    0xC0, /* ##...... */
-
-    /* TIMER: reloj analógico */
-    0x3C, /* ..####.. */
-    0x42, /* .#....#. */
-    0x99, /* #..##..# */
-    0xA5, /* #.#..#.# */
-    0x81, /* #......# */
-    0x81, /* #......# */
-    0x42, /* .#....#. */
-    0x3C, /* ..####.. */
-
-    /* CFG: engranaje */
-    0x18, /* ...##... */
-    0x7E, /* .######. */
-    0x7E, /* .######. */
-    0xDB, /* ##.##.## */
-    0xDB, /* ##.##.## */
-    0x7E, /* .######. */
-    0x7E, /* .######. */
-    0x18, /* ...##... */
+    /* HEAT 16×16 */
+    0x00, 0x00,
+    0x11, 0x10,
+    0x22, 0x30,
+    0x22, 0x20,
+    0x33, 0x30,
+    0x33, 0x30,
+    0x11, 0x98,
+    0x19, 0x98,
+    0x08, 0x8C,
+    0x0C, 0xCC,
+    0x04, 0x44,
+    0x0C, 0x44,
+    0x08, 0x88,
+    0x00, 0x00,
+    0x7F, 0xFE,
+    0x7F, 0xFE,
+    /* CFG 16×16 */
+    0x00, 0x00,
+    0x00, 0x70,
+    0x00, 0xE0,
+    0x00, 0xC2,
+    0x00, 0xE6,
+    0x00, 0xFE,
+    0x01, 0xFC,
+    0x03, 0xF8,
+    0x07, 0xC0,
+    0x0F, 0x80,
+    0x1F, 0x00,
+    0x3E, 0x00,
+    0x4C, 0x00,
+    0x48, 0x00,
+    0x30, 0x00,
+    0x00, 0x00,
+    /* USB 16×16 — tallo 8–9; ● izq (bajado); brazo der subido + bajante */
+    0x00, 0xC0, /* ........##...... */ /* △ tip */
+    0x01, 0xE0, /* .......####..... */
+    0x03, 0xF0, /* ......######.... */
+    0x00, 0xC7, /* ........##...### */ /* tallo + brazo der (subido) */
+    0x00, 0xC7, /* ........##...### */
+    0x00, 0xC7, /* ........##...### */
+    0x30, 0xC2, /* ..##....##....#. */ /* ● izq + bajante der */
+    0x78, 0xC4, /* .####...##...#.. */
+    0x78, 0xC8, /* .####...##..#... */
+    0x30, 0xF0, /* ..##....####.... */ /* ● izq + diags → tallo */
+    0x18, 0xC0, /* ...##...##...... */
+    0x07, 0xC0, /* .....#####...... */
+    0x00, 0xC0, /* ........##...... */ /* tallo */
+    0x01, 0xE0, /* .......####..... */ /* ● base */
+    0x01, 0xE0, /* .......####..... */
+    0x00, 0xC0, /* ........##...... */
 };
 
 const font_t FONT_ICONS = {
-    font_icons_data, 0, 8u, 8u, 9u, 1u, 4u, FONT_NO_GLYPH, FONT_ROWS
+    font_icons_data, 0, 16u, 16u, 17u, 1u, 3u, FONT_NO_GLYPH, FONT_ROWS
 };

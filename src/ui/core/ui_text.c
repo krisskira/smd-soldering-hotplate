@@ -1,4 +1,5 @@
 #include "ui_text.h"
+#include "ui_digits.h"
 
 uint8_t ui_str_len(const char *s)
 {
@@ -21,26 +22,10 @@ void ui_line_put(char *buf, uint8_t col, const char *s)
         buf[col + i] = s[i];
 }
 
-void ui_line_put_right(char *buf, const char *s)
-{
-    uint8_t n = ui_str_len(s);
-    if (n <= LINE_LEN)
-        ui_line_put(buf, (uint8_t)(LINE_LEN - n), s);
-}
-
 void ui_u16_to_str(uint16_t v, char *dst)
 {
-    char tmp[6];
-    uint8_t n = 0, i = 0;
-
-    do {
-        tmp[n++] = (char)('0' + (v % 10u));
-        v /= 10u;
-    } while (v && n < 5);
-
-    while (n)
-        dst[i++] = tmp[--n];
-    dst[i] = '\0';
+    uint8_t n = ui_u16_digits(v, dst);
+    dst[n] = '\0';
 }
 
 void ui_temp_to_str(const sensor_reading_t *r, char *dst)
@@ -54,7 +39,6 @@ void ui_temp_to_str(const sensor_reading_t *r, char *dst)
         return;
     }
 
-    /* Avoid dtostrf / soft-float printf — one decimal via ×10 */
     t10 = r->temp_c_x10;
     if (t10 < 0) {
         dst[i++] = '-';

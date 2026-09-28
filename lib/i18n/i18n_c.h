@@ -9,8 +9,7 @@ extern "C" {
 #endif
 
 /**
- * Traduce por id denso I18N_*. El puntero vale hasta la siguiente llamada:
- * copiar a un buffer propio antes de pedir otro texto.
+ * Traduce por id I18N_*. El puntero vale hasta la siguiente llamada.
  */
 const char *i18n_tr_hash(uint8_t id);
 

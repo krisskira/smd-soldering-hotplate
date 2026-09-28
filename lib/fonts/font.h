@@ -5,12 +5,11 @@
  * Sistema de fuentes (solo datos en flash + búsqueda de glifos).
  * El dibujo en pantalla está en lib/st7920 (st7920_draw_font_gdram).
  *
- *   FONT_5X7       SMALL   menús
- *   FONT_6X8_BOLD  NORMAL  títulos
- *   FONT_8X12      LARGE   temperatura (solo dígitos y unidades)
- *   FONT_ICONS     símbolos 8×8 (glifo = ui_icon_id_t)
+ *   FONT_5X7    menús / footer
+ *   FONT_8X12   temperatura (solo "-.0123456789")
+ *   FONT_ICONS  símbolos 16×16 nativos (glifo = ui_icon_id_t)
  *
- * font6x8_bold.c y font8x12.c los genera tools/gen_fonts.py.
+ * font8x12.c lo genera tools/gen_fonts.py.
  */
 
 #include <stdint.h>
@@ -39,7 +38,6 @@ typedef struct {
 } font_t;
 
 extern const font_t FONT_5X7;
-extern const font_t FONT_6X8_BOLD;
 extern const font_t FONT_8X12;
 extern const font_t FONT_ICONS;
 
@@ -48,8 +46,5 @@ extern const uint8_t font5x7_data[];
 
 /** Índice del glifo para el byte c, o FONT_NO_GLYPH. */
 uint8_t font_glyph(const font_t *f, uint8_t c);
-
-/** Bytes por glifo en data. */
-uint8_t font_glyph_bytes(const font_t *f);
 
 #endif

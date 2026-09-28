@@ -1,68 +1,17 @@
 #!/usr/bin/env python3
 """
-Genera las fuentes derivadas/dibujadas de lib/fonts/.
+Genera font8x12.c en lib/fonts/.
 
     cd firmware/avr && python3 tools/gen_fonts.py
-
-  font6x8_bold.c  negrita derivada de font5x7.c (trazo +1 columna, avance 7)
-  font8x12.c      dígitos grandes para temperatura (dibujo abajo)
 
 Para retocar un glifo: editar el dibujo ('#' = píxel encendido) y regenerar.
 '\\xB0' es el grado ('°').
 """
 import os
-import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS = os.path.join(ROOT, "lib", "fonts")
 DEG = "\xb0"
-
-
-def c_char(ch):
-    if ch == DEG:
-        return "grados"
-    if ch == " ":
-        return "espacio"
-    return "'%s'" % ch
-
-
-def load_5x7():
-    src = open(os.path.join(FONTS, "font5x7.c")).read()
-    body = re.search(r"font5x7_data\[\] PROGMEM = \{(.*?)\};", src, re.S).group(1)
-    vals = [int(v, 16) for v in re.findall(r"0x[0-9A-Fa-f]+", body)]
-    assert len(vals) == 96 * 5, len(vals)
-    return [vals[i * 5:i * 5 + 5] for i in range(96)]
-
-
-def gen_bold():
-    glyphs = load_5x7()
-    lines = [
-        "/* Generado por tools/gen_fonts.py — no editar a mano. */",
-        "/*",
-        " * font6x8_bold — texto destacado (títulos).",
-        " * Negrita de font5x7: cada columna OR la anterior (6 px de trazo).",
-        " * Avance 7: 1 px de separación, las letras no se pegan.",
-        " * 7 filas de tinta; con la interlínea ocupa una celda de 6×8.",
-        " */",
-        '#include "font.h"',
-        "#include <avr/pgmspace.h>",
-        "",
-        "static const uint8_t font6x8_bold_data[] PROGMEM = {",
-    ]
-    for i, g in enumerate(glyphs):
-        cols = [(g[c] if c < 5 else 0) | (g[c - 1] if c > 0 else 0) for c in range(6)]
-        name = "grados" if i == 95 else c_char(chr(32 + i))
-        if name in ("'*'", "'/'"):
-            name = "0x%02X" % (32 + i)
-        lines.append("    " + ", ".join("0x%02X" % v for v in cols) + ",  /* %s */" % name)
-    lines += [
-        "};",
-        "",
-        "const font_t FONT_6X8_BOLD = {",
-        "    font6x8_bold_data, 0, 6u, 7u, 7u, 32u, 95u, 95u, FONT_COLS",
-        "};",
-    ]
-    return "\n".join(lines) + "\n"
 
 
 def rows_font(name, doc, glyphs, w, h, advance, symbol):
@@ -144,7 +93,6 @@ G8X12 = [
 
 def main():
     out = {
-        "font6x8_bold.c": gen_bold(),
         "font8x12.c": rows_font(
             "font8x12",
             ["font8x12 — texto grande (temperatura).",

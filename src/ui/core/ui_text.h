@@ -8,7 +8,6 @@
 uint8_t ui_str_len(const char *s);
 void ui_line_clear(char *buf);
 void ui_line_put(char *buf, uint8_t col, const char *s);
-void ui_line_put_right(char *buf, const char *s);
 void ui_u16_to_str(uint16_t v, char *dst);
 void ui_temp_to_str(const sensor_reading_t *r, char *dst);
 

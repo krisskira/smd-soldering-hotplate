@@ -269,19 +269,18 @@ uint8_t program_is_active(const app_state_t *st)
 
 const char *program_phase_name(process_phase_t p)
 {
-    switch (p) {
-    case PH_DELAY:     return i18n_tr_hash(I18N_PHASE_WAIT);
-    case PH_PREHEAT:   return i18n_tr_hash(I18N_PHASE_PREHEAT);
-    case PH_STABILIZE: return i18n_tr_hash(I18N_PHASE_STABLE);
-    case PH_HOLD:
-    case PH_RUN:       return i18n_tr_hash(I18N_PHASE_RUN);
-    case PH_COOLDOWN:
-    case PH_DONE:      return i18n_tr_hash(I18N_PHASE_DONE);
-    case PH_ALARM:     return i18n_tr_hash(I18N_PHASE_READY);
-    case PH_FAULT:     return i18n_tr_hash(I18N_PHASE_FAULT);
-    case PH_IDLE:
-    default:           return i18n_tr_hash(I18N_PHASE_IDLE);
-    }
+    /* Índice = process_phase_t; PH_HOLD comparte RUN. */
+    static const uint8_t ids[] PROGMEM = {
+        I18N_PHASE_IDLE, I18N_PHASE_WAIT, I18N_PHASE_PREHEAT,
+        I18N_PHASE_STABLE, I18N_PHASE_RUN, I18N_PHASE_RUN,
+        I18N_PHASE_COOL, I18N_PHASE_READY, I18N_PHASE_DONE,
+        I18N_PHASE_FAULT
+    };
+    uint8_t i = (uint8_t)p;
+
+    if (i >= (uint8_t)(sizeof(ids) / sizeof(ids[0])))
+        i = 0u;
+    return i18n_tr_hash(pgm_read_byte(&ids[i]));
 }
 
 void program_fault(app_state_t *st)

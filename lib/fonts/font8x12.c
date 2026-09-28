@@ -7,7 +7,7 @@
 #include "font.h"
 #include <avr/pgmspace.h>
 
-static const char font8x12_map[] PROGMEM = "-.0123456789\xB0";
+static const char font8x12_map[] PROGMEM = "-.0123456789";
 
 static const uint8_t font8x12_data[] PROGMEM = {
     /* '-' */
@@ -166,19 +166,6 @@ static const uint8_t font8x12_data[] PROGMEM = {
     0x06,  /*      ##  */
     0x0C,  /*     ##   */
     0x78,  /*  ####    */
-    /* grados */
-    0x38,  /*   ###    */
-    0x6C,  /*  ## ##   */
-    0x6C,  /*  ## ##   */
-    0x38,  /*   ###    */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
-    0x00,  /*          */
 };
 
 const font_t FONT_8X12 = {
