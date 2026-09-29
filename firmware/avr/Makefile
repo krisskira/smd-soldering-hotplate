@@ -183,3 +183,19 @@ pid-host-test:
 
 test: usb-host-test flow-host-test pid-atune-host-test pid-host-test
 	@echo "all host tests: OK"
+
+# Capturas de HotPanel con el home_view.c real → doc/img/hotpanel/*.png
+UI_SCREENS_SRC := tools/ui_screens/screens.c src/ui/home_view.c \
+	src/ui/core/ui_text.c src/ui/core/ui_components.c lib/i18n/i18n.c \
+	lib/st7920/st7920_text.c lib/fonts/font.c lib/fonts/font5x7.c \
+	lib/fonts/font_icons.c
+
+ui-screens:
+	@mkdir -p build/ui_screens doc/img/hotpanel
+	gcc -std=c11 -Wall -Wno-unused-function -I./tools/ui_screens -I. -I./src \
+		-I./src/ui -I./src/ui/core -I./lib -I./config \
+		-o build/ui_screens/screens $(UI_SCREENS_SRC)
+	./build/ui_screens/screens build/ui_screens
+	python3 tools/ui_screens/pbm2png.py build/ui_screens doc/img/hotpanel
+
+.PHONY: ui-screens

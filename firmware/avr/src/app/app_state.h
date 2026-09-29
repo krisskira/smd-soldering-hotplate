@@ -130,7 +130,7 @@ typedef struct {
     uint16_t      atune_max_s;     /* timeout global RUN (s); EEPROM / CFG=T */
     uint8_t       atune_relay_on;
     uint16_t      atune_elapsed_s;
-    uint8_t       atune_stream;    /* 1 = $HP a 1 Hz con campos de atune */
+    uint8_t       atune_stream;    /* 1 = el $HP de sesión lleva AP/AC/AK/AI */
 
     uint8_t    usb_last_ok;
     ctrl_src_t ctrl_src;

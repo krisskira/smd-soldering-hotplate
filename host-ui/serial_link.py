@@ -18,7 +18,7 @@ except ImportError:  # pragma: no cover
     list_ports = None
 
 
-BAUD = 9600
+BAUD = 19200
 CMD_TIMEOUT_S = 2.0
 
 

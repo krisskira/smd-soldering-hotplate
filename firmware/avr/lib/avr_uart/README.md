@@ -8,7 +8,7 @@ UART hardware del ATmega16 para comunicación serie (p. ej. con puente USB).
 #include "lib/avr_uart/avr_uart.h"
 #include <avr/interrupt.h>
 
-avr_uart_init(9600, 8, 1, 'N'); /* HotPlate: 9600 hoy; el stream de sesión usa 19200, ver doc/usb-automation.md */
+avr_uart_init(19200, 8, 1, 'N'); /* HotPlate: ver doc/usb-automation.md */
 sei();
 
 avr_uart_transmit_string("Hola\n");

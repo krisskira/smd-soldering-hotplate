@@ -337,7 +337,7 @@ porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$, y `tu10 = T_u · 10` evita divisi
 | Ciclos cerrados | Progreso |
 | AK / AI | Kp / Ki resultado (×10) |
 
-En este producto esos campos van en el mismo `$HP` (`AP`, `AC`, `AK`, `AI`), no en una trama aparte. Hoy salen a 1 Hz solo durante el autoajuste por USB. El contrato de sesión los añade a ese `$HP` mientras `ATUNE_RUN` y el resto del USB lleva la trama base. Baud y activación: [usb-automation.md](usb-automation.md).
+En este producto esos campos van en el mismo `$HP` (`AP`, `AC`, `AK`, `AI`), no en una trama aparte. El `$HP` sale a 1 Hz durante toda la sesión USB y lleva esos campos mientras `ATUNE_RUN` (más la trama de DONE/FAIL). Baud y activación: [usb-automation.md](usb-automation.md).
 
 ---
 

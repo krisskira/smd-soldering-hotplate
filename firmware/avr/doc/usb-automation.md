@@ -15,14 +15,14 @@ HotPlate Studio habla este protocolo; el firmware lo implementa en `at_cmd.c` + 
 
 | Detalle | Valor |
 |---------|-------|
-| Puerto | UART **9600 8N1** hoy. El stream de sesión (abajo) pasa a **19200 8N1** en firmware y Studio a la vez |
+| Puerto | UART **19200 8N1** (firmware y HotPlate Studio). Un cliente a 9600 no entiende la sesión |
 | Forma | Una línea = un comando |
 | Fin de línea | `\r` o `\n` |
 | Mayúsculas | Sí |
 | Espacios finales | Se ignoran |
 | Largo máximo | **31** caracteres; si se pasa, la línea se descarta |
 
-Al encender, HotPlate saluda una vez: `\r\nHP\r\n`.
+Al encender, HotPlate saluda una vez: `\r\nHP\r\n`. Abrir el puerto no reinicia el equipo, así que si ya estaba en marcha ese saludo ya pasó. HotPlate Studio, al conectar, envía `AT` y toma `OK` como «en línea». `HP` sigue valiendo si se enciende con el puerto abierto.
 
 **Números, no nombres largos.** `ERROR:`, `ALARM:` y los campos `P` / `A` de `$HP` van como enteros. Los nombres de las tablas de abajo son solo para humanos (ahorro de Flash en el micro).
 
@@ -154,7 +154,7 @@ Consigna en `[Tmin .. Tmax−10]` · ciclos 3…10 · histéresis ×10 de 1…99
 
 ## Lectura — proceso `$HP`
 
-Foto del proceso. **No** lleva settings. Hoy sale con `STAT?`, `MODE`, cambios de fase, y a 1 Hz durante el autoajuste. El contrato de sesión (sección siguiente) la empuja a 1 Hz durante todo el USB.
+Foto del proceso. **No** lleva settings. En USB sale sola cada 1 s (stream de sesión). También sale con `STAT?`, `MODE` y cambios de fase, en los dos modos.
 
 ```
 $HP,T=<°C.d|--->,P=<prog>,A=<action>,SET=<°C>,DLY=<s 0..43200>,RUN=<s>,EL=<s>,
@@ -249,8 +249,7 @@ AT+RUN=2,150,5,15,1200
 ```
 
 - Fuera de rango → `ERROR:2`.
-- Hoy: stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI` (único empuje periódico del binario).
-- Contrato de sesión: ese enriquecido va en el mismo `$HP` de 1 Hz del USB, sin segunda trama. Ver «Stream de sesión».
+- El `$HP` de sesión (1 Hz) pasa a `A=10` y suma `AP,AC,AK,AI`. No hay segunda trama. Ver «Stream de sesión».
 - En medio-ciclo OFF el fan ayuda a bajar.
 - Timeout: `AMS` / `max_s` (default **2000** s) → FAIL si se supera.
 - Al terminar: copia Kp/Ki a EEPROM, trama con `AP=2` y `AK`/`AI`. No hay `AT+CFG=A`.
@@ -259,7 +258,7 @@ Ganancias a mano: `AT+CFG=P,kp,ki`. HotPanel no edita PID ni lanza Auto.
 
 ### Parar
 
-`AT+STOP` → **solo `OK`**. Internamente cierra HEAT / aborta autoajuste. Hoy Studio pide `STAT?` si quiere una foto. Con el stream de sesión, si USB sigue abierto, esa foto llega sola en el segundo siguiente.
+`AT+STOP` → **solo `OK`**. Internamente cierra HEAT / aborta autoajuste. Como USB sigue abierto, la foto llega sola en el segundo siguiente.
 
 Pulsar **EXIT** en HotPanel → `ERROR:8` (no es lo mismo que `STOP`).
 
@@ -272,20 +271,22 @@ Pulsar **EXIT** en HotPanel → `ERROR:8` (no es lo mismo que `STOP`).
 
 ---
 
-## Cuándo salen las tramas (código de hoy)
+## Cuándo salen las tramas
 
 | Trama | Cuándo | Fin |
 |-------|--------|-----|
+| `$HP` de sesión | Cada 1 s mientras el equipo está en USB (reposo, HEAT o autoajuste) | `AT+MODE=0`, EXIT en HotPanel o reinicio |
 | `$HP` (foto) | `STAT?`, `MODE`, cambio de fase, beep de alarma | Un disparo |
 | `$CF` | `CFG?` | Un disparo |
 | `$R` | `CFG=R?` | Un disparo |
-| `$HP` autotune 1 Hz | Tras `RUN=2` OK, misma trama con `AP,AC,AK,AI` | `STOP` / DONE / FAIL / fault |
 
-## Stream de sesión — contrato acordado
+Durante el autoajuste el `$HP` de sesión lleva además `AP,AC,AK,AI`. La trama de DONE o FAIL es la última con esos campos.
+
+## Stream de sesión
 
 Un solo `$HP` a 1 Hz mientras el equipo está en USB. Reposo, HEAT y autoajuste comparten ese emisor. El autoajuste no abre una segunda trama: añade `AP`, `AC`, `AK` y `AI` mientras `ATUNE_RUN`. `$CF` y `$R` siguen bajo demanda.
 
-**Aún no está en el binario.** Hoy el UART es 9600 y el 1 Hz periódico solo existe tras `RUN=2` por USB. Firmware (`avr_uart_init`) y HotPlate Studio (`serial_link.BAUD`) cambian juntos; si solo cambia uno, la sesión deja de entenderse.
+En el firmware lo arma el tick del sensor en `main.c`: en USB marca la telemetría pendiente y sale una trama por muestra. Un cambio de fase dentro del segundo puede sumar una foto más. Firmware (`avr_uart_init`) y HotPlate Studio (`serial_link.BAUD`) van a 19200; si solo cambia uno, la sesión deja de entenderse.
 
 | Paso | Qué hace el empuje |
 |------|--------------------|
@@ -293,13 +294,14 @@ Un solo `$HP` a 1 Hz mientras el equipo está en USB. Reposo, HEAT y autoajuste 
 | `AT+RUN=1` | La misma trama pasa a contar HEAT (fase, SET, tiempos, duty, `RI`, `FL`) |
 | `AT+RUN=2` | La misma trama suma `AP,AC,AK,AI`. Al salir de `ATUNE_RUN` esos campos desaparecen |
 | `AT+MODE=0` | Apaga el periódico. En manual solo quedan las fotos de siempre |
+| EXIT en HotPanel | `ERROR:8` y vuelta a Manual: el periódico se apaga |
 | `AT+STOP` | Sigue siendo solo `OK`. Si USB sigue abierto, la foto siguiente llega en el segundo siguiente |
 
-A 8 MHz, 19200 sale con `UBRR = 25` (19231 reales, error 0,16 %). La transmisión bloquea el bucle unos 34 ms en reposo, 40 ms en HEAT y 49–54 ms en el peor autoajuste. El muestreo térmico sigue en 1 s. Flash del empuje: el formateador ya está enlazado; no se añade un segundo. El anillo de recepción es de 32 bytes (31 útiles, ~16 ms a 19200).
+**Coste medido.** Flash 15676 B frente a 15696 B antes del cambio (−20 B: se reutiliza el formateador y la condición del tick quedó más corta). RAM 283 B y EEPROM 62 B, sin cambios. A 8 MHz, 19200 sale con `UBRR = 25` (19231 reales, error 0,16 %). La transmisión bloquea el bucle unos 34 ms en reposo, 40 ms en HEAT y 49–54 ms en el peor autoajuste (3–5 % del segundo). El muestreo térmico sigue en 1 s y la ventana del PI en 1,5 s. El anillo de recepción es de 32 bytes (31 útiles, ~16 ms a 19200).
 
 **Órdenes del cliente.** HotPlate Studio escribe una línea y espera `OK` o `ERROR` (candado en `serial_link`). Cada orden de producto cabe en el anillo (la más larga, `AT+RUN=2,…`, son 25 bytes). Una orden que llega entera durante el `$HP` no se recorta. Dos escrituras seguidas sin esperar `OK` pueden pasar de 31 bytes: el firmware tira el exceso, descarta la línea y el cliente hace timeout a los 2 s.
 
-La confirmación de guardado y de arranque es `OK` / `ERROR`. EEPROM se escribe antes de ese `OK`. Un `$HP` que llegue mientras el cliente espera no cierra el comando. `AT+STAT?` sigue valiendo como foto; con el empuje activo Studio pausa el sondeo para no duplicar la trama. El sondeo y un guardado no se cruzan en el cable: comparten el mismo candado.
+La confirmación de guardado y de arranque es `OK` / `ERROR`. EEPROM se escribe antes de ese `OK`. Un `$HP` que llegue mientras el cliente espera no cierra el comando. `AT+STAT?` sigue valiendo como foto. En USB HotPlate Studio pausa su sondeo para no duplicar la trama y lo reanuda al volver a Manual, al recibir `ERROR:8` o al ver el saludo `HP` de un reinicio. El sondeo y un guardado no se cruzan en el cable: comparten el mismo candado.
 
 ---
 

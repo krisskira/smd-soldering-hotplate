@@ -17,6 +17,7 @@ Firmware en `firmware/avr/`, microcontrolador ATmega16 a 8 MHz. Última actualiz
 | [temporizacion_no_bloqueante.md](temporizacion_no_bloqueante.md) | Reloj `avr_delay` sin bloquear |
 | [st7920_pantalla.md](st7920_pantalla.md) | Bitmaps, diffs y animaciones LCD |
 | [atmega16_pin_definition_hotplate.md](atmega16_pin_definition_hotplate.md) | Pines MCU (vs `config/board_pins.h`) |
+| [mejoras_futuras.md](mejoras_futuras.md) | Erratas térmicas y algoritmo pendiente. **No es el comportamiento actual.** |
 
 Si este archivo discrepa del **código**, manda el código y hay que corregir el documento.
 
@@ -90,7 +91,7 @@ Calcula automáticamente las ganancias del control de temperatura. **Solo se lan
 - **Resultado:** tras el número de ciclos indicado (5 por defecto, rango 3–10), el firmware mide la amplitud y el periodo de la oscilación y calcula Kp y Ki por el método de Ziegler–Nichols (variante PI, Kd = 0).
 - **Guardado:** al terminar, Kp y Ki se escriben solos en EEPROM. No hay `AT+CFG=A`.
 - **Límite de tiempo:** si el proceso supera `atune_max_s` (2000 s por defecto, rango 120–3600 s), se aborta con fallo.
-- **Telemetría:** hoy, mientras dura, se envía una trama `$HP` por segundo con el progreso (`AP`, `AC`) y las ganancias (`AK`, `AI`). El contrato de sesión USB usa esa misma trama a 1 Hz en todo el modo USB y solo la enriquece durante el autoajuste. Ver [usb-automation.md](usb-automation.md).
+- **Telemetría:** en USB el equipo envía un `$HP` por segundo. Mientras dura el autoajuste esa misma trama suma el progreso (`AP`, `AC`) y las ganancias (`AK`, `AI`). Ver [usb-automation.md](usb-automation.md).
 
 Detalle matemático: [pid_control.md](pid_control.md).
 
@@ -144,7 +145,7 @@ Cuando el PC toma el control (`AT+MODE=1`), la casilla Heat muestra la temperatu
 
 ### Casilla Settings
 
-- Cabecera **`SETUP`** en vídeo inverso, con 2 px de aire debajo y 1 px entre opciones (ese píxel no entra en el resaltado).
+- Cabecera **`SETUP`** en vídeo inverso, con 2 px de aire debajo. El resaltado de cada opción deja 1 px por encima y por debajo de la letra, y 1 px sin invertir la separa de la siguiente. Se ven cuatro opciones; en DLY la lista sube una fila.
 - Lista con las cuatro rampas (**R1…R4**) y el retraso (**`DLY`**): nombre a la izquierda, valor a la derecha. La meseta se muestra en segundos; el retraso, en `hh:mm`.
 - Girar hasta la casilla ya enseña la lista. Pulsar entra a editarla; **`EXIT`** vuelve a Heat.
 
@@ -282,7 +283,7 @@ src/services/at_cmd.c / telemetry.c
 | `max31865` | PT100 |
 | `encoder` | Polling (CW = cursor baja) |
 | `ports` | PTC, fan, buzzer |
-| `avr_uart` | 9600 hoy; contrato de stream 19200 (firmware y Studio juntos). Anillo RX 32 B |
+| `avr_uart` | 19200 8N1 (igual en HotPlate Studio). TX bloqueante; anillo RX 32 B |
 | `fonts` | 5×7 (+ X2 / ICONS 16×16 según enlace; ver budget) |
 | `i18n` | PROGMEM CAPS inglés abreviado |
 
@@ -300,8 +301,8 @@ src/services/at_cmd.c / telemetry.c
 ### Límites conocidos
 
 - Sin vista aparte de alarma (`PH_ALARM` se muestra en Home / overlay USB).
-- HotPanel Settings: header `SETUP`, 2 px de aire, R1…R4 + reloj DLY `00:00`…`12:00` (1 px entre filas). Heat añade el transcurrido `mm:ss`. PID / aire / autotune solo AT / Studio.
-- Autotune: hoy `$HP` a 1 Hz solo en `RUN=2`; picos en `pid_atune` (no en `app_state`); sin `$HP,PLOT`. El stream de sesión (un `$HP`, baud 19200) está acordado y aún no está en el binario.
+- HotPanel Settings: header `SETUP`, 2 px de aire, R1…R4 + reloj DLY `00:00`…`12:00` (bandas de 9 px + 1 px de separación, 4 visibles con desplazamiento). Heat añade el transcurrido `mm:ss`. PID / aire / autotune solo AT / Studio.
+- Sesión USB: un `$HP` a 1 Hz (reposo, HEAT y autotune enriquecido); picos en `pid_atune` (no en `app_state`); sin `$HP,PLOT`.
 - Sin guía eléctrica aparte del KiCad + datasheets en `hardware/`.
 
 ### Skills / agentes

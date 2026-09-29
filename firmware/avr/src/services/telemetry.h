@@ -3,7 +3,7 @@
 
 #include "../app/app_state.h"
 
-/** Trama de proceso $HP. Si atune_stream, añade AP/AC/AK/AI/AD. */
+/** Trama de proceso $HP. Si atune_stream, añade AP/AC/AK/AI. */
 void telemetry_emit(const app_state_t *st);
 
 /** Trama de settings $CF. Solo bajo demanda (AT+CFG?). */

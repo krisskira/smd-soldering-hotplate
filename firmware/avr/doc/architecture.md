@@ -63,7 +63,7 @@ Una `app_state_t` en `main.c`. Programas lanzables: `HEAT`, `PID_TUNE`. PREHEAT 
 | `delay_h` / `delay_m` | HEAT: 00:00 = inmediato; si no, PH_DELAY. Tope 12:00. Cuenta atrás en `dly_h/m` + `dly_s` (0…59) |
 | `ramp_*` | Perfil de escalones |
 | `temp_min_c` / `temp_max_c` | Safety + límites de consignas; aire OFF en min |
-| `pid_k*` / `atune_*` | Lazo y autoajuste. Picos en RAM. Hoy el `$HP` a 1 Hz solo si USB arrancó el autotune. Contrato: un `$HP` a 1 Hz en toda la sesión USB, enriquecido en autotune. Sin `$HP,PLOT` ni buffer de traza |
+| `pid_k*` / `atune_*` | Lazo y autoajuste. Picos en RAM. Un `$HP` a 1 Hz en toda la sesión USB; `atune_stream` lo enriquece durante el autotune. Sin `$HP,PLOT` ni buffer de traza |
 | `preheat_en` / `preheat_pct` | HEAT: saltar PREHEAT→STABILIZE, o tope en % de Ramp1 |
 | `device_mode` | MANUAL vs USB |
 
@@ -85,7 +85,7 @@ flowchart LR
   usb -->|EXIT| home
 ```
 
-PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: header `SETUP`, 2 px de aire, R1…R4 + reloj **DLY** (`hh:mm`, tope 12:00) con 1 px entre filas. Heat: temp 2×, fase, `Rx T°C` y tiempo, transcurrido `mm:ss`. Aire y PID solo AT.
+PREHEAT no es programa ni casilla de Home: es la fase de HEAT. UI Ajustes: header `SETUP`, 2 px de aire, R1…R4 + reloj **DLY** (`hh:mm`, tope 12:00); bandas de 9 px y 1 px de separación, 4 filas visibles con desplazamiento. Heat: temp 2×, fase, `Rx T°C` y tiempo, transcurrido `mm:ss`. Aire y PID solo AT.
 
 ## Super-loop
 
@@ -100,7 +100,7 @@ flowchart TD
   b --> r
 ```
 
-En ese tick de 1 Hz se arma el beep `READY` al entrar en `HOLD` o `DONE`, y hoy el stream `$HP` si el autotune salió por USB. El contrato de sesión empuja el mismo `$HP` durante todo el USB: [usb-automation.md](usb-automation.md).
+En ese tick de 1 Hz se arma el beep `READY` al entrar en `HOLD` o `DONE`, y en USB se marca la telemetría pendiente: sale un `$HP` por muestra ([usb-automation.md](usb-automation.md)). El UART va a 19200; cada trama bloquea 34–54 ms.
 
 Detalle de fases: [program_flows.md](program_flows.md).
 

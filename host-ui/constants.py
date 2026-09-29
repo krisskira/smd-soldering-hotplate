@@ -8,10 +8,9 @@ TUNE_CACHE = ROOT / "tune_params.json"
 
 MAX_SAMPLES = 900
 POLL_MS = 50
-# Fallback genérico; HEAT usa CHART_HEAT_X_SPAN_S (origen fijo en 0;
-# el techo crece si el proceso supera ese tramo).
+# Eje X de respaldo. HEAT calcula la ventana desde el perfil y crece si
+# el proceso la supera; Autotune la deja fija en el timeout.
 CHART_X_SPAN_S = 300.0
-CHART_HEAT_X_SPAN_S = 1400.0
 
 # Valores de fábrica (EEPROM / campos de la app antes de leer $CF).
 TUNE_TEMP_C_DEFAULT = 100

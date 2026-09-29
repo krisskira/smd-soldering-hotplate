@@ -38,7 +38,7 @@ int main(void)
     avr_spi_master_init(SPI_DIV_8);
     st7920_init();
     st7920_graphics_mode();
-    avr_uart_init(9600, 8, 1, 'N');
+    avr_uart_init(19200, 8, 1, 'N');
     delay_init();
     encoder_init();
 
@@ -94,17 +94,15 @@ int main(void)
                         g_state.telem_dirty = 1u;
                     }
 
+                    /* Sesión USB: un $HP por muestra (autotune lo enriquece). */
+                    if (device_session_is_usb(&g_state)
+                        || g_state.atune_phase != s_prev_atune)
+                        g_state.telem_dirty = 1u;
                     telemetry_tick(&g_state);
                     ui_router_on_sensor_update(&g_state);
 
                     if (g_state.phase == PH_DONE && s_prev_phase != PH_DONE)
                         buzzer_seq_beep_cat(BEEP_READY, 2);
-                    if (g_state.atune_stream && device_session_is_usb(&g_state)
-                        && (pid_atune_active(&g_state)
-                            || g_state.atune_phase != s_prev_atune))
-                        g_state.telem_dirty = 1u;
-                    if (g_state.atune_phase != s_prev_atune)
-                        g_state.telem_dirty = 1u;
 
                     s_prev_phase = g_state.phase;
                     s_prev_atune = g_state.atune_phase;

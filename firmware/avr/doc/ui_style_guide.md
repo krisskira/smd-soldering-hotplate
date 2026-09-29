@@ -6,13 +6,21 @@ Actualizado: 2026-09-29.
 
 Hay **una sola vista**, `VIEW_HOME`. El router (`ui_router.c`) siempre entra ahí. Lo que el usuario percibe como pantallas distintas son modos de esa misma vista: Heat en reposo, Heat con un ciclo en marcha, aviso USB, lista de ajustes y el cierre de un ciclo terminado o fallido.
 
+**Capturas.** Las imágenes de esta guía salen del `home_view.c` real compilado en el host: solo se simulan el LCD y los servicios (`tools/ui_screens/`). Tras tocar HotPanel se regeneran con:
+
+```bash
+cd firmware/avr && make ui-screens   # → doc/img/hotpanel/*.png
+```
+
+Los datos de ejemplo son siempre los mismos: perfil R1 150 °C / 90 s, R2 180 °C / 60 s, R3 220 °C / 30 s, R4 apagada, y retraso `01:30`.
+
 ---
 
 ## 1. Límites de la pantalla
 
 | Recurso | Qué implica al diseñar |
 |---------|------------------------|
-| 128 × 64 px | Todo cabe en un rectángulo pequeño; no hay scroll ni segundas páginas |
+| 128 × 64 px | Todo cabe en un rectángulo pequeño. No hay segundas páginas; el único desplazamiento es el de la lista de Setup (§ 5) |
 | 1 bit (encendido / apagado) | Sin grises, degradados ni anti-alias. El único énfasis es **invertir** la banda: fondo encendido y glifo apagado |
 | Encoder + pulsación | Girar a la derecha (`EVT_ENCODER_NEXT`) avanza el cursor **hacia abajo**. Girar a la izquierda sube. Pulsar confirma |
 | Fuentes enlazadas | `FONT_5X7` (celda de 6 px: 5 de glifo + 1 de separación; en el panel caben unas **15 columnas**), `FONT_5X7_X2` (la misma tabla a 2×, celda de 12 px) y `FONT_ICONS` (16×16) |
@@ -76,6 +84,10 @@ Es el modo de reposo y el de un ciclo en marcha. La casilla Heat tiene el foco.
 
 Cuatro líneas centradas. Temperatura, fase y perfil siguen en su sitio; el transcurrido va debajo.
 
+| Reposo | Reposo sin rampas |
+|--------|-------------------|
+| ![Heat en reposo: 24.6 °C, IDLE, R1 150 °C 01:30, 00:00, pie RUN](img/hotpanel/01_heat_idle.png) | ![Heat sin rampas: la línea de perfil muestra OFF](img/hotpanel/02_heat_no_ramps.png) |
+
 | Línea | y | Qué muestra |
 |-------|---|-------------|
 | Temperatura | 3 (14 px) | `123.4°C` con `FONT_5X7_X2` (7 × 12 px = 84 px). Si el sensor no es válido, `ERR` |
@@ -87,9 +99,21 @@ La línea de perfil depende del momento:
 
 - **En reposo**, con al menos una rampa: `R1`, la temperatura de la rampa 1 y el retraso configurado (`hh:mm`, tope 12:00).
 - **Sin rampas:** `OFF`. Pulsar `RUN` en ese estado no arranca y suena la alarma.
-- **Durante precalentamiento, estabilización, subida y meseta:** el número de rampa en curso, la consigna activa (`t_set_c`) y el tiempo que queda (`t_remain_s`).
+- **Durante la subida y la meseta:** el número de rampa en curso, la consigna activa (`t_set_c`) y el tiempo que queda (`t_remain_s`).
 - **En espera:** `R1`, la temperatura de la rampa 1 y el tiempo que queda en `hh:mm`.
 - **En enfriamiento y aviso de fin:** sigue mostrando `R1` y su temperatura; el tiempo es `t_remain_s` en `mm:ss`.
+
+| Espera (`WAIT`) | Subida de R2 (`RUN`) | Meseta de R2 (`RUN`) |
+|-----------------|----------------------|----------------------|
+| ![Cuenta atrás del retraso: WAIT, R1 150 °C 01:29, pie STOP](img/hotpanel/03_heat_wait.png) | ![Subida hacia la rampa 2: 163.2 °C, RUN, R2 180 °C 01:00](img/hotpanel/04_heat_ramp.png) | ![Meseta de la rampa 2: 179.6 °C, RUN, R2 180 °C 00:38](img/hotpanel/05_heat_hold.png) |
+
+| Enfriamiento (`AIR`) | Aviso de fin (`ALM`) |
+|----------------------|----------------------|
+| ![Enfriamiento con aire: AIR, el perfil vuelve a R1](img/hotpanel/06_heat_cool.png) | ![Aviso de fin de ciclo: ALM, pie STOP](img/hotpanel/07_heat_alarm.png) |
+
+| Terminado (`END`) | Fallo (`ERR`) |
+|-------------------|---------------|
+| ![Ciclo terminado: END, pie EXIT](img/hotpanel/08_heat_done.png) | ![Fallo de sensor: ERR en la temperatura y en la fase, pie EXIT](img/hotpanel/09_heat_fault.png) |
 
 ### Nombres de fase en pantalla
 
@@ -99,13 +123,13 @@ El nombre sale de `program_phase_name()`. La meseta (`PH_HOLD`) comparte la etiq
 |--------------|-------------|
 | Reposo | `IDLE` |
 | Cuenta atrás | `WAIT` |
-| Precalentamiento | `PRE` |
-| Estabilización | `STAB` |
 | Subida y meseta | `RUN` |
 | Enfriamiento | `AIR` |
 | Aviso de fin | `ALM` |
 | Terminado | `END` |
 | Fallo | `ERR` |
+
+`PRE` y `STAB` siguen en la tabla de textos porque los códigos de fase 2 y 3 están reservados (no se renumera `$HP`), pero HEAT ya no entra en esas fases: la rampa 1 es el primer escalón.
 
 ### Qué hace el mando
 
@@ -127,6 +151,8 @@ Cuando el PC toma el control (`DEVICE_USB`, normalmente `AT+MODE=1`), el panel d
 
 1. La temperatura, igual que en Heat.
 2. La etiqueta **`USB`** a 2× (`FONT_5X7_X2`) en la línea de fase. No se muestran la fase, el perfil ni el transcurrido.
+
+![Overlay USB: temperatura y USB a 2×, pie EXIT](img/hotpanel/10_usb.png)
 
 | Acción | Efecto |
 |--------|--------|
@@ -152,9 +178,19 @@ Pulsar entra en la lista (`HOME_PAGE_SETTINGS`):
 - Mover el cursor y entrar o salir de un campo no pitan.
 - Pulsar sobre `EXIT` cierra la lista, vuelve el foco a Heat y sale del modo de edición.
 
+| Vista previa | Cursor en R1 | Cursor en R4 (apagada) |
+|--------------|--------------|------------------------|
+| ![Vista previa de Setup: sin fila invertida y sin pie](img/hotpanel/11_settings_preview.png) | ![Lista abierta con el cursor en R1](img/hotpanel/12_settings_cursor_r1.png) | ![Cursor en R4 apagada](img/hotpanel/15_settings_cursor_r4_off.png) |
+
+| Cursor en DLY (la lista sube) | Cursor en `EXIT` |
+|-------------------------------|------------------|
+| ![Cursor en DLY: se ven R2 a DLY](img/hotpanel/16_settings_cursor_dly.png) | ![Cursor en el pie EXIT, invertido](img/hotpanel/19_settings_cursor_exit.png) |
+
 ### Contenido de cada fila
 
-Cabecera **`SETUP`**, invertida, de 11 px de alto. Dos píxeles en blanco (y = 11…12) y después cinco filas de 7 px desde y = 13, separadas por 1 px que no entra en el inverso. El nombre va a la izquierda y el valor a la derecha. La última fila termina en y = 51; el pie sigue en y = 54.
+Cabecera **`SETUP`**, invertida, de 11 px de alto. Dos píxeles en blanco (y = 11…12) y después **cuatro filas visibles** desde y = 13, con paso de 10 px. Cada fila es una banda de 9 px (1 px + glifo de 7 + 1 px) que entra entera en el inverso, seguida de 1 px que no se invierte y la separa de la de abajo. Las bandas ocupan y = 13…21, 23…31, 33…41 y 43…51; el pie sigue en y = 54. El nombre va a la izquierda y el valor a la derecha.
+
+Hay cinco opciones y solo caben cuatro. Con el cursor en R1…R4 se ven R1…R4. Con el cursor en DLY o en `EXIT` la lista sube una fila y se ven R2…DLY. La vista previa (sin editar) muestra siempre R1…R4.
 
 | Fila | En pantalla | Valor |
 |------|-------------|-------|
@@ -163,6 +199,10 @@ Cabecera **`SETUP`**, invertida, de 11 px de alto. Dos píxeles en blanco (y = 1
 | Retraso | `DLY      01:30` | Reloj `hh:mm` (`01:30` = 1 h 30 min). Tope `12:00` |
 
 Un asterisco (`*`) marca el campo que se está editando: delante de la temperatura, delante de la meseta, delante de las horas del retraso (`*01:30`) o en los dos puntos al editar minutos (`01*30`).
+
+| Editando temperatura | Editando meseta | Retraso: horas | Retraso: minutos |
+|----------------------|-----------------|----------------|------------------|
+| ![R1 con asterisco delante de la temperatura](img/hotpanel/13_settings_edit_temp.png) | ![R1 con asterisco delante de la meseta](img/hotpanel/14_settings_edit_hold.png) | ![DLY *01:30 editando horas](img/hotpanel/17_settings_edit_dly_hours.png) | ![DLY 01*30 editando minutos](img/hotpanel/18_settings_edit_dly_minutes.png) |
 
 ### Editar una rampa
 
@@ -211,8 +251,9 @@ No hay glifo de “intro” en el pie: la acción es solo la palabra.
 
 - Repintar solo la banda sucia. El panel completo se borra al cambiar de modo, no en cada lectura.
 - Heat conserva temp 2×, fase y perfil (`Rx T°C`). El transcurrido va en y = 45 (`00:00` en reposo). El overlay USB no lo pinta.
-- Setup: 2 px bajo `SETUP` y 1 px entre opciones, fuera del inverso. La lista termina antes del pie (y = 54).
+- Setup: 2 px bajo `SETUP`. Cada opción es una banda de 9 px (1 px sobre y bajo la letra, invertidos) más 1 px de separación fuera del inverso. Cuatro filas visibles con desplazamiento; la lista termina antes del pie (y = 54).
 - Texto nuevo pasa por `I18N_*`. Cabe en 8 caracteres y en las ~15 columnas del panel.
 - Girar a la derecha baja el cursor.
 - Un ciclo en marcha o una sesión USB dejan el foco en Heat y no abren ajustes.
 - Medir el flash (`make size`) antes de volver a enlazar iconos o una fuente más grande.
+- Regenerar las capturas (`make ui-screens`) y revisar que la guía siga coincidiendo con ellas.

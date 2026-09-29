@@ -54,13 +54,13 @@
 #define SET_IDX_RAMP2     2u
 #define SET_IDX_RAMP3     3u
 #define SET_IDX_DELAY     4u
-#define SET_VIS_ROWS      5u
+#define SET_VIS_ROWS      4u   /* 5 opciones: la lista se desplaza en DLY/EXIT */
 #define SET_HDR_H         11u  /* 2 px + glifo 7 + 2 px; "SETUP" invertido */
 #define SET_HDR_GAP       2u   /* aire bajo el header, fuera de la banda invertida */
 #define SET_ROW_Y0        (SET_HDR_H + SET_HDR_GAP) /* 13 */
-#define SET_ROW_H         7u   /* glifo 5×7; el hueco no entra en el inverso */
-#define SET_ROW_PAD       1u   /* separación entre opciones */
-#define SET_ROW_STEP      (SET_ROW_H + SET_ROW_PAD) /* 8; 13+4×8+7 = 52 < pie 54 */
+#define SET_ROW_H         9u   /* 1 px + glifo 7 + 1 px, todo en el inverso */
+#define SET_ROW_PAD       1u   /* separación entre opciones, fuera del inverso */
+#define SET_ROW_STEP      (SET_ROW_H + SET_ROW_PAD) /* 10; 13+3×10+9 = 52 < pie 54 */
 
 #define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 #define SET_EDIT_NONE     0u

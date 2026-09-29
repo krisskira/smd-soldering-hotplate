@@ -23,6 +23,7 @@
 - Presupuesto features/flash: [feature_budget.md](firmware/avr/doc/feature_budget.md) (skill **hotplate-feature-budget**)
 - PI / Autotune portable: [pid_control.md](firmware/avr/doc/pid_control.md) (skill **hotplate-pid**)
 - Plan optimización: [optimization_plan.md](firmware/avr/doc/optimization_plan.md)
+- Erratas / mejoras futuras: [mejoras_futuras.md](firmware/avr/doc/mejoras_futuras.md)
 
 **Core** y **UI aprobada** (iconos, temp 2×) mandan sobre AT opcional. Flash: `make size` + actualizar `feature_budget.md`.
 
@@ -42,7 +43,7 @@
 | hotplate-pid | PI / autotune · doc `pid_control.md` |
 | hotplate-heating | HEAT + Home (`°C` de rampa, transcurrido) |
 | hotplate-preheat | Fase PREHEAT de HEAT |
-| hotplate-usb-mode | AT / `$HP`. Stream de sesión: un `$HP` a 1 Hz (contrato en `usb-automation.md`; binario aún a 9600) |
+| hotplate-usb-mode | AT / `$HP`. Stream de sesión: un `$HP` a 1 Hz en USB, UART 19200 (`usb-automation.md`) |
 | hotplate-app-state | Menús / EEPROM v8 |
 | hotplate-feature-development | Features generales (siempre consulta budget) |
 | st7920-animated-icons | Iconos animados LCD (parked; medir flash antes de enlazar) |

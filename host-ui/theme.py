@@ -63,13 +63,28 @@ def get() -> dict[str, Any]:
     return copy.deepcopy(_current)
 
 
+SURFACE = "#f4f6f8"
+
+
+def surface_bg() -> str:
+    return SURFACE
+
+
+def ui_family(explicit: Optional[str] = None) -> str:
+    """Familia usable. Vacío en ajustes = Helvetica (Tk ignora la cadena vacía)."""
+    if explicit is not None and str(explicit).strip():
+        return str(explicit).strip()
+    fam = str(_current.get("font_family") or "").strip()
+    return fam or "Helvetica"
+
+
 def font_tuple(
     size_key: str = "body_size",
     weight_key: Optional[str] = None,
     *,
     family: Optional[str] = None,
 ) -> tuple:
-    fam = family if family is not None else _current.get("font_family") or ""
+    fam = ui_family(family)
     size = int(_current.get(size_key, 11))
     if weight_key:
         w = str(_current.get(weight_key, "normal"))
@@ -140,28 +155,150 @@ def notify() -> None:
 
 
 def apply_ttk(root) -> None:
-    """Estilos ttk globales (frames, labels, botones, entries)."""
+    """Estilos de toda la app. Clam respeta fuente y color; el tema aqua de macOS no."""
+    from tkinter import font as tkfont
     from tkinter import ttk
 
     style = ttk.Style(root)
+    if "clam" in style.theme_names():
+        style.theme_use("clam")
+
     t = _current
-    fam = t.get("font_family") or ""
+    fam = ui_family()
+    body = int(t["body_size"])
     frame_font = (fam, int(t["frame_title_size"]), str(t["frame_title_weight"]))
-    body_font = (fam, int(t["body_size"]))
+    body_font = (fam, body)
     btn_font = (fam, int(t["button_size"]))
     inp_font = (fam, int(t["input_size"]))
+    bg = SURFACE
+    fg = str(t["body_color"])
+    muted = str(t["frame_title_color"])
 
+    try:
+        root.configure(background=bg)
+    except Exception:
+        pass
+    for name, size, weight in (
+        ("TkDefaultFont", body, "normal"),
+        ("TkTextFont", int(t["input_size"]), "normal"),
+        ("TkHeadingFont", int(t["frame_title_size"]), str(t["frame_title_weight"])),
+        ("TkMenuFont", body, "normal"),
+        ("TkCaptionFont", body, "normal"),
+        ("TkSmallCaptionFont", max(body - 1, 8), "normal"),
+        ("TkTooltipFont", max(body - 1, 8), "normal"),
+    ):
+        try:
+            tkfont.nametofont(name).configure(family=fam, size=size, weight=weight)
+        except Exception:
+            pass
+    try:
+        tkfont.nametofont("TkFixedFont").configure(
+            family=str(t.get("console_font_family") or "Menlo"),
+            size=int(t["console_font_size"]),
+        )
+    except Exception:
+        pass
+
+    root.option_add("*Font", body_font)
+    root.option_add("*TCombobox*Listbox.font", inp_font)
+    root.option_add("*Listbox.font", inp_font)
+
+    style.configure(".", background=bg, foreground=fg, font=body_font)
+    style.configure("TFrame", background=bg)
+    style.configure("TLabel", background=bg, foreground=fg, font=body_font)
+    style.configure(
+        "Muted.TLabel", background=bg, foreground=muted, font=body_font
+    )
+    style.configure(
+        "Section.TLabel",
+        background=bg,
+        foreground=muted,
+        font=frame_font,
+    )
+    style.configure(
+        "TLabelframe",
+        background=bg,
+        bordercolor="#c5d0dc",
+        lightcolor="#c5d0dc",
+        darkcolor="#c5d0dc",
+        relief="solid",
+        borderwidth=1,
+    )
     style.configure(
         "TLabelframe.Label",
+        background=bg,
+        foreground=muted,
         font=frame_font,
-        foreground=str(t["frame_title_color"]),
     )
-    style.configure("TLabel", font=body_font, foreground=str(t["body_color"]))
-    style.configure("TButton", font=btn_font)
-    style.configure("TEntry", font=inp_font)
-    style.configure("TCheckbutton", font=body_font)
-    style.configure("TCombobox", font=inp_font)
-    style.configure("TNotebook.Tab", font=body_font)
+    style.configure(
+        "TButton",
+        font=btn_font,
+        padding=(12, 5),
+        background="#e7eef4",
+        foreground=fg,
+        borderwidth=1,
+    )
+    style.map(
+        "TButton",
+        background=[("pressed", "#c5d4e2"), ("active", "#d7e2ec")],
+    )
+    style.configure(
+        "Accent.TButton",
+        font=btn_font,
+        padding=(14, 6),
+        background="#1a5276",
+        foreground="#ffffff",
+        borderwidth=0,
+    )
+    style.map(
+        "Accent.TButton",
+        background=[
+            ("pressed", "#0e3046"),
+            ("active", "#154360"),
+            ("disabled", "#b7c3ce"),
+        ],
+        foreground=[("disabled", "#f4f6f8")],
+    )
+    style.configure("TEntry", font=inp_font, padding=3)
+    style.configure("TSpinbox", font=inp_font, padding=2)
+    style.configure("TCombobox", font=inp_font, padding=2)
+    style.configure("TCheckbutton", background=bg, foreground=fg, font=body_font)
+    style.map("TCheckbutton", background=[("active", bg)])
+    style.configure("TNotebook", background=bg, borderwidth=0, tabmargins=(6, 6, 6, 0))
+    style.configure(
+        "TNotebook.Tab",
+        font=body_font,
+        padding=(16, 8),
+        background="#e4eaef",
+        foreground=fg,
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", "#ffffff")],
+        foreground=[("selected", "#1a5276")],
+    )
+    style.configure(
+        "Treeview",
+        font=body_font,
+        rowheight=max(22, body + 12),
+        background="#ffffff",
+        fieldbackground="#ffffff",
+        foreground=fg,
+        borderwidth=0,
+    )
+    style.configure(
+        "Treeview.Heading",
+        font=(fam, body, "bold"),
+        background="#e8eef3",
+        foreground="#1a5276",
+        relief="flat",
+    )
+    style.map("Treeview", background=[("selected", "#d6e6f2")], foreground=[("selected", fg)])
+    style.configure(
+        "TProgressbar", thickness=8, background="#1a5276", troughcolor="#e4eaef"
+    )
+    style.configure("TSeparator", background="#d5dde5")
+    style.configure("TScrollbar", background="#e4eaef", troughcolor=bg, arrowsize=12)
 
 
 def chart_colors() -> dict[str, str]:

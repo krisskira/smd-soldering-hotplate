@@ -182,7 +182,7 @@ Durante el medio-ciclo OFF el ventilador ayuda a bajar más rápido (protege SMD
 
 | Origen | Qué se publica |
 |--------|----------------|
-| USB | Hoy: stream `$HP` a 1 Hz con progreso (`AP`, `AC`) y ganancias (`AK`, `AI`); una trama al pasar a DONE o FAIL. Contrato de sesión: el mismo `$HP` del USB, sin segundo emisor ([usb-automation.md](usb-automation.md)) |
+| USB | El `$HP` de sesión (1 Hz) suma progreso (`AP`, `AC`) y ganancias (`AK`, `AI`); la trama de DONE o FAIL es la última con esos campos. Sin segundo emisor ([usb-automation.md](usb-automation.md)) |
 | HotPanel | No lanza autoajuste ni dibuja la curva |
 
 No hay trama `$HP,PLOT`. La banda de oscilación es `t_set ± histéresis`.
@@ -193,4 +193,4 @@ No hay trama `$HP,PLOT`. La banda de oscilación es `t_set ± histéresis`.
 | Medio-ciclo OFF | OFF | ON | `TUNING` |
 | DONE / FAIL | OFF | OFF | — |
 
-Hoy, cancelar (STOP / fault) apaga ese 1 Hz sin trama extra. En el contrato de sesión solo se quitan `AP,AC,AK,AI`; el `$HP` de estado sigue si USB permanece abierto. El siguiente `RUN=2` pone a cero las ganancias resultado hasta el nuevo DONE.
+Cancelar (STOP / fault) quita `AP,AC,AK,AI`; el `$HP` de estado sigue a 1 Hz mientras USB permanezca abierto. El siguiente `RUN=2` pone a cero las ganancias resultado hasta el nuevo DONE.

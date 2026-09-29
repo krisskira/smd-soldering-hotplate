@@ -21,6 +21,7 @@ from state import SessionState
 if TYPE_CHECKING:
     import tkinter as tk
 
+    from views.appearance_view import AppearanceView
     from views.connection_view import ConnectionView
     from views.heat_view import HeatView
     from views.settings_view import SettingsView
@@ -42,6 +43,7 @@ class AppController:
         self.settings: SettingsView
         self.tune: TuneView
         self.status_bar: StatusBar
+        self.appearance: AppearanceView
 
     def bind_views(
         self,
@@ -50,12 +52,14 @@ class AppController:
         settings: "SettingsView",
         tune: "TuneView",
         status_bar: "StatusBar",
+        appearance: "AppearanceView",
     ) -> None:
         self.conn = conn
         self.heat = heat
         self.settings = settings
         self.tune = tune
         self.status_bar = status_bar
+        self.appearance = appearance
         ramps_store.load_ramps(
             lambda i, v: self.heat.ramp_active[i].set(v),
             lambda i, v: self.heat.ramp_temp[i].set(v),
@@ -70,11 +74,13 @@ class AppController:
         ui_theme.apply_ttk(self.root)
         self.conn.apply_theme()
         self.heat.apply_theme()
-        if hasattr(self.tune, "chart"):
-            self.tune.chart.apply_theme()
+        self.tune.apply_theme()
+        self.settings.apply_theme()
+        self.appearance.apply_theme()
+        self.status_bar.apply_theme()
 
     def save_theme(self) -> None:
-        partial = self.settings.collect_theme()
+        partial = self.appearance.collect_theme()
         ui_theme.save(partial)
         self.apply_theme()
         messagebox.showinfo(
@@ -84,7 +90,7 @@ class AppController:
 
     def reset_theme(self) -> None:
         ui_theme.reset_defaults()
-        self.settings.reload_theme_vars()
+        self.appearance.reload_theme_vars()
         self.apply_theme()
         messagebox.showinfo("Tema", "Tema restaurado a los valores por defecto.")
 
@@ -119,13 +125,48 @@ class AppController:
         self.state.usb_mode = False
         self._cancel_stat()
         self.refresh_chrome()
-        self.conn.log_line("--", "puerto abierto — esperando arranque HP…")
+        self.conn.log_line(
+            "--",
+            "puerto abierto — el saludo HP solo sale al encender; preguntando con AT…",
+        )
+        self._probe_boot()
 
     def disconnect(self) -> None:
         self._cancel_stat()
         self.link.close()
         self.state.reset_link()
         self.refresh_chrome()
+
+    def _probe_boot(self) -> None:
+        """El equipo ya encendido no repite HP. AT → OK lo da por en línea."""
+
+        def work() -> None:
+            try:
+                result = self.link.send(proto.cmd_at())
+            except Exception as exc:
+                msg = str(exc)
+                self.root.after(0, lambda m=msg: self._probe_boot_fail(m))
+                return
+            if result.kind == "OK":
+                self.root.after(0, self._probe_boot_ok)
+
+        self.conn.log_line("TX", proto.cmd_at())
+        threading.Thread(target=work, daemon=True).start()
+
+    def _probe_boot_ok(self) -> None:
+        if not self.link.connected or self.state.device_online:
+            return
+        self.conn.log_line("RX", "OK")
+        self.conn.log_line("--", "equipo en marcha (AT → OK)")
+        self.on_device_online()
+
+    def _probe_boot_fail(self, msg: str) -> None:
+        if not self.link.connected or self.state.device_online:
+            return
+        self.conn.log_line(
+            "!!",
+            f"{msg}. Sin respuesta: el firmware grabado y Studio tienen que ir los dos a 19200.",
+        )
 
     def on_device_online(self) -> None:
         if self.state.device_online:
@@ -142,14 +183,18 @@ class AppController:
             self.send(proto.cmd_mode(1), after_ok=self._on_usb_enter)
 
     def _on_manual_ok(self) -> None:
-        self.state.usb_mode = False
-        self.refresh_chrome()
+        self._set_usb_mode(False)
 
     def _on_usb_enter(self) -> None:
-        self.state.usb_mode = True
-        self.refresh_chrome()
+        self._set_usb_mode(True)
         self.read_ramps()
         self.read_cfg()
+
+    def _set_usb_mode(self, on: bool) -> None:
+        """En USB el equipo empuja $HP a 1 Hz; en Manual vuelve el sondeo."""
+        self.state.usb_mode = on
+        self.refresh_chrome()
+        self.toggle_stat_poll()
 
     def on_close(self) -> None:
         self._cancel_stat()
@@ -173,7 +218,7 @@ class AppController:
         if not self.state.device_online:
             messagebox.showwarning(
                 "Equipo",
-                "Espera el arranque (línea HP) antes de enviar comandos",
+                "El equipo aún no respondió. Espera el saludo HP o el OK del ping AT.",
             )
             return
         self.conn.log_line("TX", cmd)
@@ -182,11 +227,12 @@ class AppController:
             try:
                 result = self.link.send(cmd)
             except Exception as exc:
-                self.root.after(0, lambda: self.conn.log_line("!!", str(exc)))
+                msg = str(exc)
+                self.root.after(0, lambda m=msg: self.conn.log_line("!!", m))
                 if ok_msg is not None or after_err is not None:
                     self.root.after(
                         0,
-                        lambda: messagebox.showerror(err_title, str(exc)),
+                        lambda m=msg: messagebox.showerror(err_title, m),
                     )
                 if after_err:
                     self.root.after(0, lambda: after_err(None))
@@ -535,6 +581,8 @@ class AppController:
             self.conn.poll_stat.set(True)
             self.conn.stat_interval.set("1 s")
         self._cancel_stat()
+        if self.state.usb_mode:
+            return
         if (
             self.conn.poll_stat.get()
             and self.link.connected
@@ -551,6 +599,7 @@ class AppController:
         if (
             self.link.connected
             and self.state.device_online
+            and not self.state.usb_mode
             and self.conn.poll_stat.get()
         ):
             self.send(proto.cmd_stat())
@@ -608,16 +657,20 @@ class AppController:
                 f"Error: {p.fields.get('name')} (código {p.fields.get('code')})",
                 "#c0392b",
             )
+            # ERROR:8 = EXIT en HotPanel: el equipo ya está en Manual.
+            if p.fields.get("code") == 8 and self.state.usb_mode:
+                self._set_usb_mode(False)
         elif p.kind == "BOOT":
             self.conn.log_line("--", "arranque del equipo (HP)")
+            if self.state.usb_mode:
+                self._set_usb_mode(False)
             self.on_device_online()
 
     def _apply_hp(self, fields: dict) -> None:
         self.state.last_hp = fields
-        self.heat.apply_hp(
-            fields,
-            delay_cfg=self.settings.delay_clock(),
-        )
+        delay_cfg = self.settings.delay_clock()
+        self.heat.apply_hp(fields, delay_cfg=delay_cfg)
+        self.tune.apply_status(fields, delay_cfg)
         self.tune.apply_atune_fields(fields)
 
         t = fields.get("T")
@@ -708,4 +761,36 @@ class AppController:
             self.tune.history,
             initialfile="hotplate_tune_trace.csv",
             empty_msg="Sin muestras de autoajuste",
+        )
+
+    def _export_event_csv(self, chart, *, initialfile: str, empty_msg: str) -> None:
+        rows = chart.event_rows()
+        if not rows:
+            messagebox.showinfo("CSV", empty_msg)
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV", "*.csv")],
+            initialfile=initialfile,
+        )
+        if not path:
+            return
+        with open(path, "w", newline="", encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(["Tiempo", "Duración", "Temperatura (°C)", "Evento"])
+            w.writerows(rows)
+        messagebox.showinfo("CSV", f"Guardado {path}\n{len(rows)} eventos")
+
+    def export_heat_events(self) -> None:
+        self._export_event_csv(
+            self.heat.chart,
+            initialfile="hotplate_heat_eventos.csv",
+            empty_msg="Sin eventos de HEAT",
+        )
+
+    def export_tune_events(self) -> None:
+        self._export_event_csv(
+            self.tune.chart,
+            initialfile="hotplate_tune_eventos.csv",
+            empty_msg="Sin eventos de autoajuste",
         )

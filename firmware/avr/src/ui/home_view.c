@@ -305,7 +305,7 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
 static void draw_set_panel(const app_state_t *st)
 {
     char buf[LINE_LEN + 1];
-    uint8_t r, inv, armed;
+    uint8_t r, idx, top, inv, armed;
 
     if (s_panel_mode != 1u) {
         panel_wipe();
@@ -313,11 +313,15 @@ static void draw_set_panel(const app_state_t *st)
     }
     panel_center(0u, SET_HDR_H, i18n_tr_hash(I18N_TITLE_SETTINGS), 1u);
     armed = in_set(st);
-    for (r = 0; r < SETTINGS_COUNT; r++) {
+    /* R1…R4 caben; con el cursor en DLY o EXIT la lista sube. */
+    top = (armed && st->settings_sel >= SET_VIS_ROWS)
+              ? (uint8_t)(SETTINGS_COUNT - SET_VIS_ROWS) : 0u;
+    for (r = 0; r < SET_VIS_ROWS; r++) {
+        idx = (uint8_t)(top + r);
         ui_line_clear(buf);
-        build_set_item(st, r, buf);
+        build_set_item(st, idx, buf);
         buf[PCOLS] = '\0';
-        inv = (armed && r == st->settings_sel) ? 1u : 0u;
+        inv = (armed && idx == st->settings_sel) ? 1u : 0u;
         panel_band((uint8_t)(SET_ROW_Y0 + r * SET_ROW_STEP), SET_ROW_H, buf, inv);
     }
 }

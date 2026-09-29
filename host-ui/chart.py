@@ -154,7 +154,6 @@ _PHASE_COLORS = (
     "#1b4f72",
     "#7b241c",
 )
-_MARK_FONT = 10
 _EVENT_LIMIT = 300
 
 
@@ -171,6 +170,7 @@ class LiveChart:
         *,
         title: str = "Curva en vivo",
         on_export: Optional[Callable[[], None]] = None,
+        on_export_events: Optional[Callable[[], None]] = None,
         on_clear: Optional[Callable[[], None]] = None,
         on_start: Optional[Callable[[], None]] = None,
         on_stop: Optional[Callable[[], None]] = None,
@@ -198,43 +198,50 @@ class LiveChart:
         self._frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         hdr = ttk.Frame(self._frame)
-        hdr.pack(fill=tk.X, padx=4, pady=(2, 0))
+        hdr.pack(fill=tk.X, padx=6, pady=(4, 0))
 
         self.var_phase = tk.StringVar(value="Fase: —")
         self.var_temp = tk.StringVar(value="T medida: —")
         if show_live_info:
             info = ttk.Frame(hdr)
             info.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            ttk.Label(
-                info, textvariable=self.var_phase, font=("", 11, "bold")
-            ).pack(side=tk.LEFT, padx=(0, 16))
-            ttk.Label(
-                info, textvariable=self.var_temp, font=("", 11, "bold")
-            ).pack(side=tk.LEFT)
+            ttk.Label(info, textvariable=self.var_phase).pack(side=tk.LEFT, padx=(0, 16))
+            ttk.Label(info, textvariable=self.var_temp).pack(side=tk.LEFT)
         else:
             ttk.Frame(hdr).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         if on_clear is not None:
-            ttk.Button(hdr, text="Limpiar gráfico", command=on_clear).pack(
-                side=tk.RIGHT, padx=(4, 0)
-            )
+            ttk.Button(hdr, text="Limpiar", command=on_clear).pack(side=tk.RIGHT, padx=(4, 0))
         ttk.Button(hdr, text="Restablecer zoom", command=self.reset_view).pack(
             side=tk.RIGHT, padx=(4, 0)
         )
         if on_export is not None:
-            ttk.Button(hdr, text="Exportar CSV", command=on_export).pack(
+            ttk.Button(hdr, text="Exportar muestras", command=on_export).pack(
                 side=tk.RIGHT, padx=(4, 0)
             )
         if on_stop is not None:
-            ttk.Button(hdr, text="Detener", command=on_stop).pack(
-                side=tk.RIGHT, padx=(4, 0)
-            )
+            ttk.Button(hdr, text="Detener", command=on_stop).pack(side=tk.RIGHT, padx=(4, 0))
         if on_start is not None:
             ttk.Button(hdr, text=start_label, command=on_start).pack(
                 side=tk.RIGHT, padx=(4, 0)
             )
 
+        self._legend_host = ttk.LabelFrame(self._frame, text="Leyenda")
+        self._legend_host.pack(fill=tk.X, padx=6, pady=(6, 0))
+        self._legend_bits: list[tuple[tk.Canvas, str, str]] = []
+
+        self._paned = ttk.Panedwindow(self._frame, orient=tk.HORIZONTAL)
+        self._paned.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        plot_pane = ttk.Frame(self._paned)
+        events = ttk.LabelFrame(self._paned, text="Registro de eventos")
+        self._paned.add(plot_pane, weight=3)
+        self._paned.add(events, weight=2)
+        self._sash_set = False
+        self._paned.bind("<Map>", lambda _e: self._frame.after(80, self._place_sash), add="+")
+        self._paned.bind("<Configure>", self._place_sash, add="+")
+
         self.fig = Figure(figsize=figsize, dpi=100)
+        self.fig.patch.set_facecolor(ui_theme.surface_bg())
         self.ax = self.fig.add_subplot(111)
         self.ax2 = self.ax.twinx()
         self.ax.set_xlabel("Tiempo (s)")
@@ -334,44 +341,48 @@ class LiveChart:
             self._mark_on,
             self._mark_off,
         ]
-        self.fig.legend(
-            self._handles,
-            [h.get_label() for h in self._handles],
-            loc="lower center",
-            ncol=3,
-            fontsize=10,
-            frameon=True,
-            fancybox=False,
-            borderpad=0.5,
-            labelspacing=0.45,
-            columnspacing=1.4,
-            handletextpad=0.5,
-            bbox_to_anchor=(0.5, 0.015),
-        )
-        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.25)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self._frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self._build_legend()
+        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.10)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=plot_pane)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=2, pady=(2, 0))
+        try:
+            from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
-        events = ttk.LabelFrame(self._frame, text="Consola de fases y eventos")
-        events.pack(fill=tk.X, padx=4, pady=(0, 4))
+            self._toolbar = NavigationToolbar2Tk(self.canvas, plot_pane, pack_toolbar=False)
+            self._toolbar.update()
+            self._toolbar.pack(side=tk.BOTTOM, fill=tk.X, padx=2, pady=(0, 2))
+        except Exception:
+            self._toolbar = None
+
+        bar = ttk.Frame(events)
+        bar.pack(fill=tk.X, padx=6, pady=(4, 0))
+        if on_export_events is not None:
+            ttk.Button(bar, text="Exportar registro", command=on_export_events).pack(
+                side=tk.RIGHT
+            )
+
+        table = ttk.Frame(events)
+        table.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         self.event_log = ttk.Treeview(
-            events,
-            columns=("time", "duration", "event"),
+            table,
+            columns=("time", "duration", "temp", "event"),
             show="headings",
-            height=5,
+            height=6,
             selectmode="browse",
         )
         self.event_log.heading("time", text="Tiempo")
-        self.event_log.heading("duration", text="Duración")
-        self.event_log.heading("event", text="Evento / fase")
-        self.event_log.column("time", width=90, minwidth=70, anchor=tk.E, stretch=False)
+        self.event_log.heading("duration", text="Dur.")
+        self.event_log.heading("temp", text="T °C")
+        self.event_log.heading("event", text="Evento")
+        self.event_log.column("time", width=58, minwidth=50, anchor=tk.E, stretch=False)
         self.event_log.column(
-            "duration", width=90, minwidth=70, anchor=tk.E, stretch=False
+            "duration", width=54, minwidth=46, anchor=tk.E, stretch=False
         )
-        self.event_log.column("event", width=520, minwidth=220, anchor=tk.W)
-        scroll = ttk.Scrollbar(events, orient=tk.VERTICAL, command=self.event_log.yview)
+        self.event_log.column("temp", width=58, minwidth=50, anchor=tk.E, stretch=False)
+        self.event_log.column("event", width=130, minwidth=100, anchor=tk.W)
+        scroll = ttk.Scrollbar(table, orient=tk.VERTICAL, command=self.event_log.yview)
         self.event_log.configure(yscrollcommand=scroll.set)
-        self.event_log.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.event_log.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.event_log.tag_configure("phase", foreground=cc["phase"])
         self.event_log.tag_configure("up", foreground=cc["mark_up"])
@@ -379,22 +390,100 @@ class LiveChart:
         self.event_log.tag_configure("on", foreground=cc["mark_on"])
         self.event_log.tag_configure("off", foreground=cc["mark_off"])
         self.event_log.tag_configure("peak", foreground=cc["mark_peak"])
-        try:
-            from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
-
-            self._toolbar = NavigationToolbar2Tk(self.canvas, self._frame, pack_toolbar=False)
-            self._toolbar.update()
-            self._toolbar.pack(side=tk.BOTTOM, fill=tk.X, padx=4, pady=(0, 2))
-        except Exception:
-            self._toolbar = None
 
     def set_live_info(self, phase: str, temp_c: str) -> None:
         self.var_phase.set(f"Fase: {phase}")
         self.var_temp.set(f"T medida: {temp_c}")
 
-    def apply_theme(self) -> None:
-        """Reaplica colores de series/marcadores desde el tema actual."""
+    def _build_legend(self) -> None:
+        """Leyenda fuera de la curva, en dos filas, para dejarle todo el alto al eje."""
+        items = (
+            ("line", "temp", "Temperatura medida"),
+            ("dashed", "set", "SET"),
+            ("line", "duty", "Potencia"),
+            ("peak", "mark_peak", "Cresta"),
+            ("up", "mark_up", "Cruce ↑"),
+            ("down", "mark_down", "Cruce ↓"),
+            ("tick", "mark_on", "Calentador ON"),
+            ("tick", "mark_off", "Calentador OFF"),
+        )
+        for index, (kind, key, text) in enumerate(items):
+            cell = ttk.Frame(self._legend_host)
+            cell.grid(row=index // 4, column=index % 4, sticky=tk.W, padx=8, pady=3)
+            swatch = tk.Canvas(
+                cell,
+                width=28,
+                height=14,
+                highlightthickness=0,
+                background=ui_theme.surface_bg(),
+            )
+            swatch.pack(side=tk.LEFT, padx=(0, 4))
+            ttk.Label(cell, text=text).pack(side=tk.LEFT)
+            self._legend_bits.append((swatch, kind, key))
+        for col in range(4):
+            self._legend_host.columnconfigure(col, weight=1)
+        self._paint_legend()
+
+    def _paint_legend(self) -> None:
         cc = ui_theme.chart_colors()
+        bg = ui_theme.surface_bg()
+        for swatch, kind, key in self._legend_bits:
+            swatch.configure(background=bg)
+            swatch.delete("all")
+            color = cc[key]
+            width, height = 28, 14
+            mid = height / 2
+            if kind == "line":
+                swatch.create_line(2, mid, width - 2, mid, fill=color, width=2)
+            elif kind == "dashed":
+                swatch.create_line(
+                    2, mid, width - 2, mid, fill=color, width=2, dash=(3, 2)
+                )
+            elif kind == "up":
+                swatch.create_polygon(
+                    width / 2, 2, width - 4, height - 2, 4, height - 2,
+                    fill=color, outline=color,
+                )
+            elif kind == "down":
+                swatch.create_polygon(
+                    4, 2, width - 4, 2, width / 2, height - 2,
+                    fill=color, outline=color,
+                )
+            elif kind == "peak":
+                swatch.create_polygon(
+                    width / 2, 2, width - 3, mid, width / 2, height - 2, 3, mid,
+                    fill=color, outline=color,
+                )
+            else:
+                swatch.create_line(width / 2, 1, width / 2, height - 1, fill=color, width=3)
+
+    def _place_sash(self, _event=None) -> None:
+        if self._sash_set:
+            return
+        width = self._paned.winfo_width()
+        if width < 520:
+            return
+        self._sash_set = True
+        # Tabla al ancho de sus columnas (+ scroll y márgenes); el resto para la curva.
+        table_w = 58 + 54 + 58 + 150 + 30
+        try:
+            self._paned.sashpos(0, max(int(width * 0.55), width - table_w))
+        except Exception:
+            self._sash_set = False
+
+    def event_rows(self) -> list[tuple[str, str, str, str]]:
+        """Filas visibles del registro: tiempo, duración, temperatura, evento."""
+        out: list[tuple[str, str, str, str]] = []
+        for iid in self.event_log.get_children():
+            vals = self.event_log.item(iid, "values")
+            if len(vals) >= 4:
+                out.append((str(vals[0]), str(vals[1]), str(vals[2]), str(vals[3])))
+        return out
+
+    def apply_theme(self) -> None:
+        """Reaplica colores de series/marcadores y la fuente de los ejes."""
+        cc = ui_theme.chart_colors()
+        self.fig.patch.set_facecolor(ui_theme.surface_bg())
         self.ax.set_facecolor(cc["face"])
         self.line_t.set_color(cc["temp"])
         self.line_set.set_color(cc["set"])
@@ -404,13 +493,35 @@ class LiveChart:
         self._mark_on.set_color(cc["mark_on"])
         self._mark_off.set_color(cc["mark_off"])
         self._mark_peak.set_color(cc["mark_peak"])
+        self._paint_legend()
         self.event_log.tag_configure("phase", foreground=cc["phase"])
         self.event_log.tag_configure("up", foreground=cc["mark_up"])
         self.event_log.tag_configure("down", foreground=cc["mark_down"])
         self.event_log.tag_configure("on", foreground=cc["mark_on"])
         self.event_log.tag_configure("off", foreground=cc["mark_off"])
         self.event_log.tag_configure("peak", foreground=cc["mark_peak"])
+        self._apply_mpl_fonts()
         self.canvas.draw_idle()
+
+    def _apply_mpl_fonts(self) -> None:
+        t = ui_theme.get()
+        fam = ui_theme.ui_family()
+        size = max(8, int(t["body_size"]) - 1)
+        for axis in (self.ax, self.ax2):
+            axis.tick_params(labelsize=size)
+            axis.xaxis.label.set_size(size)
+            axis.yaxis.label.set_size(size)
+            for label in (axis.xaxis.label, axis.yaxis.label):
+                try:
+                    label.set_fontname(fam)
+                except Exception:
+                    pass
+            for label in axis.get_xticklabels() + axis.get_yticklabels():
+                label.set_fontsize(size)
+                try:
+                    label.set_fontname(fam)
+                except Exception:
+                    pass
 
     def _on_xlim_changed(self, _ax) -> None:
         if self._applying_xlim:
@@ -447,11 +558,22 @@ class LiveChart:
             span = max(self._user_xlim[1] - self._user_xlim[0], 1.0)
         self._apply_x_locator(span)
 
+    def set_x_window(self, span_s: float, *, locked: bool) -> None:
+        """Tramo base del eje X. `locked` mantiene el techo (autoajuste = timeout)."""
+        span = max(float(span_s), 1.0)
+        if abs(span - self._x_span_s) < 0.5 and locked == self._x_locked:
+            return
+        self._x_span_s = span
+        self._x_locked = bool(locked)
+        if self._user_xlim is None:
+            self._apply_x_measures()
+            self.canvas.draw_idle()
+
     def set_x_span(self, span_s: float) -> None:
-        """Fija el tramo base del eje X (y bloquea el techo si se llama desde tune)."""
+        """Compat: fija el tramo, lo bloquea y sale de un zoom manual."""
+        self._user_xlim = None
         self._x_span_s = max(float(span_s), 1.0)
         self._x_locked = True
-        self._user_xlim = None
         self._apply_x_measures()
         self.canvas.draw_idle()
 
@@ -494,43 +616,73 @@ class LiveChart:
         sec = max(int(round(value)), 0)
         return f"{sec // 60:02d}:{sec % 60:02d}"
 
+    @staticmethod
+    def _temp_at(xs: Sequence[float], ys: Sequence[float], t: float) -> float:
+        """Temperatura interpolada en t (NaN si no hay muestras válidas alrededor)."""
+        import bisect
+
+        n = min(len(xs), len(ys))
+        if n == 0:
+            return float("nan")
+        i = bisect.bisect_left(xs, t, 0, n)
+        if i < n and float(xs[i]) == t:
+            return float(ys[i])
+        if i <= 0:
+            return float(ys[0])
+        if i >= n:
+            return float(ys[n - 1])
+        x0, x1 = float(xs[i - 1]), float(xs[i])
+        y0, y1 = float(ys[i - 1]), float(ys[i])
+        if y0 != y0:
+            return y1
+        if y1 != y1 or x1 <= x0:
+            return y0
+        return y0 + (y1 - y0) * (t - x0) / (x1 - x0)
+
     def _update_event_console(
         self,
+        xs: Sequence[float],
+        ys: Sequence[float],
         crosses: Sequence[Tuple[float, float, str]],
         edges: Sequence[Tuple[float, str]],
         crests: Sequence[Tuple[float, float]],
         spans: Sequence[Tuple[float, float, str]],
     ) -> None:
-        rows: list[tuple[float, float, str, str]] = []
+        rows: list[tuple[float, float, float, str, str]] = []
         for t0, t1, name in spans:
             tag = f"phase:{name}"
             self.event_log.tag_configure(tag, foreground=_phase_color(name))
-            rows.append((t0, max(t1 - t0, 0.0), f"Fase: {name}", tag))
-        for t, _y, kind in crosses:
+            rows.append(
+                (t0, max(t1 - t0, 0.0), self._temp_at(xs, ys, t0), f"Fase: {name}", tag)
+            )
+        for t, y, kind in crosses:
             arrow = "↑" if kind == "up" else "↓"
-            rows.append((t, 0.0, f"Cruce T {arrow} SET", kind))
+            rows.append((t, 0.0, y, f"Cruce {arrow} SET", kind))
         for t, kind in edges:
-            rows.append((t, 0.0, f"Calentador {kind.upper()}", kind))
+            rows.append(
+                (t, 0.0, self._temp_at(xs, ys, t), f"Calentador {kind.upper()}", kind)
+            )
         for t, temp in crests:
-            rows.append((t, 0.0, f"Cresta: {temp:.1f} °C", "peak"))
-        rows.sort(key=lambda row: (row[0], row[2]))
+            rows.append((t, 0.0, temp, "Cresta", "peak"))
+        rows.sort(key=lambda row: (row[0], row[3]))
         rows = rows[-_EVENT_LIMIT:]
         signature = tuple(
             (round(t, 1), round(duration, 1), text, tag)
-            for t, duration, text, tag in rows
+            for t, duration, _temp, text, tag in rows
         )
         if signature == self._event_signature:
             return
         self._event_signature = signature
         for item in self.event_log.get_children():
             self.event_log.delete(item)
-        for t, duration, text, tag in rows:
+        for t, duration, temp, text, tag in rows:
             self.event_log.insert(
                 "",
                 tk.END,
                 values=(
                     self._fmt_time(t),
                     self._fmt_time(duration) if duration > 0 else "—",
+                    f"{temp:.1f}" if temp == temp else "—",
                     text,
                 ),
                 tags=(tag,),
@@ -622,7 +774,7 @@ class LiveChart:
                 zorder=3,
             )
             self._overlay_artists.append(ln)
-        self._update_event_console(crosses, edges, crests, spans)
+        self._update_event_console(xs, ys, crosses, edges, crests, spans)
 
     def redraw(
         self,

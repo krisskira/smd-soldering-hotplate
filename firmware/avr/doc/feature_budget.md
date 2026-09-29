@@ -5,7 +5,7 @@ Documento vivo: **actualizar la columna de coste tras cada `make size`** (o al m
 Complementa: [product_features.md](product_features.md) · [program_flows.md](program_flows.md) · [architecture.md](architecture.md) · [usb-automation.md](usb-automation.md) · [ui_style_guide.md](ui_style_guide.md) · [pid_control.md](pid_control.md) (C6/C7).
 
 **MCU:** ATmega16 · Flash **16384 B** · Medición: `cd firmware/avr && make size`  
-**Última medición de referencia:** Program **15696 B** (95,8 %) · Data **283 B** · EEPROM **62 B** (2026-09-29).
+**Última medición de referencia:** Program **15698 B** (95,8 %) · Data **283 B** · EEPROM **62 B** (2026-09-29).
 
 ---
 
@@ -40,7 +40,9 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | 2026-09-29 | 16044 | 340 | Pitido de navegación, de arranque, de parada y de salida USB eliminados **−52 B** |
 | 2026-09-29 | 15024 | 1360 | Fuera la fase al % de la rampa 1 y `AT+CFG=A` (el autotune escribe Kp/Ki al terminar). Data 286 B **−1020 B** |
 | 2026-09-29 | 15536 | 848 | Reloj DLY `hh:mm` (tope 12:00). Base de este cambio de HotPanel. Data 283 B |
-| 2026-09-29 | **15696** | **688** | Setup: 2 px bajo el header y 1 px entre filas. Heat: `°C` en la consigna de rampa y `mm:ss` transcurrido. **+160 B**. Data 283 B |
+| 2026-09-29 | 15696 | 688 | Setup: 2 px bajo el header y 1 px entre filas. Heat: `°C` en la consigna de rampa y `mm:ss` transcurrido. **+160 B**. Data 283 B |
+| 2026-09-29 | 15676 | 708 | Stream de sesión: `$HP` a 1 Hz en todo USB (mismo formateador) y UART a 19200. **−20 B**. Data 283 B, EEPROM 62 B |
+| 2026-09-29 | **15698** | **686** | Setup: banda invertida de 9 px (1 px sobre y bajo la letra) + 1 px de separación; 4 filas visibles con desplazamiento. **+22 B**. Data 283 B |
 
 ---
 
@@ -57,12 +59,12 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | C7 | **Autotune** (`PID_TUNE`, solo AT) | CORE (USB) | Solo `AT+RUN=2`; al terminar copia Kp/Ki; no lanzar desde Settings LCD | Compactar Z–N; no quitar el copiado a EEPROM | Mismos campos `AP/AC/AK/AI` en el `$HP` de sesión, sin segunda trama | `pid_atune.c` · **medir** |
 | C8 | **Safety / overtemp / sensor fault** | CORE | PTC OFF; `ERROR:7` / FAULT | Sin minify funcional | Mantener | `safety` + hooks · **medir** |
 | C9 | **Alarmas de proceso** (`ALARM:2`, beeps READY/FAULT) | CORE | Fin HEAT → alarma; cancel UI ≠ ALARM USB | Fijar reps; no quitar ALARM:2 | Mantener beeps de **proceso** | `buzzer_seq` · **medir** |
-| S1 | **Home Heat \| Settings** (2 casillas, overlays) | SHELL | Nunca vistas USB/Settings aparte; dirty rows; i18n | Compactar `home_view` sin cambiar layout | Layout [ui_style_guide](ui_style_guide.md) | Aire de Setup + `°C` de rampa + transcurrido **+160 B** (15536 → 15696) |
+| S1 | **Home Heat \| Settings** (2 casillas, overlays) | SHELL | Nunca vistas USB/Settings aparte; dirty rows; i18n | Compactar `home_view` sin cambiar layout | Layout [ui_style_guide](ui_style_guide.md) | Aire de Setup + `°C` de rampa + transcurrido **+160 B** (15536 → 15696). Filas de Setup de 9+1 px con desplazamiento **+22 B** (15676 → 15698) |
 | S2 | **Iconos sidebar 16×16** (`FONT_ICONS`) | SHELL / **APROBADO** | Contrato visual; no sustituir por letra si hay margen | Comprimir glifos; 2 iconos | **Enlazado** Heat/CFG (+ USB si cabe) | S2+S3 juntos **+214 B** medido · **enlazado** Heat/CFG + separador x=31; USB solo con `-DFONT_ICONS_USB` (+32 B) |
 | S3 | **Temperatura FONT_5X7_X2** | SHELL / **APROBADO** | Temp legible centrada con `°C` | Mantener X2; no bajar a 1× salvo emergencia documentada | **X2 en Heat/USB** | Incluido en los +214 B de S2 · **enlazado** (temp + título USB) |
 | S4 | **i18n CAPS** (fases / footer) | SHELL | Textos vía `i18n_tr_hash` | Strings más cortos | Labels actuales | Pequeño · **medir** |
 | U1 | **Sesión USB** (`AT+MODE`, mutex manual) | CORE-IF | USB y MANUAL no activos a la vez | — | Mantener | `device_session` + AT · **medir** |
-| U2 | **Telemetría `$HP`** (T, fase A, SET, DU, RI, …) | CORE-IF | Una trama. Hoy 1 Hz solo en autotune USB. Contrato: 1 Hz en toda la sesión USB a 19200, enriquecida en autotune. No tres formateadores | Quitar campos raros; no quitar A/SET/DU/RI | Chart fases + potencia. El empuje de sesión reutiliza este `$HP` (flash ~0; **medir** al enlazarlo) | `telemetry` · **medir** |
+| U2 | **Telemetría `$HP`** (T, fase A, SET, DU, RI, …) | CORE-IF | Una trama a 1 Hz en toda la sesión USB, UART 19200, enriquecida en autotune. No tres formateadores | Quitar campos raros; no quitar A/SET/DU/RI | Chart fases + potencia | `telemetry` · stream de sesión **−20 B** (15696 → 15676) · TX 34–54 ms/s |
 | U3 | **`$CF` / `$R`** | CFG | Lectura bajo demanda | `KD`/`SND` ya no existen; `RN` omitido | BN/BX/PH/PCT/SB/S/P/AMS + `$R` | Ya minificado parcial |
 | U4 | **`AT+CFG=S`** límites | CFG | min≤max, rangos producto | — | Mantener | Bajo |
 | U5 | **`AT+CFG=H`** flujo HEAT | CFG | delay 0…43200 s (se guarda h+m), air | **Hecho:** `snd` fuera (6.º argumento → `ERROR:2`) | H sin sonido nav. Reloj hasta 12:00 | Incluido en la medición 15536 |

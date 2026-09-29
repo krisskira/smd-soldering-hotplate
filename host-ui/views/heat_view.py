@@ -1,4 +1,4 @@
-"""Pestaña Proceso HEAT: fila rampas|estado (al contenido) · gráfica abajo."""
+"""Pestaña HEAT: perfil y estado en una fila · curva y registro debajo."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING, Any
 import tkinter as tk
 from tkinter import ttk
 
-import protocol as proto
+import theme as ui_theme
 from chart import LiveChart
-from constants import CHART_HEAT_X_SPAN_S
+from views.layout import add_panel, content_row
+from views.status_panel import StatusPanel
 
 # Margen del eje Y de temperatura por encima del escalón más alto activo.
 CHART_HEAT_Y_MARGIN_C = 50.0
@@ -17,181 +18,59 @@ CHART_HEAT_Y_MARGIN_C = 50.0
 if TYPE_CHECKING:
     from controller import AppController
 
-# Dos columnas (sin precalentado/consigna)
-STATUS_COLUMNS: list[list[tuple[str, list[tuple[str, str]]]]] = [
-    [
-        (
-            "Programa",
-            [
-                ("PROG", "Programa en curso"),
-                ("PHASE", "Fase actual"),
-            ],
-        ),
-        (
-            "Temperatura de la placa",
-            [
-                ("T", "Temperatura medida (°C)"),
-            ],
-        ),
-        (
-            "Tiempos",
-            [
-                ("DLY", "Espera antes de calentar (hh:mm, máx. 12:00)"),
-                ("RUN", "Tiempo que queda en este paso (s)"),
-                ("EL", "Tiempo desde el arranque (s)"),
-            ],
-        ),
-    ],
-    [
-        (
-            "Salidas",
-            [
-                ("DU", "Potencia del calentador (%)"),
-                ("F", "Ventilador de enfriado"),
-            ],
-        ),
-        (
-            "Soldering Profile",
-            [
-                ("RI", "Rampa activa ahora"),
-            ],
-        ),
-        (
-            "Seguridad",
-            [
-                ("FL", "Corte por falla"),
-            ],
-        ),
-    ],
-]
-
 
 class HeatView:
     def __init__(self, parent: ttk.Frame, ctrl: "AppController") -> None:
         self._ctrl = ctrl
+        self._heat_running = False
+        self._hi = (0, 0, 0)
 
         top = ttk.Frame(parent)
-        top.pack(fill=tk.X, padx=8, pady=6)
-        self._heat_running = False
+        top.pack(fill=tk.X, padx=8, pady=(8, 2))
         self.btn_heat = ttk.Button(
-            top, text="Iniciar HEAT", command=ctrl.toggle_heat
+            top, text="Iniciar HEAT", command=ctrl.toggle_heat, style="Accent.TButton"
         )
-        self.btn_heat.pack(side=tk.LEFT, padx=2)
+        self.btn_heat.pack(side=tk.LEFT, padx=(0, 8))
+        self.banner = tk.Label(top, text="", anchor=tk.W)
+        self.banner.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        self.banner = tk.Label(
-            top, text="", font=("", 11, "bold"), fg="#a00", anchor=tk.W
-        )
-        self.banner.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(16, 0))
+        row = content_row(parent)
+        self._build_ramps_panel(row)
+        self.status = StatusPanel(row)
+        add_panel(row, self._ramps_frame)
+        add_panel(row, self.status.frame)
 
-        # Fila 1: paneles al contenido, misma altura
-        row1 = ttk.Frame(parent)
-        row1.pack(fill=tk.X, padx=8, pady=4, anchor=tk.NW)
-        row1.rowconfigure(0, weight=1)
-
-        self._build_ramps_panel(row1)
-        self._build_status_table(row1)
-
-        row2 = ttk.Frame(parent)
-        row2.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 8))
+        chart_host = ttk.Frame(parent)
+        chart_host.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 6))
         self.chart = LiveChart(
-            row2,
+            chart_host,
             title="Curva en vivo",
             on_export=ctrl.export_csv,
+            on_export_events=ctrl.export_heat_events,
             on_clear=ctrl.clear_plot,
-            figsize=(9, 5.2),
-            show_live_info=True,
-            x_span_s=CHART_HEAT_X_SPAN_S,
-            # Techo inicial 1400 s; si el proceso dura más, crece desde t=0.
+            figsize=(8.6, 3.4),
+            x_span_s=self.planned_x_span(),
             x_locked=False,
         )
         self._sync_chart_ylim()
-
-    def _build_status_table(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Estado del proceso")
-        frame.grid(row=0, column=1, sticky=tk.NSEW, padx=(4, 0), pady=0)
-        self._status_frame = frame
-
-        keys = [
-            k
-            for cols in STATUS_COLUMNS
-            for _, rows in cols
-            for k, _ in rows
-        ]
-        self.proc_vars = {k: tk.StringVar(value="—") for k in keys}
-
-        body = ttk.Frame(frame)
-        body.pack(anchor=tk.NW, padx=4, pady=4)
-        self._section_title_labels: list[ttk.Label] = []
-        self._status_key_labels: list[ttk.Label] = []
-        self._status_value_labels: list[ttk.Label] = []
-        import theme as ui_theme
-
-        for col_i, sections in enumerate(STATUS_COLUMNS):
-            col = ttk.Frame(body)
-            col.grid(row=0, column=col_i, sticky=tk.NW, padx=4, pady=2)
-            row = 0
-            for section_title, fields in sections:
-                st_lbl = ttk.Label(
-                    col,
-                    text=section_title,
-                    font=ui_theme.font_tuple(
-                        "section_title_size", "section_title_weight"
-                    ),
-                    foreground=ui_theme.get()["section_title_color"],
-                    anchor=tk.W,
-                )
-                st_lbl.grid(
-                    row=row, column=0, columnspan=2, sticky=tk.W, padx=4, pady=(6, 0)
-                )
-                self._section_title_labels.append(st_lbl)
-                row += 1
-                ttk.Separator(col, orient=tk.HORIZONTAL).grid(
-                    row=row, column=0, columnspan=2, sticky=tk.EW, padx=4, pady=(0, 4)
-                )
-                row += 1
-                for key, label in fields:
-                    k_lbl = ttk.Label(
-                        col,
-                        text=label,
-                        anchor=tk.W,
-                        font=ui_theme.font_tuple("status_key_size", "status_key_weight"),
-                        foreground=ui_theme.get()["status_key_color"],
-                    )
-                    k_lbl.grid(row=row, column=0, sticky=tk.W, padx=(8, 8), pady=1)
-                    self._status_key_labels.append(k_lbl)
-                    v_lbl = ttk.Label(
-                        col,
-                        textvariable=self.proc_vars[key],
-                        anchor=tk.W,
-                        font=ui_theme.font_tuple(
-                            "status_value_size", "status_value_weight"
-                        ),
-                        foreground=ui_theme.get()["status_value_color"],
-                    )
-                    v_lbl.grid(row=row, column=1, sticky=tk.W, padx=4, pady=1)
-                    self._status_value_labels.append(v_lbl)
-                    row += 1
+        self.apply_theme()
 
     def _build_ramps_panel(self, parent: ttk.Frame) -> None:
-        box = ttk.LabelFrame(parent, text="Soldering Profile (HEAT)")
-        box.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 4), pady=0)
+        box = ttk.LabelFrame(parent, text="Soldering Profile")
         self._ramps_frame = box
         ttk.Label(
             box,
-            text=(
-                "HEAT sigue escalones contiguos desde la rampa 1 (siempre activa). "
-                "«Guardar» / «Guardar rampas activas» envía 0…N-1; el último fija N "
-                "en el equipo. «Leer rampas» pide AT+CFG=R? ($R)."
-            ),
-            wraplength=380,
-        ).pack(anchor=tk.W, padx=6, pady=(4, 2))
+            text="Escalones contiguos desde la rampa 1. Guardar envía el perfil; Leer pide $R.",
+            style="Muted.TLabel",
+            wraplength=420,
+        ).pack(anchor=tk.W, padx=8, pady=(6, 2))
 
         hdr = ttk.Frame(box)
-        hdr.pack(fill=tk.X, padx=6)
-        for col, t in enumerate(
-            ("Usar", "Escalón", "Temperatura (°C)", "Tiempo (s)", "")
-        ):
-            ttk.Label(hdr, text=t).grid(row=0, column=col, sticky=tk.W, padx=2)
+        hdr.pack(fill=tk.X, padx=8)
+        for col, title in enumerate(("Usar", "Escalón", "°C", "s", "")):
+            ttk.Label(hdr, text=title, style="Muted.TLabel").grid(
+                row=0, column=col, sticky=tk.W, padx=2
+            )
 
         self.ramp_active: list[tk.BooleanVar] = []
         self.ramp_temp: list[tk.StringVar] = []
@@ -200,7 +79,7 @@ class HeatView:
         self._ramp_checks: list[ttk.Checkbutton] = []
 
         body = ttk.Frame(box)
-        body.pack(padx=6, pady=4)
+        body.pack(padx=8, pady=4)
         for i in range(4):
             av = tk.BooleanVar(value=(i < 2))
             tv = tk.StringVar(value=str(100 + 25 * i))
@@ -214,23 +93,23 @@ class HeatView:
                 cb.state(["disabled"])
             else:
                 cb.config(command=self._on_ramp_active_toggle)
-            cb.grid(row=i, column=0, padx=2)
+            cb.grid(row=i, column=0, padx=2, pady=2)
             self._ramp_checks.append(cb)
             rl = ttk.Label(body, text=f"Rampa {i + 1}", width=10)
             rl.grid(row=i, column=1, sticky=tk.W)
             self.ramp_row_labels.append(rl)
-            ttk.Entry(body, textvariable=tv, width=10, justify=tk.RIGHT).grid(
-                row=i, column=2, padx=4
+            ttk.Entry(body, textvariable=tv, width=8, justify=tk.RIGHT).grid(
+                row=i, column=2, padx=4, pady=2
             )
-            ttk.Entry(body, textvariable=hv, width=10, justify=tk.RIGHT).grid(
-                row=i, column=3, padx=4
+            ttk.Entry(body, textvariable=hv, width=8, justify=tk.RIGHT).grid(
+                row=i, column=3, padx=4, pady=2
             )
             ttk.Button(
                 body, text="Guardar", command=lambda idx=i: self._ctrl.write_ramp(idx)
             ).grid(row=i, column=4, padx=2)
 
         foot = ttk.Frame(box)
-        foot.pack(fill=tk.X, padx=6, pady=(4, 8))
+        foot.pack(fill=tk.X, padx=8, pady=(2, 8))
         ttk.Button(foot, text="Leer rampas", command=self._ctrl.read_ramps).pack(
             side=tk.LEFT, padx=(0, 4)
         )
@@ -238,7 +117,7 @@ class HeatView:
             foot, text="Guardar rampas activas", command=self._ctrl.write_all_ramps
         ).pack(side=tk.LEFT)
 
-        for v in self.ramp_temp + self.ramp_active:
+        for v in self.ramp_temp + self.ramp_hold + self.ramp_active:
             v.trace_add("write", lambda *_: self._on_ramp_edit())
 
     def _on_ramp_active_toggle(self) -> None:
@@ -262,6 +141,7 @@ class HeatView:
         return self._heat_running
 
     def _on_ramp_edit(self) -> None:
+        self.sync_chart_x()
         self._sync_chart_ylim()
         self.refresh_objetivo()
 
@@ -272,21 +152,41 @@ class HeatView:
             [v.get() for v in self.ramp_hold],
         )
 
+    def planned_x_span(self) -> float:
+        """Ventana del eje X según el perfil: mesetas, subida y un margen de enfriamiento."""
+        active, _temps, holds = self.ramp_snapshot()
+        hold = 0.0
+        steps = 0
+        for on, raw in zip(active, holds):
+            if not on:
+                continue
+            steps += 1
+            try:
+                hold += max(float(raw), 0.0)
+            except ValueError:
+                hold += 60.0
+        span = hold + 90.0 * max(steps, 1) + 180.0
+        return max(300.0, min(span, 7200.0))
+
+    def sync_chart_x(self) -> None:
+        if hasattr(self, "chart"):
+            self.chart.set_x_window(self.planned_x_span(), locked=False)
+
     def ramp_ymax(self) -> float:
         """Tope del eje Y: max(°C de rampas activas) + 50 °C."""
         active, temps, _ = self.ramp_snapshot()
         vals: list[float] = []
-        for on, t in zip(active, temps):
+        for on, raw in zip(active, temps):
             if not on:
                 continue
             try:
-                vals.append(float(t))
+                vals.append(float(raw))
             except ValueError:
                 pass
         if not vals:
-            for t in temps:
+            for raw in temps:
                 try:
-                    vals.append(float(t))
+                    vals.append(float(raw))
                 except ValueError:
                     pass
         base = max(vals) if vals else 100.0
@@ -304,65 +204,26 @@ class HeatView:
         n = max(0, min(int(n), 4))
         for i in range(4):
             if i < len(steps):
-                t, h = steps[i]
-                if t > 0:
-                    self.ramp_temp[i].set(str(t))
-                if h > 0:
-                    self.ramp_hold[i].set(str(h))
-            # Solo N cuenta: checkboxes no dependen de temp residual en EEPROM
+                temp, hold = steps[i]
+                if temp > 0:
+                    self.ramp_temp[i].set(str(temp))
+                if hold > 0:
+                    self.ramp_hold[i].set(str(hold))
             self.ramp_active[i].set(i < n)
         self.ramp_active[0].set(True)
+        self.sync_chart_x()
         self._sync_chart_ylim()
         self.refresh_objetivo()
 
-    def apply_hp(
-        self,
-        fields: dict[str, Any],
-        delay_cfg: str | None,
-    ) -> None:
-        t = fields.get("T")
-        a = int(fields.get("A", 0))
-        p = int(fields.get("P", 0))
-        phase = proto.phase_name(a)
-        temp_txt = "—" if t is None else f"{t} °C"
-        self.chart.set_live_info(phase, temp_txt)
-
-        self.proc_vars["T"].set(temp_txt)
-        self.proc_vars["PHASE"].set(phase)
-        self.proc_vars["PROG"].set(proto.prog_name(p))
-        dly = fields.get("DLY", "—")
-        try:
-            dly_txt = proto.fmt_hhmm_s(int(dly))
-        except (TypeError, ValueError):
-            dly_txt = str(dly)
-        self.proc_vars["DLY"].set(dly_txt)
-        self.proc_vars["RUN"].set(str(fields.get("RUN", "—")))
-        self.proc_vars["EL"].set(str(fields.get("EL", "—")))
-        self.proc_vars["DU"].set(str(fields.get("DU", "—")))
-        fan = fields.get("F", 0)
-        self.proc_vars["F"].set(
-            {0: "Apagado", 1: "Encendido", "0": "Apagado", "1": "Encendido"}.get(
-                fan, str(fan)
-            )
-        )
-        fl = fields.get("FL", 0)
-        self.proc_vars["FL"].set(
-            {0: "No", 1: "Sí", "0": "No", "1": "Sí"}.get(fl, str(fl))
-        )
+    def apply_hp(self, fields: dict[str, Any], delay_cfg: str | None) -> None:
+        self.status.apply_hp(fields, delay_cfg)
+        self._update_fault_banner(fields.get("FL", 0))
+        self.refresh_objetivo()
         try:
             ri = int(fields.get("RI", 0))
         except (TypeError, ValueError):
             ri = 0
-        if p == 1 and a in (4, 5):
-            self.proc_vars["RI"].set(f"Rampa {ri + 1}")
-        else:
-            self.proc_vars["RI"].set("—")
-        if a in (0, 8) and delay_cfg is not None:
-            self.proc_vars["DLY"].set(delay_cfg)
-
-        self._update_fault_banner(fl)
-        self.refresh_objetivo()
-        self.highlight_ramp(p, a, ri)
+        self.highlight_ramp(int(fields.get("P", 0)), int(fields.get("A", 0)), ri)
 
     def _update_fault_banner(self, fl: Any) -> None:
         try:
@@ -373,43 +234,42 @@ class HeatView:
             self.set_banner("Corte por falla — salidas desactivadas", "#c0392b")
         else:
             cur = self.banner.cget("text")
-            if cur.startswith("Corte por falla"):
+            if str(cur).startswith("Corte por falla"):
                 self.set_banner("")
 
     def refresh_objetivo(self, *_args, **_kwargs) -> None:
-        """Compat: consigna ya no se muestra en el panel de estado."""
+        """La consigna vive en el panel de estado y en la curva."""
         self._sync_chart_ylim()
 
     def highlight_ramp(self, prog: int, phase: int, ri: int) -> None:
+        self._hi = (prog, phase, ri)
         for i, lab in enumerate(self.ramp_row_labels):
             on = prog == 1 and phase in (4, 5) and i == ri
             lab.config(
                 text=("► Rampa " if on else "Rampa ") + str(i + 1),
-                font=("", 10, "bold") if on else ("", 10, "normal"),
+                font=self._ramp_font(on),
             )
+
+    def _ramp_font(self, active: bool) -> tuple:
+        t = ui_theme.get()
+        fam = ui_theme.ui_family()
+        size = int(t["body_size"])
+        return (fam, size, "bold" if active else "normal")
 
     def set_banner(self, text: str, color: str = "#a00") -> None:
-        self.banner.config(text=text, fg=color, font=("", 11, "bold"))
+        self.banner.config(text=text, fg=color)
 
     def apply_theme(self) -> None:
-        import theme as ui_theme
-
         t = ui_theme.get()
-        for lbl in self._section_title_labels:
-            lbl.configure(
-                font=ui_theme.font_tuple("section_title_size", "section_title_weight"),
-                foreground=t["section_title_color"],
-            )
-        for lbl in self._status_key_labels:
-            lbl.configure(
-                font=ui_theme.font_tuple("status_key_size", "status_key_weight"),
-                foreground=t["status_key_color"],
-            )
-        for lbl in self._status_value_labels:
-            lbl.configure(
-                font=ui_theme.font_tuple("status_value_size", "status_value_weight"),
-                foreground=t["status_value_color"],
-            )
+        self.banner.configure(
+            font=ui_theme.font_tuple("body_size"),
+            bg=ui_theme.surface_bg(),
+        )
+        if not self.banner.cget("text"):
+            self.banner.configure(fg=t["body_color"])
+        self.status.apply_theme()
+        prog, phase, ri = self._hi
+        self.highlight_ramp(prog, phase, ri)
         if hasattr(self, "chart"):
             self.chart.apply_theme()
 
