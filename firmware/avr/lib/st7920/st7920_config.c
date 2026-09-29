@@ -124,6 +124,5 @@ void st7920_graphics_mode(void)
     st7920_cmd(0x34); /* extended */
     st7920_cmd(0x36); /* graphics ON */
     st7920_clear_gdram();
-    st7920_clear_gdram_buffer();
 }
 

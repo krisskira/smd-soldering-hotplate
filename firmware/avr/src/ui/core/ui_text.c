@@ -80,3 +80,17 @@ void ui_mmss_to_str(uint16_t sec, char *dst)
     dst[4] = (char)('0' + (s % 10u));
     dst[5] = '\0';
 }
+
+void ui_hhmm_to_str(uint8_t hour, uint8_t minute, char *dst)
+{
+    if (hour > 99u)
+        hour = 99u;
+    if (minute > 59u)
+        minute = 59u;
+    dst[0] = (char)('0' + (hour / 10u));
+    dst[1] = (char)('0' + (hour % 10u));
+    dst[2] = ':';
+    dst[3] = (char)('0' + (minute / 10u));
+    dst[4] = (char)('0' + (minute % 10u));
+    dst[5] = '\0';
+}

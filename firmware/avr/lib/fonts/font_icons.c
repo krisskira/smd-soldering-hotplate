@@ -1,6 +1,7 @@
 /*
  * font_icons — 16×16 nativos (1:1, sin escala). HEAT / CFG / USB.
  * FONT_ROWS: 2 bytes/fila, MSB = izquierda. Sidebar 32 px → 8 px de aire.
+ * USB solo con -DFONT_ICONS_USB (el overlay USB usa texto X2).
  */
 #include "font.h"
 #include <avr/pgmspace.h>
@@ -40,6 +41,7 @@ static const uint8_t font_icons_data[] PROGMEM = {
     0x48, 0x00,
     0x30, 0x00,
     0x00, 0x00,
+#ifdef FONT_ICONS_USB
     /* USB 16×16 — tallo 8–9; ● izq (bajado); brazo der subido + bajante */
     0x00, 0xC0, /* ........##...... */ /* △ tip */
     0x01, 0xE0, /* .......####..... */
@@ -57,8 +59,10 @@ static const uint8_t font_icons_data[] PROGMEM = {
     0x01, 0xE0, /* .......####..... */ /* ● base */
     0x01, 0xE0, /* .......####..... */
     0x00, 0xC0, /* ........##...... */
+#endif
 };
 
 const font_t FONT_ICONS = {
-    font_icons_data, 0, 16u, 16u, 17u, 1u, 3u, FONT_NO_GLYPH, FONT_ROWS
+    font_icons_data, 0, 16u, 16u, 17u, 1u,
+    (uint8_t)(sizeof(font_icons_data) / 32u), FONT_NO_GLYPH, FONT_ROWS
 };

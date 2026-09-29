@@ -226,28 +226,18 @@ static uint8_t cfg_safety(app_state_t *st, const char *args)
     return 0u;
 }
 
-/* AT+CFG=H,en,pct,stab,delay,air,snd */
+/* AT+CFG=H,delay,air — el primer escalón es la rampa 1, no un % aparte. */
 static uint8_t cfg_heat(app_state_t *st, const char *args)
 {
     const char *p = args;
-    uint16_t en, pct, stab, dly, air, snd;
+    uint16_t dly, air;
 
-    if (take_u(&p, &en, 0u) || take_u(&p, &pct, 0u) || take_u(&p, &stab, 0u)
-        || take_u(&p, &dly, 0u) || take_u(&p, &air, 0u) || take_u(&p, &snd, 1u))
+    if (take_u(&p, &dly, 0u) || take_u(&p, &air, 1u))
         return 1u;
-    if (bit01(en) || bit01(air) || bit01(snd))
+    if (bit01(air) || dly > DELAY_MAX_S)
         return 1u;
-    if (pct < PREHEAT_PCT_LO || pct > PREHEAT_PCT_HI
-        || (pct % PREHEAT_PCT_STEP) != 0u)
-        return 1u;
-    if (stab < 1u || stab > 3600u || dly > 3600u)
-        return 1u;
-    st->preheat_en = (uint8_t)en;
-    st->preheat_pct = (uint8_t)pct;
-    st->stabilize_s = stab;
-    st->delay_s = dly;
+    delay_apply_s(st, dly);
     st->cooldown_air_en = (uint8_t)air;
-    st->buzz_nav_en = (uint8_t)snd;
     st->program = PROG_HEAT;
     cfg_save_global(st);
     cfg_save_program(st, PROG_HEAT);
@@ -273,19 +263,18 @@ static uint8_t cfg_band(app_state_t *st, const char *args)
     return 0u;
 }
 
-/* AT+CFG=P,kp,ki,kd  (×10, 0..999); kd se guarda, el lazo usa PI+lookahead */
+/* AT+CFG=P,kp,ki  (×10, 0..999); el lazo es PI + lookahead (sin D) */
 static uint8_t cfg_pid(app_state_t *st, const char *args)
 {
     const char *p = args;
-    uint16_t kp, ki, kd;
+    uint16_t kp, ki;
 
-    if (take_u(&p, &kp, 0u) || take_u(&p, &ki, 0u) || take_u(&p, &kd, 1u))
+    if (take_u(&p, &kp, 0u) || take_u(&p, &ki, 1u))
         return 1u;
-    if (kp > 999u || ki > 999u || kd > 999u)
+    if (kp > 999u || ki > 999u)
         return 1u;
     st->pid_kp_x10 = (int16_t)kp;
     st->pid_ki_x10 = (int16_t)ki;
-    st->pid_kd_x10 = (int16_t)kd;
     cfg_save_global(st);
     ok_dirty(st);
     return 0u;
@@ -371,16 +360,6 @@ static uint8_t handle_cfg(app_state_t *st, const char *args)
     if (!args || !args[0])
         return 1u;
     g = args[0];
-    if (g == 'A') {
-        if (args[1] != '\0')
-            return 1u;
-        if (st->atune_phase != ATUNE_DONE)
-            return 1u;
-        pid_atune_apply(st);
-        cfg_save_global(st);
-        ok_dirty(st);
-        return 0u;
-    }
     /* AT+CFG=R? — lectura de escalones (args "R?", sin coma). */
     if (g == 'R' && args[1] == '?' && args[2] == '\0') {
         telemetry_emit_ramps(st);

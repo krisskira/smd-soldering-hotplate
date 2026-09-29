@@ -5,7 +5,7 @@ Documento vivo: **actualizar la columna de coste tras cada `make size`** (o al m
 Complementa: [product_features.md](product_features.md) · [program_flows.md](program_flows.md) · [architecture.md](architecture.md) · [usb-automation.md](usb-automation.md) · [ui_style_guide.md](ui_style_guide.md) · [pid_control.md](pid_control.md) (C6/C7).
 
 **MCU:** ATmega16 · Flash **16384 B** · Medición: `cd firmware/avr && make size`  
-**Última medición de referencia:** Program **16374 B** (99,9 %) · Data **271 B** · EEPROM **62 B** (2026-09-29).
+**Última medición de referencia:** Program **15696 B** (95,8 %) · Data **283 B** · EEPROM **62 B** (2026-09-29).
 
 ---
 
@@ -32,7 +32,15 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 
 | Fecha | Program (B) | Libre | Notas |
 |-------|-------------|-------|-------|
-| 2026-09-29 | 16374 | ~10 | Sin `FONT_ICONS` ni `FONT_5X7_X2` enlazados (regresión UI). `SND`/`RN`/`KD` fuera de `$CF`. |
+| 2026-09-29 | 16374 | 10 | Sin `FONT_ICONS` ni `FONT_5X7_X2` enlazados (regresión UI). `SND`/`RN`/`KD` fuera de `$CF`. |
+| 2026-09-29 | 16588 | −204 | Paso intermedio: S2+S3 re-enlazados sin optimizar (**+214 B**). No cabe |
+| 2026-09-29 | 16326 | 58 | + Fase A: F2/U5/U7 fuera (`buzz_nav_*`, `snd`, `kd` de estado/AT/cfg; API buzzer sin `st`) **−262 B** |
+| 2026-09-29 | 16128 | 256 | + Fase B: D1 blit de glifos con buffer de bytes y un solo camino COLS/ROWS **−198 B** |
+| 2026-09-29 | 16096 | 288 | Icono USB fuera de `FONT_ICONS` (−32 B) y `pid_atune_result` sin kd. Data 289 B. UI aprobada enlazada |
+| 2026-09-29 | 16044 | 340 | Pitido de navegación, de arranque, de parada y de salida USB eliminados **−52 B** |
+| 2026-09-29 | 15024 | 1360 | Fuera la fase al % de la rampa 1 y `AT+CFG=A` (el autotune escribe Kp/Ki al terminar). Data 286 B **−1020 B** |
+| 2026-09-29 | 15536 | 848 | Reloj DLY `hh:mm` (tope 12:00). Base de este cambio de HotPanel. Data 283 B |
+| 2026-09-29 | **15696** | **688** | Setup: 2 px bajo el header y 1 px entre filas. Heat: `°C` en la consigna de rampa y `mm:ss` transcurrido. **+160 B**. Data 283 B |
 
 ---
 
@@ -46,25 +54,25 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | C4 | **PREHEAT** (fase, no programa AT) | CORE | % de Ramp1; meseta + histéresis; overheat timeout | Ajustar defaults; no eliminar fase | `preheat_en`/`pct`/`stabilize`/`BN`/`BX` | Parte de C3 |
 | C5 | **Rampas** (dato EEPROM, approach + meseta `hold_s`) | CORE | Approach PI controlado; `hold_s` solo en HOLD; no decrecientes | Menos escalones en UI no reduce flash de lógica | 4 huecos + `$R` | Parte de C3 + `CFG=R` |
 | C6 | **PI predictivo** (`t_ref` + lookahead, anti-windup) | CORE | Duty → SSR; Kd lazo = 0; `pid_on_set_step` entre SET | Tunear RISE/LOOKAHEAD compile-time; no quitar gobernador | Precisión sin overshoot grave | `pid.c` ~3 KB fuente · **medir .text** |
-| C7 | **Autotune** (`PID_TUNE`, solo AT) | CORE (USB) | Solo `AT+RUN=2`; apply `CFG=A`; no lanzar desde Settings LCD | Compactar Z–N; no quitar apply | Stream `$HP` AP/AC/AK/AI | `pid_atune.c` · **medir** |
+| C7 | **Autotune** (`PID_TUNE`, solo AT) | CORE (USB) | Solo `AT+RUN=2`; al terminar copia Kp/Ki; no lanzar desde Settings LCD | Compactar Z–N; no quitar el copiado a EEPROM | Mismos campos `AP/AC/AK/AI` en el `$HP` de sesión, sin segunda trama | `pid_atune.c` · **medir** |
 | C8 | **Safety / overtemp / sensor fault** | CORE | PTC OFF; `ERROR:7` / FAULT | Sin minify funcional | Mantener | `safety` + hooks · **medir** |
 | C9 | **Alarmas de proceso** (`ALARM:2`, beeps READY/FAULT) | CORE | Fin HEAT → alarma; cancel UI ≠ ALARM USB | Fijar reps; no quitar ALARM:2 | Mantener beeps de **proceso** | `buzzer_seq` · **medir** |
-| S1 | **Home Heat \| Settings** (2 casillas, overlays) | SHELL | Nunca vistas USB/Settings aparte; dirty rows; i18n | Compactar `home_view` sin cambiar layout | Layout [ui_style_guide](ui_style_guide.md) | `home_view` · **medir** |
-| S2 | **Iconos sidebar 16×16** (`FONT_ICONS`) | SHELL / **APROBADO** | Contrato visual; no sustituir por letra si hay margen | Comprimir glifos; 2 iconos | **Enlazado** Heat/CFG (+ USB si cabe) | Δ restaurar ~**130–200 B** (hist.) · **hoy NO enlazado (regresión)** |
-| S3 | **Temperatura FONT_5X7_X2** | SHELL / **APROBADO** | Temp legible centrada con `°C` | Mantener X2; no bajar a 1× salvo emergencia documentada | **X2 en Heat/USB** | Δ restaurar ~**150–180 B** · **hoy 1× (regresión)** |
+| S1 | **Home Heat \| Settings** (2 casillas, overlays) | SHELL | Nunca vistas USB/Settings aparte; dirty rows; i18n | Compactar `home_view` sin cambiar layout | Layout [ui_style_guide](ui_style_guide.md) | Aire de Setup + `°C` de rampa + transcurrido **+160 B** (15536 → 15696) |
+| S2 | **Iconos sidebar 16×16** (`FONT_ICONS`) | SHELL / **APROBADO** | Contrato visual; no sustituir por letra si hay margen | Comprimir glifos; 2 iconos | **Enlazado** Heat/CFG (+ USB si cabe) | S2+S3 juntos **+214 B** medido · **enlazado** Heat/CFG + separador x=31; USB solo con `-DFONT_ICONS_USB` (+32 B) |
+| S3 | **Temperatura FONT_5X7_X2** | SHELL / **APROBADO** | Temp legible centrada con `°C` | Mantener X2; no bajar a 1× salvo emergencia documentada | **X2 en Heat/USB** | Incluido en los +214 B de S2 · **enlazado** (temp + título USB) |
 | S4 | **i18n CAPS** (fases / footer) | SHELL | Textos vía `i18n_tr_hash` | Strings más cortos | Labels actuales | Pequeño · **medir** |
 | U1 | **Sesión USB** (`AT+MODE`, mutex manual) | CORE-IF | USB y MANUAL no activos a la vez | — | Mantener | `device_session` + AT · **medir** |
-| U2 | **Telemetría `$HP`** (T, fase A, SET, DU, RI, …) | CORE-IF | Suficiente para la gráfica de HotPlate Studio (fases HEAT/autotune) | Quitar campos raros; no quitar A/SET/DU/RI | Chart fases + potencia | `telemetry` · **medir** |
-| U3 | **`$CF` / `$R`** | CFG | Lectura bajo demanda | Omitir campos redundantes (`KD`/`SND`/`RN` ya omitidos) | BN/BX/PH/PCT/SB/S/P/AMS + `$R` | Ya minificado parcial |
+| U2 | **Telemetría `$HP`** (T, fase A, SET, DU, RI, …) | CORE-IF | Una trama. Hoy 1 Hz solo en autotune USB. Contrato: 1 Hz en toda la sesión USB a 19200, enriquecida en autotune. No tres formateadores | Quitar campos raros; no quitar A/SET/DU/RI | Chart fases + potencia. El empuje de sesión reutiliza este `$HP` (flash ~0; **medir** al enlazarlo) | `telemetry` · **medir** |
+| U3 | **`$CF` / `$R`** | CFG | Lectura bajo demanda | `KD`/`SND` ya no existen; `RN` omitido | BN/BX/PH/PCT/SB/S/P/AMS + `$R` | Ya minificado parcial |
 | U4 | **`AT+CFG=S`** límites | CFG | min≤max, rangos producto | — | Mantener | Bajo |
-| U5 | **`AT+CFG=H`** flujo HEAT | CFG | en/pct/stab/delay/air/(snd) | **Quitar `snd`** del comando (feature descartada) | H sin sonido nav | Ahorro esperado **~20–40 B** + HotPlate Studio · **medir** |
+| U5 | **`AT+CFG=H`** flujo HEAT | CFG | delay 0…43200 s (se guarda h+m), air | **Hecho:** `snd` fuera (6.º argumento → `ERROR:2`) | H sin sonido nav. Reloj hasta 12:00 | Incluido en la medición 15536 |
 | U6 | **`AT+CFG=B`** bandas | CFG | bn≤bx | Valorar fusionar en H si cabe línea AT | Mantener BN/BX | Bajo–medio |
-| U7 | **`AT+CFG=P`** PID | CFG | Kp/Ki (Kd=0) | Emitir solo Kp/Ki; no exigir Kd | Mantener P | Bajo |
-| U8 | **`AT+CFG=T` / `A` / `RUN=2`** | CFG | Solo USB | Compactar parse | Mantener | Medio |
+| U7 | **`AT+CFG=P`** PID | CFG | Kp/Ki | **Hecho:** `P,kp,ki`; `pid_kd_x10` eliminado del estado (EEPROM: bytes reservados) | Mantener P | Parte de los −262 B de la Fase A |
+| U8 | **`AT+CFG=T` / `RUN=2`** | CFG | Solo USB. No existe `CFG=A` | Compactar parse | Mantener | Medio |
 | U9 | **`AT+CFG=R` / `R?`** | CFG | Perfil no decreciente | — | Mantener | Medio |
 | F1 | **Flag `cooldown_air_en`** | CFG | Fan solo cooldown final | — | Mantener | Bajo |
-| F2 | **Flag `buzz_nav_en` / reps / `SND`** | OPT / **DESCARTAR de producto** | Beeps de proceso se quedan; nav no es feature | Quitar de `$CF`, CFG=H, ajustes de HotPlate Studio, EEPROM en próximo bump | **Fuera de lista de producto** | Ahorro **~30–80 B** + simplifica HotPlate Studio · **medir** |
-| D1 | **Driver ST7920** (draw/text/config) | SHELL-DRV | Home usa `draw_band` / GDRAM / clear | Eliminar API no usada: `draw_line/rect/progressbar`, lista diferida si no se usa | Solo API usada por Home | **Alto potencial** · **medir por símbolo** |
+| F2 | **Sonido de navegación** | OPT / **DESCARTADO** | Beeps de proceso y el pulso al guardar se quedan | **Hecho:** fuera de estado, `CFG=H`, HotPlate Studio y de HotPanel (cursor, RUN, STOP, EXIT). EEPROM v8 conserva los bytes como `rsv` | **Fuera** | Fase A −262 B; quitar las llamadas del panel **−52 B** |
+| D1 | **Driver ST7920** (draw/text/config) | SHELL-DRV | Home usa `draw_band` / GDRAM / clear | La API geométrica ya no se enlazaba (gc-sections). **Hecho:** blit con `uint8_t row[16]` y un solo `st7920_glyph_row` para COLS (1×/2×) y ROWS | Solo API usada por Home | **−198 B** medido. `draw_band` 342 B + `glyph_row` 268 B |
 | D2 | **MAX31865 + soft SPI** | CORE-DRV | Lectura válida para PID/safety | — | Mantener | Necesario |
 | D3 | **Fonts** `font5x7` (+ icons/X2 cuando restaurados) | SHELL | Guía UI | No reintroducir `font8x12` | 5×7 + icons + X2 | icons/X2 ver S2/S3 |
 
@@ -74,10 +82,10 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 
 | Prioridad | Acción | ¿Rompe core/UI aprobada? | Notas |
 |-----------|--------|---------------------------|-------|
-| P0 | Restaurar **S2 + S3** cuando haya margen | No — **recupera** UI aprobada | Objetivo de producto |
-| P1 | Recortar **ST7920** no usado (D1) | No | Mejor ROI vs quitar iconos |
-| P2 | Eliminar **F2** (sonido nav) de AT/EEPROM/HotPlate Studio | No (feature descartada) | Alinea producto |
-| P3 | Acortar **U5** (`snd` fuera de CFG=H) | No | Encaja con P2 |
+| ~~P0~~ | ~~Restaurar **S2 + S3**~~ | — | **Hecho** 2026-09-29 |
+| ~~P1~~ | ~~Recortar **ST7920** (D1)~~ | — | **Hecho** (−198 B) |
+| ~~P2~~ | ~~Eliminar **F2**~~ | — | **Hecho** |
+| ~~P3~~ | ~~Acortar **U5**~~ | — | **Hecho** |
 | P4 | Compactar parse AT / `$CF` redundante | No si se mantiene chart | Cuidado con HotPlate Studio |
 | P5 | Micro-opts PID/autotune (mismo comportamiento) | No si tests verdes | No “elegancia” cara |
 | **Prohibido** | Quitar iconos / temp X2 / HEAT / PI / safety para meter otra feature | Sí | Ya ocurrió; no repetir |
@@ -97,9 +105,12 @@ Historial breve de Δ conocidos (aprox., LTO):
 
 | Cambio | Δ Program (aprox.) |
 |--------|-------------------|
-| Quitar enlace `FONT_ICONS` | −130…200 B |
-| Quitar uso `FONT_5X7_X2` | −150…180 B |
+| Quitar enlace `FONT_ICONS` + uso `FONT_5X7_X2` (medido juntos, driver antiguo) | −214 B |
 | Quitar un `kv_u` de `$CF` | −15…25 B |
+| F2 + U5 + U7 (sonido nav, `snd`, `kd`) | −262 B |
+| D1 blit de glifos en bytes | −198 B |
+| Icono USB fuera de `FONT_ICONS` | −32 B |
+| Aire de Setup (2 px / 1 px) + `°C` en la fila de rampa + `mm:ss` transcurrido | +160 B |
 
 ---
 

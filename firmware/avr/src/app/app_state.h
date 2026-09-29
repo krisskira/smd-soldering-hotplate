@@ -48,7 +48,7 @@ typedef enum {
     DEVICE_USB
 } device_mode_t;
 
-/* Lanzables: HEAT=1, PID_TUNE=2. PREHEAT es fase de HEAT, no programa. */
+/* Lanzables: HEAT=1, PID_TUNE=2. La rampa 1 es el primer escalón. */
 typedef enum {
     PROG_HEAT = 1,
     PROG_PID_TUNE = 2
@@ -94,15 +94,15 @@ typedef struct {
     int16_t         t_ref_x10;     /* referencia gobernada (°C·10) */
     uint16_t        t_remain_s;
     uint16_t        t_elapsed_s;
-    uint16_t        delay_s;       /* HEAT: 0 = inmediato */
+    uint8_t         delay_h;       /* HEAT configurado: 0..12 h. 0:00 = inmediato */
+    uint8_t         delay_m;       /* 0..59 min; en 12 h queda en 0 */
+    uint8_t         dly_h;         /* cuenta atrás PH_DELAY (no se guarda) */
+    uint8_t         dly_m;
+    uint8_t         dly_s;         /* segundos ya corridos dentro del minuto mostrado */
     uint8_t         duty_pct;
-    uint8_t         preheat_en;    /* 0 = HEAT salta PREHEAT→STABILIZE */
-    uint8_t         preheat_pct;   /* 50..100, tope = pct% de T(Ramp1) */
-    uint8_t         preheat_band_c;      /* ±°C entrar STABILIZE/HOLD */
-    uint8_t         preheat_band_exit_c; /* ±°C salir STABILIZE (histéresis) */
+    uint8_t         preheat_band_c;      /* ±°C para entrar en la meseta de una rampa */
+    uint8_t         preheat_band_exit_c; /* guardado; la meseta ya no se aborta por banda */
     uint8_t         ramps_en;
-    uint16_t        stabilize_s;
-    uint16_t        stabilize_left;
 
     uint8_t         ramp_n;
     uint8_t         ramp_idx;
@@ -121,7 +121,6 @@ typedef struct {
 
     int16_t    pid_kp_x10;
     int16_t    pid_ki_x10;
-    int16_t    pid_kd_x10;     /* guardado AT/EEPROM; lazo usa PI + lookahead */
     pid_loop_t pid_loop;
 
     atune_phase_t atune_phase;
@@ -133,8 +132,6 @@ typedef struct {
     uint16_t      atune_elapsed_s;
     uint8_t       atune_stream;    /* 1 = $HP a 1 Hz con campos de atune */
 
-    uint8_t    buzz_nav_en;
-    uint8_t    buzz_nav_reps;
     uint8_t    usb_last_ok;
     ctrl_src_t ctrl_src;
 } app_state_t;

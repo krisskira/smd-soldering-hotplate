@@ -1,5 +1,6 @@
 #include "telemetry.h"
 #include "process.h"
+#include "cfg_store.h"
 #include "pid_atune.h"
 #include "proto_codes.h"
 #include "proto_tokens.h"
@@ -61,7 +62,7 @@ void telemetry_emit(const app_state_t *st)
     kv_u(PSTR(",P="), (uint16_t)st->program);
     kv_u(PSTR(",A="), act);
     kv_u(PSTR(",SET="), st->t_set_c);
-    kv_u(PSTR(",DLY="), st->delay_s);
+    kv_u(PSTR(",DLY="), delay_cfg_s(st));
     kv_u(PSTR(",RUN="), st->t_remain_s);
     kv_u(PSTR(",EL="), st->t_elapsed_s);
     kv_u(PSTR(",DU="), st->duty_pct);
@@ -70,8 +71,8 @@ void telemetry_emit(const app_state_t *st)
     kv_b(PSTR(",FL="),
          (uint8_t)(st->phase == PH_FAULT || st->sensor.fault));
     if (st->atune_stream) {
-        int16_t kp, ki, kd;
-        pid_atune_result(&kp, &ki, &kd);
+        int16_t kp, ki;
+        pid_atune_result(&kp, &ki);
         kv_u(PSTR(",AP="), (uint16_t)st->atune_phase);
         kv_u(PSTR(",AC="), st->atune_cycles);
         kv_i(PSTR(",AK="), kp);
@@ -90,13 +91,9 @@ void telemetry_emit_cfg(const app_state_t *st)
     kv_u(PSTR(",MX="), st->temp_max_c);
     kv_i(PSTR(",KP="), st->pid_kp_x10);
     kv_i(PSTR(",KI="), st->pid_ki_x10);
-    /* Kd compile/autotune = 0; no emitir (flash). */
-    kv_u(PSTR(",PH="), st->preheat_en);
-    kv_u(PSTR(",PCT="), st->preheat_pct);
-    kv_u(PSTR(",SB="), st->stabilize_s);
     kv_u(PSTR(",BN="), st->preheat_band_c);
     kv_u(PSTR(",BX="), st->preheat_band_exit_c);
-    kv_u(PSTR(",DLY="), st->delay_s);
+    kv_u(PSTR(",DLY="), delay_cfg_s(st));
     kv_u(PSTR(",AIR="), st->cooldown_air_en);
     kv_u(PSTR(",AMS="), st->atune_max_s);
     avr_uart_transmit_pstr(PROTO_CRLF);

@@ -55,26 +55,32 @@
 #define SET_IDX_RAMP3     3u
 #define SET_IDX_DELAY     4u
 #define SET_VIS_ROWS      5u
-#define SET_HDR_H         11u  /* 2 px + glifo 7 + 2 px; "SETTINGS" invertido */
-#define SET_ROW_Y0        11u
-#define SET_ROW_H         8u   /* 11 + 5×8 = 51; pie en y=54 */
+#define SET_HDR_H         11u  /* 2 px + glifo 7 + 2 px; "SETUP" invertido */
+#define SET_HDR_GAP       2u   /* aire bajo el header, fuera de la banda invertida */
+#define SET_ROW_Y0        (SET_HDR_H + SET_HDR_GAP) /* 13 */
+#define SET_ROW_H         7u   /* glifo 5×7; el hueco no entra en el inverso */
+#define SET_ROW_PAD       1u   /* separación entre opciones */
+#define SET_ROW_STEP      (SET_ROW_H + SET_ROW_PAD) /* 8; 13+4×8+7 = 52 < pie 54 */
 
 #define SET_RAMPS_COUNT   RAMP_STEPS_MAX
 #define SET_EDIT_NONE     0u
 #define SET_EDIT_TEMP     1u
 #define SET_EDIT_TIME     2u
-#define SET_EDIT_DELAY    3u
+#define SET_EDIT_DELAY_H  3u  /* reloj DLY: horas */
+#define SET_EDIT_DELAY_M  4u  /* reloj DLY: minutos */
 #define RAMP_TEMP_STEP_C  5u
-#define START_DELAY_MIN_S 0u
-#define START_DELAY_MAX_S TIMER_MAX_S
-#define START_DELAY_STEP_S 60u
+/* Retraso de HEAT: 00:00 … 12:00. En RAM/EEPROM son hora + minuto, no un contador de segundos. */
+#define DELAY_H_MAX       12u
+#define DELAY_M_MAX       59u
+#define DELAY_MAX_S       (DELAY_H_MAX * 3600u) /* 43200; solo en la trama AT */
+/* cfg_p2_t.flags bit0: b = (hora<<8)|minuto. Sin el bit, b es el retraso antiguo en segundos. */
+#define CFG_HEAT_DLY_HM   0x01u
 
 #define USB_SEL_COUNT     2u
 
 #define PID_WINDOW_MS     1500u
-#define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,0 */
+#define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10 */
 #define PID_KI_DEFAULT    10
-#define PID_KD_DEFAULT    0    /* autotune PI; D no se usa en el lazo */
 /* Pendiente máx. de t_ref (°C/s ×10) y horizonte de cola (s); compile-time */
 #define RISE_C_X10_DEFAULT    12u   /* 1.2 °C/s (muestra 1 s) */
 #define LOOKAHEAD_S_DEFAULT   15  /* ~18 °C cola @ 1.2 °C/s */

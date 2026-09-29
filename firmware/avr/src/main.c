@@ -47,7 +47,6 @@ int main(void)
     sensor_init();
     process_init(&g_state);
     cfg_load_global(&g_state);
-    buzzer_seq_bind(&g_state);
     at_cmd_init();
     s_prev_phase = PH_IDLE;
     s_prev_atune = ATUNE_IDLE;
@@ -99,7 +98,7 @@ int main(void)
                     ui_router_on_sensor_update(&g_state);
 
                     if (g_state.phase == PH_DONE && s_prev_phase != PH_DONE)
-                        buzzer_seq_beep_cat(&g_state, BEEP_READY, 2);
+                        buzzer_seq_beep_cat(BEEP_READY, 2);
                     if (g_state.atune_stream && device_session_is_usb(&g_state)
                         && (pid_atune_active(&g_state)
                             || g_state.atune_phase != s_prev_atune))

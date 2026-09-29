@@ -9,15 +9,11 @@
 void st7920_set_gdram(uint8_t x, uint8_t y);
 void st7920_write_gdram(uint8_t x, uint8_t y, uint8_t left, uint8_t right);
 void st7920_clear_gdram(void);
-void st7920_clear_gdram_buffer(void);
 
-/* Render por filas: añade un píxel al buffer de fila (solo x; y implícita) */
-void st7920_row_set_pixel(uint16_t *row_buf, uint8_t x);
-void st7920_row_clear_pixel(uint16_t *row_buf, uint8_t x);
-
-/* Fuentes de lib/fonts (st7920_text.c). ty = fila superior del glifo;
- * clear=1 borra píxeles (texto invertido sobre fondo ON). */
-void st7920_glyph_row(uint16_t *row_buf, uint8_t row_y, const font_t *f,
+/* Fuentes de lib/fonts (st7920_text.c). row_buf = 16 bytes (x 0..127,
+ * MSB = izquierda). ty = fila superior del glifo; clear=1 borra píxeles
+ * (texto invertido sobre fondo ON). */
+void st7920_glyph_row(uint8_t *row_buf, uint8_t row_y, const font_t *f,
                       uint8_t glyph, uint8_t tx, uint8_t ty, uint8_t clear);
 
 #endif

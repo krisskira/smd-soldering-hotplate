@@ -155,6 +155,13 @@ _PHASE_COLORS = (
     "#7b241c",
 )
 _MARK_FONT = 10
+_EVENT_LIMIT = 300
+
+
+def _phase_color(name: str) -> str:
+    """Color estable por nombre, independiente del orden o del zoom."""
+    idx = sum(name.encode("utf-8")) % len(_PHASE_COLORS)
+    return _PHASE_COLORS[idx]
 
 
 class LiveChart:
@@ -178,11 +185,15 @@ class LiveChart:
         from matplotlib.lines import Line2D
 
         self._y_max: Optional[float] = None
+        self._auto_y_top = 100.0
+        self._user_ylim: Optional[tuple[float, float]] = None
         self._x_locked = bool(x_locked)
         self._x_span_s = max(float(x_span_s), 1.0)
         self._user_xlim: Optional[tuple[float, float]] = None
         self._applying_xlim = False
+        self._applying_ylim = False
         self._overlay_artists: list = []
+        self._event_signature: tuple = ()
         self._frame = ttk.LabelFrame(parent, text=title)
         self._frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
@@ -207,6 +218,9 @@ class LiveChart:
             ttk.Button(hdr, text="Limpiar gráfico", command=on_clear).pack(
                 side=tk.RIGHT, padx=(4, 0)
             )
+        ttk.Button(hdr, text="Restablecer zoom", command=self.reset_view).pack(
+            side=tk.RIGHT, padx=(4, 0)
+        )
         if on_export is not None:
             ttk.Button(hdr, text="Exportar CSV", command=on_export).pack(
                 side=tk.RIGHT, padx=(4, 0)
@@ -231,6 +245,7 @@ class LiveChart:
         self.ax.set_xlim(0, self._x_span_s)
         self._apply_x_measures()
         self.ax.callbacks.connect("xlim_changed", self._on_xlim_changed)
+        self.ax.callbacks.connect("ylim_changed", self._on_ylim_changed)
         self.ax.grid(True, which="major", linestyle="-", linewidth=0.6, alpha=0.35)
         self.ax.minorticks_on()
         self.ax.grid(True, which="minor", linestyle=":", linewidth=0.4, alpha=0.2)
@@ -309,14 +324,6 @@ class LiveChart:
             markersize=8,
             label="Cresta (máximo)",
         )
-        self._mark_phase = Line2D(
-            [],
-            [],
-            linestyle="--",
-            color=cc["phase"],
-            linewidth=1.6,
-            label="Inicio de fase",
-        )
         self._handles = [
             self.line_t,
             self.line_set,
@@ -326,7 +333,6 @@ class LiveChart:
             self._mark_peak,
             self._mark_on,
             self._mark_off,
-            self._mark_phase,
         ]
         self.fig.legend(
             self._handles,
@@ -340,13 +346,39 @@ class LiveChart:
             labelspacing=0.45,
             columnspacing=1.4,
             handletextpad=0.5,
-            bbox_to_anchor=(0.5, 0.0),
+            bbox_to_anchor=(0.5, 0.015),
         )
-        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.40)
-        self.axp = self.fig.add_axes([0.08, 0.205, 0.84, 0.075])
-        self._reset_phase_axis()
+        self.fig.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.25)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        events = ttk.LabelFrame(self._frame, text="Consola de fases y eventos")
+        events.pack(fill=tk.X, padx=4, pady=(0, 4))
+        self.event_log = ttk.Treeview(
+            events,
+            columns=("time", "duration", "event"),
+            show="headings",
+            height=5,
+            selectmode="browse",
+        )
+        self.event_log.heading("time", text="Tiempo")
+        self.event_log.heading("duration", text="Duración")
+        self.event_log.heading("event", text="Evento / fase")
+        self.event_log.column("time", width=90, minwidth=70, anchor=tk.E, stretch=False)
+        self.event_log.column(
+            "duration", width=90, minwidth=70, anchor=tk.E, stretch=False
+        )
+        self.event_log.column("event", width=520, minwidth=220, anchor=tk.W)
+        scroll = ttk.Scrollbar(events, orient=tk.VERTICAL, command=self.event_log.yview)
+        self.event_log.configure(yscrollcommand=scroll.set)
+        self.event_log.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.event_log.tag_configure("phase", foreground=cc["phase"])
+        self.event_log.tag_configure("up", foreground=cc["mark_up"])
+        self.event_log.tag_configure("down", foreground=cc["mark_down"])
+        self.event_log.tag_configure("on", foreground=cc["mark_on"])
+        self.event_log.tag_configure("off", foreground=cc["mark_off"])
+        self.event_log.tag_configure("peak", foreground=cc["mark_peak"])
         try:
             from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
@@ -372,7 +404,12 @@ class LiveChart:
         self._mark_on.set_color(cc["mark_on"])
         self._mark_off.set_color(cc["mark_off"])
         self._mark_peak.set_color(cc["mark_peak"])
-        self._mark_phase.set_color(cc["phase"])
+        self.event_log.tag_configure("phase", foreground=cc["phase"])
+        self.event_log.tag_configure("up", foreground=cc["mark_up"])
+        self.event_log.tag_configure("down", foreground=cc["mark_down"])
+        self.event_log.tag_configure("on", foreground=cc["mark_on"])
+        self.event_log.tag_configure("off", foreground=cc["mark_off"])
+        self.event_log.tag_configure("peak", foreground=cc["mark_peak"])
         self.canvas.draw_idle()
 
     def _on_xlim_changed(self, _ax) -> None:
@@ -380,15 +417,26 @@ class LiveChart:
             return
         x0, x1 = self.ax.get_xlim()
         self._user_xlim = (float(x0), float(x1))
-        self._sync_phase_xlim()
 
     def _set_xlim_safe(self, x0: float, x1: float) -> None:
         self._applying_xlim = True
         try:
             self.ax.set_xlim(x0, x1)
-            self._sync_phase_xlim()
         finally:
             self._applying_xlim = False
+
+    def _on_ylim_changed(self, _ax) -> None:
+        if self._applying_ylim:
+            return
+        y0, y1 = self.ax.get_ylim()
+        self._user_ylim = (float(y0), float(y1))
+
+    def _set_ylim_safe(self, y0: float, y1: float) -> None:
+        self._applying_ylim = True
+        try:
+            self.ax.set_ylim(y0, y1)
+        finally:
+            self._applying_ylim = False
 
     def _apply_x_measures(self) -> None:
         # Origen fijo en t=0 del proceso; zoom del usuario se respeta en redraw.
@@ -398,7 +446,6 @@ class LiveChart:
         else:
             span = max(self._user_xlim[1] - self._user_xlim[0], 1.0)
         self._apply_x_locator(span)
-        self._sync_phase_xlim()
 
     def set_x_span(self, span_s: float) -> None:
         """Fija el tramo base del eje X (y bloquea el techo si se llama desde tune)."""
@@ -427,22 +474,10 @@ class LiveChart:
 
     def set_y_max(self, y_max: float) -> None:
         self._y_max = max(float(y_max), 1.0)
-        self.ax.set_ylim(0, self._y_max)
+        if self._user_ylim is None:
+            self._auto_y_top = max(self._auto_y_top, self._y_max)
+            self._set_ylim_safe(0, self._auto_y_top)
         self.canvas.draw_idle()
-
-    def _reset_phase_axis(self) -> None:
-        self.axp.cla()
-        self.axp.set_ylim(0, 1)
-        self.axp.set_yticks([])
-        self.axp.tick_params(axis="x", labelbottom=False, length=0)
-        self.axp.set_xlim(self.ax.get_xlim())
-        for spine in self.axp.spines.values():
-            spine.set_visible(False)
-        self.axp.set_facecolor("#f4f6f7")
-
-    def _sync_phase_xlim(self) -> None:
-        if hasattr(self, "axp"):
-            self.axp.set_xlim(self.ax.get_xlim())
 
     def _clear_overlays(self) -> None:
         for coll in list(self.ax.collections):
@@ -453,8 +488,56 @@ class LiveChart:
             except Exception:
                 pass
         self._overlay_artists.clear()
-        if hasattr(self, "axp"):
-            self._reset_phase_axis()
+
+    @staticmethod
+    def _fmt_time(value: float) -> str:
+        sec = max(int(round(value)), 0)
+        return f"{sec // 60:02d}:{sec % 60:02d}"
+
+    def _update_event_console(
+        self,
+        crosses: Sequence[Tuple[float, float, str]],
+        edges: Sequence[Tuple[float, str]],
+        crests: Sequence[Tuple[float, float]],
+        spans: Sequence[Tuple[float, float, str]],
+    ) -> None:
+        rows: list[tuple[float, float, str, str]] = []
+        for t0, t1, name in spans:
+            tag = f"phase:{name}"
+            self.event_log.tag_configure(tag, foreground=_phase_color(name))
+            rows.append((t0, max(t1 - t0, 0.0), f"Fase: {name}", tag))
+        for t, _y, kind in crosses:
+            arrow = "↑" if kind == "up" else "↓"
+            rows.append((t, 0.0, f"Cruce T {arrow} SET", kind))
+        for t, kind in edges:
+            rows.append((t, 0.0, f"Calentador {kind.upper()}", kind))
+        for t, temp in crests:
+            rows.append((t, 0.0, f"Cresta: {temp:.1f} °C", "peak"))
+        rows.sort(key=lambda row: (row[0], row[2]))
+        rows = rows[-_EVENT_LIMIT:]
+        signature = tuple(
+            (round(t, 1), round(duration, 1), text, tag)
+            for t, duration, text, tag in rows
+        )
+        if signature == self._event_signature:
+            return
+        self._event_signature = signature
+        for item in self.event_log.get_children():
+            self.event_log.delete(item)
+        for t, duration, text, tag in rows:
+            self.event_log.insert(
+                "",
+                tk.END,
+                values=(
+                    self._fmt_time(t),
+                    self._fmt_time(duration) if duration > 0 else "—",
+                    text,
+                ),
+                tags=(tag,),
+            )
+        children = self.event_log.get_children()
+        if children:
+            self.event_log.see(children[-1])
 
     def _draw_event_markers(
         self,
@@ -495,20 +578,6 @@ class LiveChart:
             )
             self._overlay_artists.append(sc)
 
-        if len(crosses) <= 28:
-            for t, y, _k in crosses:
-                txt = self.ax.annotate(
-                    f"{t:.0f}s",
-                    xy=(t, y),
-                    xytext=(0, 10),
-                    textcoords="offset points",
-                    fontsize=_MARK_FONT,
-                    color="#2c3e50",
-                    ha="center",
-                    zorder=6,
-                )
-                self._overlay_artists.append(txt)
-
         if crests:
             sc = self.ax.scatter(
                 [p[0] for p in crests],
@@ -522,29 +591,10 @@ class LiveChart:
                 label="_nolegend_",
             )
             self._overlay_artists.append(sc)
-            for t, y in crests:
-                txt = self.ax.annotate(
-                    f"{y:.1f}°C  {t:.0f}s",
-                    xy=(t, y),
-                    xytext=(5, 6),
-                    textcoords="offset points",
-                    rotation=90,
-                    fontsize=_MARK_FONT,
-                    color=cc["mark_peak"],
-                    ha="left",
-                    va="bottom",
-                    zorder=7,
-                    clip_on=True,
-                )
-                self._overlay_artists.append(txt)
 
         y_lo, y_hi = self.ax.get_ylim()
-        x_span = max(self.ax.get_xlim()[1] - self.ax.get_xlim()[0], 1.0)
-        label_gap = max(x_span * 0.012, 4.0)
-        last_edge_label: Optional[float] = None
         for t, kind in edges:
             color = cc["mark_on"] if kind == "on" else cc["mark_off"]
-            word = "ON" if kind == "on" else "OFF"
             ln = self.ax.axvline(
                 t, color=color, alpha=0.55, linewidth=1.15, zorder=2
             )
@@ -560,44 +610,9 @@ class LiveChart:
                 zorder=5,
             )
             self._overlay_artists.extend(mk)
-            if last_edge_label is not None and (t - last_edge_label) < label_gap:
-                continue
-            last_edge_label = t
-            near_left = t <= x_span * 0.02
-            txt = self.ax.annotate(
-                f"{word} {t:.0f}s",
-                xy=(t, y_lo),
-                xytext=(8 if near_left else 0, 6),
-                textcoords="offset points",
-                rotation=90,
-                fontsize=_MARK_FONT,
-                color=color,
-                ha="left" if near_left else "center",
-                va="bottom",
-                zorder=7,
-                clip_on=True,
-            )
-            self._overlay_artists.append(txt)
 
-        x0, x1 = self.ax.get_xlim()
-        self._reset_phase_axis()
-        dpi = float(self.fig.dpi)
-        px = max(self.fig.get_figwidth() * dpi * 0.84, 1.0)
-        sec_per_px = max(x1 - x0, 1.0) / px
-        char_px = _MARK_FONT * (dpi / 72.0) * 0.62
-        for i, (t0, t1, name) in enumerate(spans):
-            color = _PHASE_COLORS[i % len(_PHASE_COLORS)]
-            t_end = t1 if t1 > t0 else t0 + max(x1 - x0, 1.0) * 0.008
-            bars = self.axp.barh(
-                0.5,
-                t_end - t0,
-                left=t0,
-                height=0.92,
-                color=color,
-                align="center",
-                zorder=2,
-            )
-            rect = bars.patches[0]
+        for t0, _t1, name in spans:
+            color = _phase_color(name)
             ln = self.ax.axvline(
                 t0,
                 color=color,
@@ -607,49 +622,7 @@ class LiveChart:
                 zorder=3,
             )
             self._overlay_artists.append(ln)
-            width_s = t_end - t0
-
-            def _fits(text: str) -> bool:
-                return len(text) * char_px * sec_per_px <= width_s * 0.92
-
-            full = f"{name}  {t0:.0f}s"
-            bar_px = width_s / sec_per_px
-            if _fits(full):
-                shown = full
-            elif bar_px >= 36:
-                shown = name
-            else:
-                shown = ""
-            if shown:
-                txt = self.axp.text(
-                    t0 + width_s / 2.0,
-                    0.5,
-                    shown,
-                    ha="center",
-                    va="center",
-                    color="white",
-                    fontsize=_MARK_FONT,
-                    zorder=3,
-                )
-                txt.set_clip_path(rect)
-            # Etiqueta en el eje principal: visible aunque la barra sea corta.
-            if t0 >= x0 and t0 <= x1:
-                tag = self.ax.annotate(
-                    name,
-                    xy=(t0, y_hi),
-                    xytext=(3, -12),
-                    textcoords="offset points",
-                    fontsize=_MARK_FONT,
-                    color=color,
-                    ha="left",
-                    va="top",
-                    zorder=8,
-                    clip_on=True,
-                    fontweight="bold",
-                )
-                self._overlay_artists.append(tag)
-        self.axp.set_xlim(x0, x1)
-        self.axp.set_ylim(0, 1)
+        self._update_event_console(crosses, edges, crests, spans)
 
     def redraw(
         self,
@@ -671,11 +644,20 @@ class LiveChart:
 
         if y_max is not None:
             self._y_max = max(float(y_max), 1.0)
-        if self._y_max is not None:
-            self.ax.set_ylim(0, self._y_max)
+        if self._user_ylim is not None:
+            self._set_ylim_safe(self._user_ylim[0], self._user_ylim[1])
         else:
-            self.ax.relim()
-            self.ax.autoscale_view(scalex=False, scaley=True)
+            finite = [
+                float(v)
+                for v in list(ys) + list(sets)
+                if float(v) == float(v)
+            ]
+            observed = max(finite, default=1.0)
+            base = self._y_max if self._y_max is not None else 100.0
+            # El eje automático solo aumenta, en saltos redondos, y conserva y=0.
+            target = max(base, math.ceil((observed + 10.0) / 25.0) * 25.0)
+            self._auto_y_top = max(self._auto_y_top, target)
+            self._set_ylim_safe(0.0, self._auto_y_top)
 
         # Series en tiempo absoluto desde t=0. Zoom/pan del usuario se respeta;
         # si no hay zoom: techo fijo (locked) o crece desde 0 sin mover el origen.
@@ -700,14 +682,30 @@ class LiveChart:
         self._draw_event_markers(xs, ys, sets, dus, phases)
         self.canvas.draw_idle()
 
+    def reset_view(self) -> None:
+        """Sale del zoom manual y vuelve a ejes automáticos anclados en cero."""
+        self._user_xlim = None
+        self._user_ylim = None
+        self._apply_x_measures()
+        self._set_ylim_safe(0.0, self._auto_y_top)
+        self.canvas.draw_idle()
+
     def clear(self) -> None:
         self.line_t.set_data([], [])
         self.line_set.set_data([], [])
         self.line_du.set_data([], [])
         self._clear_overlays()
+        self._event_signature = ()
+        for item in self.event_log.get_children():
+            self.event_log.delete(item)
         self._user_xlim = None
+        self._user_ylim = None
         if self._y_max is not None:
-            self.ax.set_ylim(0, self._y_max)
+            self._auto_y_top = self._y_max
+            self._set_ylim_safe(0, self._auto_y_top)
+        else:
+            self._auto_y_top = 100.0
+            self._set_ylim_safe(0, self._auto_y_top)
         self._apply_x_measures()
         self.ax2.set_ylim(0, 110)
         self.var_phase.set("Fase: —")

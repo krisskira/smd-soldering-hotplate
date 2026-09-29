@@ -3,7 +3,7 @@
 
 /*
  * Fuentes en uso:
- *   UI_FONT_* → FONT_5X7 (X2/icons no enlazados: flash).
+ *   UI_FONT_* → FONT_5X7. home_view usa FONT_5X7_X2 / FONT_ICONS directo.
  * FONT_8X12 no se enlaza.
  */
 

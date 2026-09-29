@@ -38,7 +38,7 @@ const uint8_t font5x7_data[] PROGMEM = {
     0x01, 0x01, 0x7F, 0x01, 0x01,  /* 'T' */
     0x3F, 0x40, 0x40, 0x40, 0x3F,  /* 'U' */
     0x3F, 0x40, 0x38, 0x40, 0x3F,  /* 'W' */
-    0x41, 0x22, 0x14, 0x22, 0x41,  /* 'X' */
+    0x63, 0x14, 0x08, 0x14, 0x63,  /* 'X' */
     0x03, 0x04, 0x78, 0x04, 0x03,  /* 'Y' */
 };
 
@@ -48,5 +48,10 @@ static const char font5x7_map[] PROGMEM =
 
 const font_t FONT_5X7 = {
     font5x7_data, font5x7_map, 5u, 7u, 6u, 0u, 0u, FONT_NO_GLYPH, FONT_COLS
+};
+
+/* Misma tabla a 2× (10×14): temperatura y título USB. */
+const font_t FONT_5X7_X2 = {
+    font5x7_data, font5x7_map, 10u, 14u, 12u, 0u, 0u, FONT_NO_GLYPH, FONT_COLS
 };
 

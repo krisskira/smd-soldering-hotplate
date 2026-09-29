@@ -26,7 +26,6 @@ static void st_init(app_state_t *st)
     st->t_set_c = 100;
     st->pid_kp_x10 = PID_KP_DEFAULT;
     st->pid_ki_x10 = PID_KI_DEFAULT;
-    st->pid_kd_x10 = 0;
     st->sensor.valid = 1;
     st->sensor.temp_c_x10 = 500; /* 50.0 °C */
     st->pid_loop = PID_AUTO;

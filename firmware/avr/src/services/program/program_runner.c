@@ -14,9 +14,6 @@
 #include <avr/pgmspace.h>
 
 static uint16_t s_last_sec;
-static prog_cb_t s_preheat_cb;
-/* 0 = sin cola. 1 = timeout vencido. >1 = segundos que faltan. */
-static uint8_t s_over_left;
 
 static void hold_enter(app_state_t *st)
 {
@@ -31,38 +28,6 @@ static void hold_leave(app_state_t *st)
     outputs_heaters_off(st->out_state);
 }
 
-static uint8_t preheat_active(const app_state_t *st)
-{
-    return (st && (st->phase == PH_PREHEAT || st->phase == PH_STABILIZE)) ? 1u : 0u;
-}
-
-static void preheat_fire(app_state_t *st, uint8_t result)
-{
-    prog_cb_t cb = s_preheat_cb;
-    s_preheat_cb = 0;
-    if (cb)
-        cb(st, result);
-}
-
-static void preheat_start(app_state_t *st, prog_cb_t cb)
-{
-    s_preheat_cb = cb;
-    s_over_left = 0;
-    st->stabilize_left = st->stabilize_s;
-    st->phase = PH_PREHEAT;
-    pid_reset(st);
-    hold_enter(st);
-    TELEM_DIRTY(st);
-}
-
-static void preheat_cancel(app_state_t *st)
-{
-    if (!preheat_active(st))
-        return;
-    hold_leave(st);
-    preheat_fire(st, PROG_CB_CANCEL);
-}
-
 /* |T−SET| ≤ lim (°C·10). Caller garantiza sensor.valid. */
 static uint8_t in_band_x10(const app_state_t *st, int16_t lim)
 {
@@ -70,46 +35,6 @@ static uint8_t in_band_x10(const app_state_t *st, int16_t lim)
     if (err < 0)
         err = (int16_t)(-err);
     return (err <= lim) ? 1u : 0u;
-}
-
-static void preheat_tick(app_state_t *st)
-{
-    int16_t err;
-    int16_t t;
-
-    if (!preheat_active(st) || !st->sensor.valid)
-        return;
-    t = st->sensor.temp_c_x10;
-    err = (int16_t)((int16_t)(st->t_set_c * 10) - t);
-    /* Cola: T > tope + banda entrada, o timeout activo con T > tope. */
-    if (err < -(int16_t)((uint16_t)st->preheat_band_c * 10u)
-        || (s_over_left && err < 0)) {
-        st->phase = PH_PREHEAT;
-        if (s_over_left == 0)
-            s_over_left = PREHEAT_OVERHEAT_S;
-        else if (s_over_left > 1)
-            s_over_left--;
-        else if (t < (int16_t)(st->ramp_step[0].temp_c * 10)) {
-            s_over_left = 0;
-            preheat_fire(st, PROG_CB_OK);
-        }
-        return;
-    }
-    s_over_left = 0;
-    if (st->phase == PH_PREHEAT) {
-        if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u))) {
-            st->phase = PH_STABILIZE;
-            st->stabilize_left = st->stabilize_s;
-        }
-    } else if (!in_band_x10(st,
-                            (int16_t)((uint16_t)st->preheat_band_exit_c * 10u))) {
-        /* Solo aborta meseta si se sale de la histéresis ancha. */
-        st->phase = PH_PREHEAT;
-    } else if (st->stabilize_left > 0) {
-        st->stabilize_left--;
-    } else {
-        preheat_fire(st, PROG_CB_OK);
-    }
 }
 
 /* Fin de HEAT: PTC off, aire si está habilitado, ALARM:2. */
@@ -125,7 +50,7 @@ static void alarm_start(app_state_t *st)
         ? st->alarm_duration_s : ALARM_DURATION_S_DEFAULT;
     st->alarm_beep_left_s = 0;
     TELEM_DIRTY(st);
-    buzzer_seq_beep_cat(st, BEEP_READY, 3);
+    buzzer_seq_beep_cat(BEEP_READY, 3);
     if (st->device_mode == DEVICE_USB)
         proto_emit_alarm((uint8_t)PROTO_ALARM_DONE);
 }
@@ -155,7 +80,7 @@ static void alarm_on_second(app_state_t *st)
     if (st->alarm_beep_left_s > 0)
         st->alarm_beep_left_s--;
     else {
-        buzzer_seq_beep_cat(st, BEEP_READY, 2);
+        buzzer_seq_beep_cat(BEEP_READY, 2);
         TELEM_DIRTY(st);
         st->alarm_beep_left_s = period;
     }
@@ -190,25 +115,6 @@ static void enter_finish(app_state_t *st)
     alarm_start(st);
 }
 
-static void enter_ramp_step(app_state_t *st);
-static void after_preheat_pipeline(app_state_t *st);
-
-/* Tope de PREHEAT/STABILIZE en HEAT: pct% de T(Ramp1). 250*100 cabe en u16. */
-static uint16_t preheat_cap_c(const app_state_t *st, uint16_t full_c)
-{
-    uint8_t pct = st->preheat_pct;
-    uint16_t t;
-
-    if (pct < PREHEAT_PCT_LO || pct > PREHEAT_PCT_HI)
-        pct = PREHEAT_PCT_DEFAULT;
-    t = (uint16_t)(((uint16_t)full_c * (uint16_t)pct) / 100u);
-    if (t < st->temp_min_c)
-        t = st->temp_min_c;
-    if (t > full_c)
-        t = full_c;
-    return t;
-}
-
 static void enter_ramp_step(app_state_t *st)
 {
     if (st->ramp_idx >= st->ramp_n || st->ramp_idx >= RAMP_STEPS_MAX) {
@@ -217,25 +123,6 @@ static void enter_ramp_step(app_state_t *st)
     }
     st->t_set_c = st->ramp_step[st->ramp_idx].temp_c;
     enter_run_timed(st, st->ramp_step[st->ramp_idx].hold_s);
-}
-
-/* Tras estabilizar en el tope (pct% de Ramp1): corre Ramp1..n a T plena. */
-static void after_preheat_pipeline(app_state_t *st)
-{
-    cfg_load_ramps(st);
-    st->ramps_en = 1u;
-    st->ramp_idx = 0;
-    enter_ramp_step(st);
-}
-
-static void on_preheat_pipeline(app_state_t *st, uint8_t result)
-{
-    if (result != PROG_CB_OK) {
-        if (result == PROG_CB_FAULT)
-            program_fault(st);
-        return;
-    }
-    after_preheat_pipeline(st);
 }
 
 void program_init(app_state_t *st)
@@ -248,18 +135,18 @@ void program_init(app_state_t *st)
     st->program = PROG_HEAT;
     st->phase = PH_IDLE;
     st->t_set_c = 150;
-    st->delay_s = 60;
+    st->delay_h = 0;
+    st->delay_m = 1;
+    st->dly_h = 0;
+    st->dly_m = 0;
+    st->dly_s = 0;
     st->t_remain_s = 0;
     st->t_elapsed_s = 0;
     st->duty_pct = 0;
     st->t_ref_x10 = 0;
-    st->preheat_en = 1;
-    st->preheat_pct = PREHEAT_PCT_DEFAULT;
     st->preheat_band_c = PREHEAT_BAND_C_DEFAULT;
     st->preheat_band_exit_c = PREHEAT_BAND_EXIT_C_DEFAULT;
     st->ramps_en = 1;
-    st->stabilize_s = PREHEAT_STABLE_S_DEFAULT;
-    st->stabilize_left = 0;
     st->ramp_n = 2;
     st->ramp_idx = 0;
     for (i = 0; i < RAMP_STEPS_MAX; i++) {
@@ -281,8 +168,6 @@ void program_init(app_state_t *st)
     st->telem_dirty = 0;
     st->pid_loop = PID_OFF;
     st->atune_phase = ATUNE_IDLE;
-    st->buzz_nav_en = 1;
-    st->buzz_nav_reps = 1;
     st->usb_last_ok = 1;
     st->ctrl_src = CTRL_NONE;
     st->home_page = HOME_PAGE_MENU;
@@ -297,8 +182,6 @@ uint8_t program_is_active(const app_state_t *st)
         return 0;
     switch (st->phase) {
     case PH_DELAY:
-    case PH_PREHEAT:
-    case PH_STABILIZE:
     case PH_HOLD:
     case PH_RUN:
     case PH_COOLDOWN:
@@ -331,8 +214,6 @@ void program_fault(app_state_t *st)
         return;
     if (pid_atune_active(st))
         pid_atune_cancel(st);
-    if (preheat_active(st))
-        preheat_cancel(st);
     hold_leave(st);
     fan_off();
     st->out_state[OUT_FAN] = 0;
@@ -349,16 +230,11 @@ void program_stop(app_state_t *st, ctrl_src_t src)
     /* AT+STOP (USB): cierra HEAT como fin → ALARM:2. UI Cancel: abort → IDLE. */
     if (src == CTRL_USB && st->program == PROG_HEAT
         && (st->phase == PH_HOLD || st->phase == PH_RUN
-            || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE
             || st->phase == PH_DELAY)) {
-        if (preheat_active(st))
-            preheat_cancel(st);
         enter_finish(st);
         st->ctrl_src = src;
         return;
     }
-    if (preheat_active(st))
-        preheat_cancel(st);
     if (pid_atune_active(st))
         pid_atune_cancel(st);
     hold_leave(st);
@@ -366,6 +242,9 @@ void program_stop(app_state_t *st, ctrl_src_t src)
     st->out_state[OUT_FAN] = 0;
     st->phase = PH_IDLE;
     st->t_remain_s = 0;
+    st->dly_h = 0;
+    st->dly_m = 0;
+    st->dly_s = 0;
     st->t_elapsed_s = 0;
     st->ctrl_src = src;
     TELEM_DIRTY(st);
@@ -380,24 +259,16 @@ uint8_t program_user_ack(app_state_t *st)
     return 1;
 }
 
-/*
- * HEAT: si preheat_en, PREHEAT/STABILIZE al pct% de T(Ramp1);
- * si no, RUN Ramp1 a temperatura plena. Luego Ramp1..n → aire a temp_min.
- */
+/* HEAT: delay ya cumplido → rampa 1 a su temperatura, luego 2..n. */
 static void begin_pipeline(app_state_t *st)
 {
     cfg_load_ramps(st);
     st->ramps_en = 1u;
     if (st->ramp_n == 0u)
         st->ramp_n = 1u;
-    if (!st->preheat_en) {
-        st->ramp_idx = 0;
-        pid_reset(st);
-        enter_ramp_step(st);
-        return;
-    }
-    st->t_set_c = preheat_cap_c(st, st->ramp_step[0].temp_c);
-    preheat_start(st, on_preheat_pipeline);
+    st->ramp_idx = 0;
+    pid_reset(st);
+    enter_ramp_step(st);
 }
 
 uint8_t program_start(app_state_t *st, ctrl_src_t src)
@@ -429,8 +300,11 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
         cfg_load_ramps(st);
         if (st->ramp_n < 1u || !ramps_ok(st))
             return PROG_ERR_PARAM;
-        if (st->delay_s > 0) {
-            st->t_remain_s = st->delay_s;
+        if (st->delay_h != 0u || st->delay_m != 0u) {
+            st->dly_h = st->delay_h;
+            st->dly_m = st->delay_m;
+            st->dly_s = 0;
+            st->t_remain_s = delay_cfg_s(st);
             st->phase = PH_DELAY;
             TELEM_DIRTY(st);
             return PROG_OK;
@@ -481,12 +355,26 @@ static void on_second(app_state_t *st)
     }
 
     if (st->phase == PH_DELAY) {
-        if (st->t_remain_s > 0)
-            st->t_remain_s--;
-        if (st->t_remain_s == 0)
+        /* Un byte de segundos dentro del minuto; hora y minuto no crecen con las 12 h. */
+        if (st->dly_s < 59u)
+            st->dly_s++;
+        else {
+            st->dly_s = 0;
+            if (st->dly_m > 0u)
+                st->dly_m--;
+            else if (st->dly_h > 0u) {
+                st->dly_h--;
+                st->dly_m = 59u;
+            }
+        }
+        {
+            uint16_t left = (uint16_t)((uint16_t)st->dly_h * 3600u
+                                       + (uint16_t)st->dly_m * 60u);
+            st->t_remain_s = (left >= st->dly_s)
+                                 ? (uint16_t)(left - st->dly_s) : 0u;
+        }
+        if (st->dly_h == 0u && st->dly_m == 0u && st->dly_s == 0u)
             begin_pipeline(st);
-    } else if (preheat_active(st)) {
-        preheat_tick(st);
     } else if (st->phase == PH_RUN) {
         /* Approach PI; meseta al entrar ±band_c. */
         if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u)))
@@ -525,8 +413,7 @@ void program_tick(app_state_t *st)
         return;
     }
 
-    if (st->phase == PH_HOLD || st->phase == PH_RUN
-        || st->phase == PH_PREHEAT || st->phase == PH_STABILIZE)
+    if (st->phase == PH_HOLD || st->phase == PH_RUN)
         pid_tick(st);
 
     now = delay_ms();

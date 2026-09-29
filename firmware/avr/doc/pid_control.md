@@ -142,9 +142,9 @@ $$
 |----------|--------|----------|
 | `pid_kp_x10` | EEPROM / `AT+CFG=P` / autoajuste | Respuesta al error predicho |
 | `pid_ki_x10` | igual | Quita el error residual en meseta; demasiado alto → oscilación lenta |
-| `pid_kd_x10` | siempre 0 | **No entra en el lazo** (en térmicas lentas el Td de Z–N satura) |
+No hay Kd: ni en `app_state_t`, ni en EEPROM, ni en `AT+CFG=P` (en térmicas lentas el Td de Z–N satura).
 
-Valores de fábrica de referencia: Kp_x10 = **246**, Ki_x10 = **10**, Kd = **0**.
+Valores de fábrica de referencia: Kp_x10 = **246**, Ki_x10 = **10**.
 
 ### 2.5 Ventana time-proportioning (SSR)
 
@@ -321,11 +321,11 @@ porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$, y `tu10 = T_u · 10` evita divisi
 
 **Por qué no PID completo:** $T_d = T_u / 8$ en plantas lentas satura el techo ×10 (999) y empeora el lazo. HotPlate usa PI + lookahead en su lugar.
 
-**Resumen del encadenamiento:** medir picos → $A$ · medir tiempos → $T_u$ · $A$ → $K_u$ · $K_u$+$T_u$ → $K_p$, $K_i$ → quedan en `s_kp` / `s_ki` hasta `AT+CFG=A`.
+**Resumen del encadenamiento:** medir picos → $A$ · medir tiempos → $T_u$ · $A$ → $K_u$ · $K_u$+$T_u$ → $K_p$, $K_i$ → quedan en `s_kp` / `s_ki` y, al terminar, se copian a EEPROM. No hay `AT+CFG=A`.
 
 ### 4.5 Cómo se aplica
 
-- Los resultados quedan en `s_kp` / `s_ki` hasta `AT+CFG=A` / `pid_atune_apply` → se copian a `pid_kp_x10` / `pid_ki_x10`, Kd = 0, y se hace `pid_reset`.
+- Al terminar, `s_kp` / `s_ki` se copian a `pid_kp_x10` / `pid_ki_x10` y a EEPROM. No hay `AT+CFG=A`.
 - Durante el autoajuste el PI de trabajo **no** manda; manda el relé.
 - El fan en el medio-ciclo OFF es **independiente** del aire de enfriamiento de HEAT.
 
@@ -336,6 +336,8 @@ porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$, y `tu10 = T_u · 10` evita divisi
 | Fase | IDLE / RUN / DONE / FAIL |
 | Ciclos cerrados | Progreso |
 | AK / AI | Kp / Ki resultado (×10) |
+
+En este producto esos campos van en el mismo `$HP` (`AP`, `AC`, `AK`, `AI`), no en una trama aparte. Hoy salen a 1 Hz solo durante el autoajuste por USB. El contrato de sesión los añade a ese `$HP` mientras `ATUNE_RUN` y el resto del USB lleva la trama base. Baud y activación: [usb-automation.md](usb-automation.md).
 
 ---
 

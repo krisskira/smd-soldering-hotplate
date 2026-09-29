@@ -45,8 +45,7 @@ static uint8_t action_code(process_phase_t ph, uint8_t atune_run)
 /* ---------- Simulador de fases (contrato documental) ---------- */
 enum FlowEvt {
     EVT_TICK_SEC = 1,
-    EVT_BAND_OK,      /* T en banda y <= tope: stabilize */
-    EVT_OVERHEAT_OK,  /* timeout y tope < T < Ramp1: salta stabilize */
+    EVT_BAND_OK,      /* T en banda: la subida pasa a meseta */
     EVT_RAMPS_DONE,
     EVT_ALARM_TIMEOUT,
     EVT_COOL_DONE,
@@ -57,7 +56,6 @@ enum FlowEvt {
 struct FlowSim {
     program_id_t program;
     process_phase_t phase;
-    uint8_t preheat_en;
     uint8_t delay_s;
     uint8_t ramp_n;
     uint8_t alarm_n;   /* último ALARM emitido, 0 = ninguno */
@@ -69,7 +67,6 @@ static void flow_reset(FlowSim *f, program_id_t p)
     std::memset(f, 0, sizeof(*f));
     f->program = p;
     f->phase = PH_IDLE;
-    f->preheat_en = 1;
     f->ramp_n = 2;
 }
 
@@ -90,8 +87,6 @@ static int flow_start(FlowSim *f)
     /* HEAT */
     if (f->delay_s > 0)
         f->phase = PH_DELAY;
-    else if (f->preheat_en)
-        f->phase = PH_PREHEAT;
     else
         f->phase = PH_RUN;
     return PROG_OK;
@@ -110,8 +105,7 @@ static void flow_event(FlowSim *f, FlowEvt e)
 
     if (e == EVT_STOP) {
         if (f->program == PROG_HEAT
-            && (f->phase == PH_DELAY || f->phase == PH_PREHEAT
-                || f->phase == PH_STABILIZE || f->phase == PH_RUN
+            && (f->phase == PH_DELAY || f->phase == PH_RUN
                 || f->phase == PH_HOLD)) {
             flow_enter_alarm(f, (uint8_t)PROTO_ALARM_DONE);
             return;
@@ -124,14 +118,8 @@ static void flow_event(FlowSim *f, FlowEvt e)
     switch (f->program) {
     case PROG_HEAT:
         if (f->phase == PH_DELAY && e == EVT_TICK_SEC && f->delay_s == 0) {
-            f->phase = f->preheat_en ? PH_PREHEAT : PH_RUN;
-        } else if (f->phase == PH_PREHEAT && e == EVT_BAND_OK)
-            f->phase = PH_STABILIZE;
-        else if (f->phase == PH_PREHEAT && e == EVT_OVERHEAT_OK)
             f->phase = PH_RUN;
-        else if (f->phase == PH_STABILIZE && e == EVT_BAND_OK)
-            f->phase = PH_RUN;
-        else if (f->phase == PH_RUN && e == EVT_BAND_OK)
+        } else if (f->phase == PH_RUN && e == EVT_BAND_OK)
             f->phase = PH_HOLD;
         else if (f->phase == PH_HOLD && e == EVT_RAMPS_DONE)
             flow_enter_alarm(f, (uint8_t)PROTO_ALARM_DONE);
@@ -179,22 +167,16 @@ static void test_prog_err_map(void)
     CHECK(prog_err_to_proto(PROG_ERR_FAULT) == PROTO_ERR_DEVICE_BUSY);
 }
 
-static void test_heat_with_delay_and_preheat(void)
+static void test_heat_with_delay_then_ramp(void)
 {
     FlowSim f;
     flow_reset(&f, PROG_HEAT);
     f.delay_s = 1;
-    f.preheat_en = 1;
     CHECK(flow_start(&f) == PROG_OK);
     CHECK(f.phase == PH_DELAY);
 
     f.delay_s = 0;
     flow_event(&f, EVT_TICK_SEC);
-    CHECK(f.phase == PH_PREHEAT);
-
-    flow_event(&f, EVT_BAND_OK);
-    CHECK(f.phase == PH_STABILIZE);
-    flow_event(&f, EVT_BAND_OK);
     CHECK(f.phase == PH_RUN);
 
     flow_event(&f, EVT_BAND_OK);
@@ -209,25 +191,11 @@ static void test_heat_with_delay_and_preheat(void)
     CHECK(f.phase == PH_DONE);
 }
 
-static void test_heat_preheat_overshoot_skips_stabilize(void)
+static void test_heat_starts_on_ramp1(void)
 {
     FlowSim f;
     flow_reset(&f, PROG_HEAT);
     f.delay_s = 0;
-    f.preheat_en = 1;
-    CHECK(flow_start(&f) == PROG_OK);
-    CHECK(f.phase == PH_PREHEAT);
-
-    flow_event(&f, EVT_OVERHEAT_OK);
-    CHECK(f.phase == PH_RUN);
-}
-
-static void test_heat_skip_preheat(void)
-{
-    FlowSim f;
-    flow_reset(&f, PROG_HEAT);
-    f.delay_s = 0;
-    f.preheat_en = 0;
     CHECK(flow_start(&f) == PROG_OK);
     CHECK(f.phase == PH_RUN);
 }
@@ -252,7 +220,6 @@ static void test_heat_stop_during_run(void)
 {
     FlowSim f;
     flow_reset(&f, PROG_HEAT);
-    f.preheat_en = 0;
     CHECK(flow_start(&f) == PROG_OK);
     CHECK(f.phase == PH_RUN);
     flow_event(&f, EVT_STOP);
@@ -262,12 +229,11 @@ static void test_heat_stop_during_run(void)
 
 static void test_pid_tune_at_sequence(void)
 {
-    /* Secuencia documentada: MODE → RUN=2 → CFG=A → STOP */
+    /* Secuencia: MODE → RUN=2 (al terminar copia Kp/Ki a EEPROM) → STOP */
     static const char *seq[] = {
         "AT+MODE=1",
         "AT+CFG=T,5,15,1200",
         "AT+RUN=2,150,5,15,1200",
-        "AT+CFG=A",
         "AT+STOP",
         nullptr
     };
@@ -297,14 +263,14 @@ static void test_at_catalog_length(void)
     static const char *cmds[] = {
         "AT+STAT?", "AT+MODE=1", "AT+MODE=0",
         "AT+CFG=S,40,250",
-        "AT+CFG=H,1,80,30,0,1,1",
-        "AT+CFG=H,1,100,3600,3600,1,1",
+        "AT+CFG=H,0,1",
+        "AT+CFG=H,3600,1",
+        "AT+CFG=H,43200,1",
         "AT+CFG=B,4,6",
         "AT+CFG=B,1,20",
-        "AT+CFG=P,120,40,10",
+        "AT+CFG=P,120,40",
         "AT+CFG=R,0,180,90",
         "AT+CFG=R?",
-        "AT+CFG=A",
         "AT+CFG?",
         "AT+RUN=1",
         "AT+RUN=2,150,5,15",
@@ -319,9 +285,8 @@ int main(void)
 {
     test_enums_aligned();
     test_prog_err_map();
-    test_heat_with_delay_and_preheat();
-    test_heat_preheat_overshoot_skips_stabilize();
-    test_heat_skip_preheat();
+    test_heat_with_delay_then_ramp();
+    test_heat_starts_on_ramp1();
     test_heat_no_ramps();
     test_heat_descending_ramps_rejected();
     test_heat_stop_during_run();

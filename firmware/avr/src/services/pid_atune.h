@@ -32,14 +32,10 @@ static inline uint8_t pid_atune_active(const app_state_t *st)
 }
 static inline void pid_atune_on_sample(app_state_t *st) { (void)st; }
 static inline void pid_atune_apply(app_state_t *st) { (void)st; }
-static inline void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd)
+static inline void pid_atune_result(int16_t *kp, int16_t *ki)
 {
-    if (kp)
-        *kp = 0;
-    if (ki)
-        *ki = 0;
-    if (kd)
-        *kd = 0;
+    *kp = 0;
+    *ki = 0;
 }
 
 #else
@@ -51,8 +47,8 @@ void pid_atune_cancel(app_state_t *st);
 uint8_t pid_atune_active(const app_state_t *st);
 void pid_atune_on_sample(app_state_t *st);
 void pid_atune_apply(app_state_t *st);
-/* Ganancias del último DONE. Cero hasta que el autotune termina. */
-void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd);
+/* Ganancias PI del último DONE. Cero hasta que el autotune termina. */
+void pid_atune_result(int16_t *kp, int16_t *ki);
 
 #endif
 

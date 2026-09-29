@@ -14,4 +14,7 @@ void ui_temp_to_str(const sensor_reading_t *r, char *dst);
 /** mm:ss from total seconds (max 99:59 display). */
 void ui_mmss_to_str(uint16_t sec, char *dst);
 
+/** Reloj HH:MM (horas 00..12, minutos 00..59). */
+void ui_hhmm_to_str(uint8_t hour, uint8_t minute, char *dst);
+
 #endif

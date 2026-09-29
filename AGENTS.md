@@ -30,8 +30,8 @@
 
 | ID | UI | USB | Notas |
 |----|----|-----|-------|
-| HEAT | Home | `AT+RUN=1` | `delay_s` 0 = inmediato. PREHEAT fase. Rampas no decrecientes. PI predictivo |
-| PID_TUNE | No | `AT+RUN=2` | Autotune PI → `AT+CFG=A` → EEPROM |
+| HEAT | Home | `AT+RUN=1` | Retraso `hh:mm`, 00:00 = inmediato, tope 12:00. PREHEAT fase. Rampas no decrecientes. PI predictivo |
+| PID_TUNE | No | `AT+RUN=2` | Autotune PI → EEPROM al terminar |
 | RAMPS | — | `AT+CFG=R` | No lanzable; perfil ascendente/igual |
 
 ## Skills / agents
@@ -40,9 +40,9 @@
 |----------------|-----|
 | hotplate-feature-budget | Guardián `feature_budget.md` · `make size` · UI aprobada |
 | hotplate-pid | PI / autotune · doc `pid_control.md` |
-| hotplate-heating | HEAT + Home delay |
+| hotplate-heating | HEAT + Home (`°C` de rampa, transcurrido) |
 | hotplate-preheat | Fase PREHEAT de HEAT |
-| hotplate-usb-mode | AT / `$HP` |
+| hotplate-usb-mode | AT / `$HP`. Stream de sesión: un `$HP` a 1 Hz (contrato en `usb-automation.md`; binario aún a 9600) |
 | hotplate-app-state | Menús / EEPROM v8 |
 | hotplate-feature-development | Features generales (siempre consulta budget) |
 | st7920-animated-icons | Iconos animados LCD (parked; medir flash antes de enlazar) |

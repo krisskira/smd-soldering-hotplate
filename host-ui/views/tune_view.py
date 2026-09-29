@@ -148,7 +148,7 @@ class TuneView:
         apply_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=8)
         self.btn_apply = ttk.Button(
             apply_bar,
-            text="Guardar ganancias en PID",
+            text="Releer ganancias del equipo",
             command=ctrl.apply_atune,
             state=tk.DISABLED,
         )

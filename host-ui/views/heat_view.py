@@ -36,7 +36,7 @@ STATUS_COLUMNS: list[list[tuple[str, list[tuple[str, str]]]]] = [
         (
             "Tiempos",
             [
-                ("DLY", "Espera antes de calentar (s)"),
+                ("DLY", "Espera antes de calentar (hh:mm, máx. 12:00)"),
                 ("RUN", "Tiempo que queda en este paso (s)"),
                 ("EL", "Tiempo desde el arranque (s)"),
             ],
@@ -319,8 +319,6 @@ class HeatView:
         self,
         fields: dict[str, Any],
         delay_cfg: str | None,
-        preheat_en: str,
-        preheat_pct: str,
     ) -> None:
         t = fields.get("T")
         a = int(fields.get("A", 0))
@@ -332,7 +330,12 @@ class HeatView:
         self.proc_vars["T"].set(temp_txt)
         self.proc_vars["PHASE"].set(phase)
         self.proc_vars["PROG"].set(proto.prog_name(p))
-        self.proc_vars["DLY"].set(str(fields.get("DLY", "—")))
+        dly = fields.get("DLY", "—")
+        try:
+            dly_txt = proto.fmt_hhmm_s(int(dly))
+        except (TypeError, ValueError):
+            dly_txt = str(dly)
+        self.proc_vars["DLY"].set(dly_txt)
         self.proc_vars["RUN"].set(str(fields.get("RUN", "—")))
         self.proc_vars["EL"].set(str(fields.get("EL", "—")))
         self.proc_vars["DU"].set(str(fields.get("DU", "—")))
@@ -350,7 +353,7 @@ class HeatView:
             ri = int(fields.get("RI", 0))
         except (TypeError, ValueError):
             ri = 0
-        if p == 1 and a in (2, 3, 4, 5):
+        if p == 1 and a in (4, 5):
             self.proc_vars["RI"].set(f"Rampa {ri + 1}")
         else:
             self.proc_vars["RI"].set("—")
@@ -358,7 +361,7 @@ class HeatView:
             self.proc_vars["DLY"].set(delay_cfg)
 
         self._update_fault_banner(fl)
-        self.refresh_objetivo(fields, preheat_en, preheat_pct)
+        self.refresh_objetivo()
         self.highlight_ramp(p, a, ri)
 
     def _update_fault_banner(self, fl: Any) -> None:
@@ -379,7 +382,7 @@ class HeatView:
 
     def highlight_ramp(self, prog: int, phase: int, ri: int) -> None:
         for i, lab in enumerate(self.ramp_row_labels):
-            on = prog == 1 and phase in (2, 3, 4, 5) and i == ri
+            on = prog == 1 and phase in (4, 5) and i == ri
             lab.config(
                 text=("► Rampa " if on else "Rampa ") + str(i + 1),
                 font=("", 10, "bold") if on else ("", 10, "normal"),

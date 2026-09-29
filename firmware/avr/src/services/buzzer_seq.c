@@ -8,7 +8,6 @@ static uint8_t  buzz_is_on;
 static uint16_t buzz_next_ms;
 static uint16_t buzz_on_ms;
 static uint16_t buzz_off_ms;
-static app_state_t *s_st;
 
 void buzzer_seq_init(void)
 {
@@ -17,34 +16,17 @@ void buzzer_seq_init(void)
     buzz_is_on = 0;
     buzz_on_ms = BEEP_ON_MS;
     buzz_off_ms = BEEP_OFF_MS;
-    s_st = 0;
 }
 
-void buzzer_seq_bind(app_state_t *st)
-{
-    s_st = st;
-}
-
-void buzzer_seq_beep_cat(app_state_t *st, beep_cat_t cat, uint8_t count)
+void buzzer_seq_beep_cat(beep_cat_t cat, uint8_t count)
 {
     if (count == 0)
         return;
 
-    if (cat == BEEP_NAV) {
-        if (st && !st->buzz_nav_en)
-            return;
-        if (st && st->buzz_nav_reps)
-            count = st->buzz_nav_reps;
-        buzz_on_ms = BEEP_ON_MS;
-        buzz_off_ms = BEEP_OFF_MS;
-    } else if (cat == BEEP_ALARM) {
-        /* Never mute alarms */
+    if (cat >= BEEP_READY) {
         buzz_on_ms = BEEP_ALERT_ON_MS;
         buzz_off_ms = BEEP_ALERT_OFF_MS;
-    } else if (cat == BEEP_READY) {
-        buzz_on_ms = BEEP_ALERT_ON_MS;
-        buzz_off_ms = BEEP_ALERT_OFF_MS;
-        if (count < 3u)
+        if (cat == BEEP_READY && count < 3u)
             count = 3;
     } else {
         buzz_on_ms = BEEP_ON_MS;
@@ -55,17 +37,6 @@ void buzzer_seq_beep_cat(app_state_t *st, beep_cat_t cat, uint8_t count)
     buzz_is_on = 1;
     buzzer_on();
     buzz_next_ms = (uint16_t)(delay_ms() + buzz_on_ms);
-}
-
-void buzzer_seq_beep(uint8_t count)
-{
-    /* Heuristic: 1 = nav, 2 = confirm, 4+ = alarm */
-    if (count >= 4u)
-        buzzer_seq_beep_cat(s_st, BEEP_ALARM, count);
-    else if (count >= 2u)
-        buzzer_seq_beep_cat(s_st, BEEP_CONFIRM, count);
-    else
-        buzzer_seq_beep_cat(s_st, BEEP_NAV, count);
 }
 
 void buzzer_seq_tick(void)

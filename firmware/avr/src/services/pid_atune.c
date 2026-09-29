@@ -2,6 +2,11 @@
 #include "pid.h"
 #include "outputs.h"
 #include "at_cmd.h"
+#ifdef HOST_TEST
+void cfg_save_global(const app_state_t *st);
+#else
+#include "cfg_store.h"
+#endif
 #include "lib/avr_delay/avr_delay.h"
 #include "lib/ports/ports.h"
 
@@ -35,14 +40,10 @@ void pid_atune_init(app_state_t *st)
     fan_off();
 }
 
-void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd)
+void pid_atune_result(int16_t *kp, int16_t *ki)
 {
-    if (kp)
-        *kp = s_kp;
-    if (ki)
-        *ki = s_ki;
-    if (kd)
-        *kd = 0;
+    *kp = s_kp;
+    *ki = s_ki;
 }
 
 void pid_atune_cancel(app_state_t *st)
@@ -122,6 +123,11 @@ static void finish_ok(app_state_t *st, uint16_t tu_s, int16_t amp)
 
     s_kp = (int16_t)kp;
     s_ki = (int16_t)ki;
+    st->pid_kp_x10 = s_kp;
+    st->pid_ki_x10 = s_ki;
+    st->pid_loop = PID_AUTO;
+    cfg_save_global(st);
+    pid_reset(st);
     st->atune_phase = ATUNE_DONE;
     heaters_off(st);
     fan_off();
@@ -207,7 +213,6 @@ void pid_atune_apply(app_state_t *st)
         return;
     st->pid_kp_x10 = s_kp;
     st->pid_ki_x10 = s_ki;
-    st->pid_kd_x10 = 0;
     st->pid_loop = PID_AUTO;
     st->atune_phase = ATUNE_IDLE;
     pid_reset(st);

@@ -15,7 +15,7 @@ HotPlate Studio habla este protocolo; el firmware lo implementa en `at_cmd.c` + 
 
 | Detalle | Valor |
 |---------|-------|
-| Puerto | UART **9600 8N1** |
+| Puerto | UART **9600 8N1** hoy. El stream de sesión (abajo) pasa a **19200 8N1** en firmware y Studio a la vez |
 | Forma | Una línea = un comando |
 | Fin de línea | `\r` o `\n` |
 | Mayúsculas | Sí |
@@ -27,7 +27,7 @@ Al encender, HotPlate saluda una vez: `\r\nHP\r\n`.
 **Números, no nombres largos.** `ERROR:`, `ALARM:` y los campos `P` / `A` de `$HP` van como enteros. Los nombres de las tablas de abajo son solo para humanos (ahorro de Flash en el micro).
 
 Hay **cinco verbos**: `MODE`, `RUN`, `STOP`, `CFG`, `STAT`.  
-El precalentamiento **no** es un programa AT: es una fase de HEAT cuando `preheat_en` está activo.
+La rampa 1 es el primer escalón de HEAT: no es un programa AT ni una fase al % de esa rampa.
 
 ---
 
@@ -44,7 +44,7 @@ HotPanel (modo manual) y HotPlate Studio (modo USB) **no** mandan a la vez. Para
 `AT+STAT?` funciona sin estar en USB.  
 El resto (`CFG`, `CFG?`, `RUN`, `STOP`) exige USB → si no, `ERROR:3`.
 
-Con `AT+MODE=1`, HotPanel muestra en Heat la etiqueta **`USB`** y el pie **`EXIT`**.  
+Con `AT+MODE=1`, HotPanel muestra en Heat la temperatura y la etiqueta **`USB`** a 2×, y el pie **`EXIT`**. No pinta la fase, el perfil ni el transcurrido.  
 Pulsar **EXIT** en HotPanel: vuelve a Manual, emite `ERROR:8` y un pitido de confirmación ×2.
 
 ---
@@ -56,7 +56,7 @@ Formato: `ERROR:<n>\r\n`
 | n | Nombre (doc) | Cuándo |
 |--:|--------------|--------|
 | 1 | INVALID_COMMAND | Comando desconocido / mal formado en USB |
-| 2 | INVALID_PARAMETER | Argumento fuera de rango; `RUN=1` sin rampas; `RUN=2` inválido; `CFG=A` sin autoajuste DONE |
+| 2 | INVALID_PARAMETER | Argumento fuera de rango; `RUN=1` sin rampas; `RUN=2` inválido; `CFG=A` ya no existe |
 | 3 | USB_MODE_REQUIRED | Comando que exige USB estando en Manual |
 | 4 | DEVICE_BUSY | `MODE=1` con el equipo ocupado; `RUN` en fallo (`PH_FAULT`) |
 | 5 | PROGRAM_BUSY | `RUN` con un ciclo o autoajuste ya en marcha |
@@ -95,8 +95,8 @@ No existe `ALARM:1`. El precalentamiento no emite alarma: al estabilizar (o al v
 |--:|------|-------------|
 | 0 | IDLE | En reposo |
 | 1 | DELAY | Espera antes de calentar |
-| 2 | PREHEAT | Precalentamiento |
-| 3 | STABILIZE | Estabilización |
+| 2 | — | Reservado. Ya no se emite (antes: precalentado al % de la rampa 1) |
+| 3 | — | Reservado. Ya no se emite (antes: estabilización de ese %) |
 | 4 | HOLD | Meseta del escalón |
 | 5 | RUN | Subida hacia el SET |
 | 6 | COOLDOWN | Enfriamiento con aire |
@@ -118,23 +118,24 @@ No existe `ALARM:1`. El precalentamiento no emite alarma: al estabilizar (o al v
 | `AT+RUN=2,<°C>,<ciclos>,<hyst>[,<max_s>]` | sí | Arranca autoajuste + stream | global + `ee_tune` | `OK` / `ERROR:n` |
 | `AT+STOP` | sí | Parada | — | **solo `OK`** (sin `$HP`) |
 | `AT+CFG=S,<min>,<max>` | sí | Límites de temperatura | global | `OK` |
-| `AT+CFG=H,<en>,<pct>,<stab>,<delay>,<air>,<snd>` | sí | Flujo HEAT | global + `ee_heat` | `OK` |
+| `AT+CFG=H,<delay>,<air>` | sí | Retraso (`00:00`…`12:00`, en segundos) y aire de HEAT | global + `ee_heat` | `OK` |
 | `AT+CFG=B,<bn>,<bx>` | sí | Bandas ±°C (entrada / salida) | global | `OK` |
-| `AT+CFG=P,<kp>,<ki>,<kd>` | sí | Ganancias ×10 (0…999) | global | `OK` |
+| `AT+CFG=P,<kp>,<ki>` | sí | Ganancias PI ×10 (0…999) | global | `OK` |
 | `AT+CFG=T,<ciclos>,<hyst>,<max_s>` | sí | Params autoajuste **sin** arrancar | global | `OK` |
 | `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0…3 del Soldering Profile | `ee_ramp` | `OK` |
 | `AT+CFG=R?` | sí | Lee escalones | — | `$R` + `OK` |
-| `AT+CFG=A` | sí | Copia resultado autoajuste → PID (si DONE) | global | `OK` |
 | `AT+CFG?` | sí | Lee ajustes | — | `$CF` + `OK` |
 
 ### Detalles de `CFG`
 
-**`CFG=H`** — precalentamiento y arranque de HEAT  
-`en` / `air` / `snd` = 0 o 1 · `pct` 50…100 paso 5 · `stab` 1…3600 · `delay` 0…3600 (`0` = inmediato).  
-`snd` sigue aceptándose por compatibilidad, pero **el sonido de navegación no es feature de producto** y **no** sale en `$CF`.
+**`CFG=H`** — retraso y aire de HEAT  
+`air` = 0 o 1 · `delay` 0…43200 s (`0` = inmediato, tope 12 h). Dos argumentos. El equipo guarda solo horas y minutos (el resto menor de 60 s se descarta). El antiguo `en,pct,stab` (precalentado al % de la rampa 1) ya no existe: la rampa 1 es el primer escalón, a su propia temperatura. Un argumento de más da `ERROR:2`.
+
+**`CFG=P`** — ganancias PI  
+`kp` / `ki` ×10 (0…999). Dos argumentos: el lazo no tiene término D, y un tercer valor (antiguo `kd`) da `ERROR:2`.
 
 **`CFG=B`** — histéresis de bandas  
-`bn` entrada ±°C (1…15) · `bx` salida ±°C (`bn`…20). Sirve en precalentamiento y en el approach de cada rampa.
+`bn` entrada ±°C (1…15): al entrar en esa banda, la subida de cualquier rampa pasa a meseta. `bx` se guarda (`bn`…20) y ya no aborta la meseta.
 
 **`CFG=S`** — límites  
 min 30…100 · max 40…250 · min ≤ max.
@@ -153,10 +154,10 @@ Consigna en `[Tmin .. Tmax−10]` · ciclos 3…10 · histéresis ×10 de 1…99
 
 ## Lectura — proceso `$HP`
 
-Foto del proceso. **No** lleva settings. Sale con `STAT?`, `MODE`, cambios de fase, y a 1 Hz durante el autoajuste.
+Foto del proceso. **No** lleva settings. Hoy sale con `STAT?`, `MODE`, cambios de fase, y a 1 Hz durante el autoajuste. El contrato de sesión (sección siguiente) la empuja a 1 Hz durante todo el USB.
 
 ```
-$HP,T=<°C.d|--->,P=<prog>,A=<action>,SET=<°C>,DLY=<s>,RUN=<s>,EL=<s>,
+$HP,T=<°C.d|--->,P=<prog>,A=<action>,SET=<°C>,DLY=<s 0..43200>,RUN=<s>,EL=<s>,
 DU=<0..100>,F=0|1,RI=<ramp_idx>,FL=0|1
 ```
 
@@ -171,7 +172,7 @@ Con stream de autoajuste se añade:
 | `T` | Temperatura (°C con décima) o `---` si el sensor no vale |
 | `P` `A` | Programa / fase (tablas de arriba) |
 | `SET` | Consigna actual (°C) |
-| `DLY` | Retraso configurado (s) |
+| `DLY` | Retraso configurado, en segundos de reloj (`h×3600+m×60`, tope 43200 = 12:00) |
 | `RUN` | Tiempo restante de la fase (s) |
 | `EL` | Tiempo transcurrido (s) |
 | `DU` | Duty del banco PTC (0…100 %) |
@@ -192,21 +193,19 @@ Con stream de autoajuste se añade:
 Solo con `AT+CFG?` (no a 1 Hz).
 
 ```
-$CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
-BN=<band_c>,BX=<band_exit_c>,DLY=<s>,AIR=0|1,AMS=<max_s>
+$CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,BN=<band_c>,BX=<band_exit_c>,DLY=<s>,AIR=0|1,AMS=<max_s>
 ```
 
 | Campo | Significado |
 |-------|-------------|
 | `MN` `MX` | Límites de temperatura |
-| `KP` `KI` | Ganancias PI ×10 (`KD` omitido: siempre 0) |
-| `PH` `PCT` `SB` | Precalentamiento on/off, %, segundos de estabilización |
-| `BN` `BX` | Bandas entrada / salida (±°C) |
-| `DLY` | Retraso de arranque (s) |
+| `KP` `KI` | Ganancias PI ×10. El autotune las escribe solo al terminar |
+| `BN` `BX` | Banda para entrar en la meseta de una rampa (±°C). `BX` se guarda; la meseta no se aborta |
+| `DLY` | Retraso de arranque en segundos de reloj (mismo criterio que `$HP`) |
 | `AIR` | Aire al final de HEAT |
 | `AMS` | Timeout global del autoajuste (s) |
 
-Omitidos a propósito por Flash: `KD`, `SND`, `RN`.  
+No existen `KD` ni `SND` (el firmware ya no guarda Kd ni el flag de sonido). `RN` se omite por Flash.  
 La cuenta de escalones (`ramp_n`) se lee en `$R` como `N=`.
 
 No se exponen dirty flags ni se pueden forzar calentadores fuera del runner/PID.
@@ -233,13 +232,14 @@ Ejemplo: `$R,N=2,0=180/90,1=220/60,2=100/60,3=125/60`.
 AT+MODE=1
 AT+CFG=R,0,180,90
 AT+CFG=R,1,220,60
-AT+CFG=H,1,80,30,0,1,0
+AT+CFG=H,0,1
 AT+CFG=B,4,6
 AT+RUN=1
 ```
 
-En ese ejemplo: precalentamiento al 80 % de Ramp1, 30 s de meseta, delay 0, aire on, `snd=0`. Bandas ±4 / ±6 °C.  
-Con `PH=0` (primer argumento de `H`) se salta precalentamiento y estabilización.
+En ese ejemplo: retraso `00:00`, aire on, y el ciclo entra directo en la rampa 1. Bandas ±4 / ±6 °C.
+
+Una espera de 1 h 30 min se escribe `AT+CFG=H,5400,1` (`1×3600+30×60`). El tope es `AT+CFG=H,43200,1` (`12:00`). El equipo no guarda esos segundos: los convierte a hora y minuto.
 
 ### Autoajuste
 
@@ -249,17 +249,17 @@ AT+RUN=2,150,5,15,1200
 ```
 
 - Fuera de rango → `ERROR:2`.
-- Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI`.
+- Hoy: stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI` (único empuje periódico del binario).
+- Contrato de sesión: ese enriquecido va en el mismo `$HP` de 1 Hz del USB, sin segunda trama. Ver «Stream de sesión».
 - En medio-ciclo OFF el fan ayuda a bajar.
 - Timeout: `AMS` / `max_s` (default **2000** s) → FAIL si se supera.
-- Al terminar: trama con `AP=2` y `AK`/`AI`.
-- Aplicar al lazo: `AT+CFG=A` → EEPROM. Si no está DONE → `ERROR:2`.
+- Al terminar: copia Kp/Ki a EEPROM, trama con `AP=2` y `AK`/`AI`. No hay `AT+CFG=A`.
 
-Ganancias a mano: `AT+CFG=P,kp,ki,kd`. HotPanel no edita PID ni lanza Auto.
+Ganancias a mano: `AT+CFG=P,kp,ki`. HotPanel no edita PID ni lanza Auto.
 
 ### Parar
 
-`AT+STOP` → **solo `OK`**. Internamente cierra HEAT / aborta autoajuste; Studio pide `STAT?` si quiere una foto.
+`AT+STOP` → **solo `OK`**. Internamente cierra HEAT / aborta autoajuste. Hoy Studio pide `STAT?` si quiere una foto. Con el stream de sesión, si USB sigue abierto, esa foto llega sola en el segundo siguiente.
 
 Pulsar **EXIT** en HotPanel → `ERROR:8` (no es lo mismo que `STOP`).
 
@@ -272,14 +272,34 @@ Pulsar **EXIT** en HotPanel → `ERROR:8` (no es lo mismo que `STOP`).
 
 ---
 
-## Cuándo salen las tramas
+## Cuándo salen las tramas (código de hoy)
 
 | Trama | Cuándo | Fin |
 |-------|--------|-----|
 | `$HP` (foto) | `STAT?`, `MODE`, cambio de fase, beep de alarma | Un disparo |
 | `$CF` | `CFG?` | Un disparo |
 | `$R` | `CFG=R?` | Un disparo |
-| `$HP` autotune 1 Hz | Tras `RUN=2` OK | `STOP` / DONE / FAIL / fault |
+| `$HP` autotune 1 Hz | Tras `RUN=2` OK, misma trama con `AP,AC,AK,AI` | `STOP` / DONE / FAIL / fault |
+
+## Stream de sesión — contrato acordado
+
+Un solo `$HP` a 1 Hz mientras el equipo está en USB. Reposo, HEAT y autoajuste comparten ese emisor. El autoajuste no abre una segunda trama: añade `AP`, `AC`, `AK` y `AI` mientras `ATUNE_RUN`. `$CF` y `$R` siguen bajo demanda.
+
+**Aún no está en el binario.** Hoy el UART es 9600 y el 1 Hz periódico solo existe tras `RUN=2` por USB. Firmware (`avr_uart_init`) y HotPlate Studio (`serial_link.BAUD`) cambian juntos; si solo cambia uno, la sesión deja de entenderse.
+
+| Paso | Qué hace el empuje |
+|------|--------------------|
+| `AT+MODE=1` | Enciende el `$HP` de estado cada 1 s, aunque no haya programa |
+| `AT+RUN=1` | La misma trama pasa a contar HEAT (fase, SET, tiempos, duty, `RI`, `FL`) |
+| `AT+RUN=2` | La misma trama suma `AP,AC,AK,AI`. Al salir de `ATUNE_RUN` esos campos desaparecen |
+| `AT+MODE=0` | Apaga el periódico. En manual solo quedan las fotos de siempre |
+| `AT+STOP` | Sigue siendo solo `OK`. Si USB sigue abierto, la foto siguiente llega en el segundo siguiente |
+
+A 8 MHz, 19200 sale con `UBRR = 25` (19231 reales, error 0,16 %). La transmisión bloquea el bucle unos 34 ms en reposo, 40 ms en HEAT y 49–54 ms en el peor autoajuste. El muestreo térmico sigue en 1 s. Flash del empuje: el formateador ya está enlazado; no se añade un segundo. El anillo de recepción es de 32 bytes (31 útiles, ~16 ms a 19200).
+
+**Órdenes del cliente.** HotPlate Studio escribe una línea y espera `OK` o `ERROR` (candado en `serial_link`). Cada orden de producto cabe en el anillo (la más larga, `AT+RUN=2,…`, son 25 bytes). Una orden que llega entera durante el `$HP` no se recorta. Dos escrituras seguidas sin esperar `OK` pueden pasar de 31 bytes: el firmware tira el exceso, descarta la línea y el cliente hace timeout a los 2 s.
+
+La confirmación de guardado y de arranque es `OK` / `ERROR`. EEPROM se escribe antes de ese `OK`. Un `$HP` que llegue mientras el cliente espera no cierra el comando. `AT+STAT?` sigue valiendo como foto; con el empuje activo Studio pausa el sondeo para no duplicar la trama. El sondeo y un guardado no se cruzan en el cable: comparten el mismo candado.
 
 ---
 

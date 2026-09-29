@@ -51,7 +51,7 @@ El firmware tiene **dos programas ejecutables** y el **Soldering Profile** (dato
 | **PID_TUNE** | Autoajuste de las ganancias del control | Solo USB (`AT+RUN=2`) |
 | **RAMPS** | *No es un programa*: es el Soldering Profile (hasta 4 escalones) que HEAT recorre. Se guarda en EEPROM y se edita con `AT+CFG=R` o desde Ajustes | — |
 
-> PREHEAT tampoco es un programa independiente: es una fase opcional dentro de HEAT.
+> La rampa 1 es el primer escalón del perfil. No hay una fase previa al porcentaje de esa rampa.
 
 ### 2.1 HEAT — ciclo de soldadura
 
@@ -59,21 +59,17 @@ Un ciclo HEAT recorre estas fases en orden:
 
 | # | Fase | Qué ocurre | Calefactor | Ventilador | Cuándo avanza |
 |---|------|------------|------------|------------|---------------|
-| 1 | **Espera** (`WAIT`) | Cuenta atrás antes de empezar. Se omite si `delay_s = 0` | OFF | OFF | Al llegar a 0 |
-| 2 | **Precalentamiento** (`PREHEAT`) | Sube hasta un porcentaje de la temperatura de la rampa 1 (`preheat_pct`, por defecto 80 %) | PI | OFF | Al entrar en ±4 °C del objetivo |
-| 3 | **Estabilización** (`STABLE`) | Mantiene esa temperatura intermedia durante `stabilize_s` (30 s por defecto) para homogeneizar el calor en la placa | PI | OFF | Al cumplirse el tiempo |
-| 4 | **Rampa i – subida** (`RUN`) | Sube hacia la temperatura del escalón i. El tiempo del escalón **todavía no corre** | PI | OFF | Al entrar en ±4 °C del objetivo |
-| 5 | **Rampa i – meseta** (`HOLD`) | Mantiene la temperatura del escalón durante su `hold_s` | PI | OFF | Al agotarse `hold_s`: siguiente rampa o fin |
-| 6 | **Fin** (`ALM`) | Calefactor apagado, pitidos de aviso y `ALARM:2` por USB | OFF | ON si `cooldown_air_en` | Tras 60 s o al confirmar el usuario |
-| 7 | **Enfriamiento** (`AIR`) | Solo si el aire asistido está activado. Sopla hasta bajar a `temp_min_c` | OFF | ON | `T ≤ temp_min_c` |
-| 8 | **Terminado** (`END`) | Todo apagado | OFF | OFF | — |
-
-Las fases 2 y 3 solo se ejecutan si `preheat_en = 1`; si no, el ciclo pasa directamente a la rampa 1.
+| 1 | **Espera** (`WAIT`) | Cuenta atrás antes de empezar. Se omite si el retraso es `00:00` | OFF | OFF | Al llegar a 0 |
+| 2 | **Rampa i – subida** (`RUN`) | Sube hacia la temperatura del escalón i (la rampa 1 es el primer escalón). El tiempo **todavía no corre** | PI | OFF | Al entrar en ±`BN` °C del objetivo |
+| 3 | **Rampa i – meseta** (`HOLD`) | Mantiene la temperatura del escalón durante su `hold_s` | PI | OFF | Al agotarse `hold_s`: siguiente rampa o fin |
+| 4 | **Fin** (`ALM`) | Calefactor apagado, pitidos de aviso y `ALARM:2` por USB | OFF | ON si `cooldown_air_en` | Tras 60 s o al confirmar el usuario |
+| 5 | **Enfriamiento** (`AIR`) | Solo si el aire asistido está activado. Sopla hasta bajar a `temp_min_c` | OFF | ON | `T ≤ temp_min_c` |
+| 6 | **Terminado** (`END`) | Todo apagado | OFF | OFF | — |
 
 **Detalles importantes del comportamiento**
 
-- **Histéresis de estabilización.** Para *entrar* en estabilización basta con estar a ±`preheat_band_c` (4 °C) del objetivo, pero para *abortarla* la temperatura tiene que salirse de ±`preheat_band_exit_c` (6 °C). Así pequeñas oscilaciones no reinician la meseta.
-- **Sobrepaso en el precalentamiento.** Si por inercia térmica la placa supera el objetivo intermedio más la banda, se espera hasta 60 s (`PREHEAT_OVERHEAT_S`) a que vuelva a bajar. Si no baja pero sigue por debajo de la rampa 1, el ciclo continúa directamente a la rampa 1 en lugar de quedarse bloqueado.
+- **Entrar en meseta.** La subida pasa a meseta al estar a ±`BN` (4 °C por defecto) del objetivo. La meseta no se aborta si la temperatura se sale; corre su `hold_s`.
+- **Perfiles.** RSS, rampa a pico, reflow o soldadura son el mismo HEAT con distinto Soldering Profile: la rampa 1 es el primer soak y las siguientes, si las hay, suben o se mantienen.
 - **Rampas solo ascendentes.** Se admiten hasta 4 escalones y cada uno debe tener una temperatura igual o mayor que el anterior. Un Soldering Profile descendente se rechaza con `ERROR:2`.
 - **El aire solo actúa al final.** El ventilador nunca se enciende entre rampas; solo en la fase de enfriamiento, y solo si `cooldown_air_en` está activado.
 
@@ -81,7 +77,7 @@ Las fases 2 y 3 solo se ejecutan si `preheat_en = 1`; si no, el ciclo pasa direc
 
 | Cómo se cancela | Resultado |
 |-----------------|-----------|
-| Desde HotPanel (Cancelar) en espera, precalentamiento o rampas | Parada inmediata → `IDLE`. No se emite `ALARM:2` |
+| Desde HotPanel (Cancelar) en espera o rampas | Parada inmediata → `IDLE`. No se emite `ALARM:2` |
 | Con `AT+STOP` por USB en esas mismas fases | Se trata como un fin de ciclo → fase de fin + `ALARM:2` |
 | Confirmación (HotPanel o `AT+STOP`) durante la fase de fin | Cierra la alarma y pasa a enfriamiento o a terminado |
 
@@ -92,9 +88,9 @@ Calcula automáticamente las ganancias del control de temperatura. **Solo se lan
 - **Lanzamiento:** `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Los parámetros se pueden guardar antes, sin arrancar, con `AT+CFG=T`.
 - **Funcionamiento:** el calefactor se enciende y apaga por completo (control todo/nada) alrededor de la temperatura objetivo, con una histéresis de ±1,5 °C por defecto. Durante los tramos con el calefactor apagado se enciende el ventilador para acortar la bajada y limitar el tiempo que los componentes pasan por encima de la consigna.
 - **Resultado:** tras el número de ciclos indicado (5 por defecto, rango 3–10), el firmware mide la amplitud y el periodo de la oscilación y calcula Kp y Ki por el método de Ziegler–Nichols (variante PI, Kd = 0).
-- **Guardado:** las ganancias no se aplican solas; se confirman con `AT+CFG=A`, que las escribe en EEPROM.
+- **Guardado:** al terminar, Kp y Ki se escriben solos en EEPROM. No hay `AT+CFG=A`.
 - **Límite de tiempo:** si el proceso supera `atune_max_s` (2000 s por defecto, rango 120–3600 s), se aborta con fallo.
-- **Telemetría:** mientras dura, se envía una trama `$HP` por segundo con el progreso (`AP`, `AC`) y las ganancias calculadas (`AK`, `AI`).
+- **Telemetría:** hoy, mientras dura, se envía una trama `$HP` por segundo con el progreso (`AP`, `AC`) y las ganancias (`AK`, `AI`). El contrato de sesión USB usa esa misma trama a 1 Hz en todo el modo USB y solo la enriquece durante el autoajuste. Ver [usb-automation.md](usb-automation.md).
 
 Detalle matemático: [pid_control.md](pid_control.md).
 
@@ -136,24 +132,26 @@ Se ajustan por USB con `AT+CFG=S`.
 
 ### Casilla Heat
 
-- Temperatura actual centrada (p. ej. `123.4°C`), en la misma fuente 5×7 del resto de la pantalla.
-- Fase actual, y debajo la rampa, la consigna y el tiempo (`R2 180 01:30`).
+- Temperatura actual centrada a 2× (p. ej. `123.4°C`). Si el sensor no es válido, `ERR`.
+- Fase actual.
+- Rampa, consigna con `°C` y tiempo de esa etapa (`R2 180°C 01:30`). En reposo y en la espera ese tiempo es el reloj `hh:mm` (tope 12:00). En la meseta es `mm:ss`.
+- Línea centrada con el tiempo desde el arranque, en `mm:ss` (`00:00` en reposo). Pasados 99 min se ve `100:00`.
 - En el pie, **`RUN`** para arrancar el ciclo o **`STOP`** para cancelarlo.
 
 ### Modo USB
 
-Cuando el PC toma el control (`AT+MODE=1`), la casilla Heat muestra la temperatura con la etiqueta **`USB`** y el pie cambia a **`EXIT`**, que permite recuperar el control manual.
+Cuando el PC toma el control (`AT+MODE=1`), la casilla Heat muestra la temperatura con la etiqueta **`USB`** a 2× y el pie cambia a **`EXIT`**, que permite recuperar el control manual. No se muestran la fase, el perfil ni el transcurrido.
 
 ### Casilla Settings
 
-- Cabecera **`SETUP`** en vídeo inverso.
-- Lista con las cuatro rampas (**R1…R4**) y el retraso (**`DLY`**): nombre a la izquierda, valor a la derecha. La meseta se muestra en segundos; el retraso, en `mm:ss`.
+- Cabecera **`SETUP`** en vídeo inverso, con 2 px de aire debajo y 1 px entre opciones (ese píxel no entra en el resaltado).
+- Lista con las cuatro rampas (**R1…R4**) y el retraso (**`DLY`**): nombre a la izquierda, valor a la derecha. La meseta se muestra en segundos; el retraso, en `hh:mm`.
 - Girar hasta la casilla ya enseña la lista. Pulsar entra a editarla; **`EXIT`** vuelve a Heat.
 
 | Fila | Qué se ajusta |
 |------|---------------|
 | R1…R4 | Temperatura (pasos de 5 °C, entre `temp_min_c` y `temp_max_c`) y meseta (pasos de 30 s, de 30 s a 60 min). R2…R4 se apagan bajando de `temp_min_c` y confirmando con otra pulsación; R1 no se puede apagar |
-| `DLY` | Retraso antes de empezar el ciclo, en pasos de 1 min, desde 0 (inmediato) hasta 60 min |
+| `DLY` | Retraso antes de empezar el ciclo, en `hh:mm`, desde `00:00` (inmediato) hasta `12:00`. Pulsar alterna horas y minutos |
 
 ### Etiquetas en HotPanel
 
@@ -181,14 +179,14 @@ La lista completa, con el comportamiento de cada modo, está en [ui_style_guide.
 | Ajuste | HotPanel | USB / HotPlate Studio |
 |--------|:--------:|:---------------------:|
 | Rampas R1…R4 (temperatura y meseta) | ✔ | ✔ |
-| Retraso de inicio (`delay_s`) | ✔ | ✔ |
+| Retraso de inicio (`delay_h` + `delay_m`) | ✔ | ✔ |
 | Límites `temp_min_c` / `temp_max_c` | — | ✔ |
 | Precalentamiento: activado, %, tiempo de estabilización, bandas | — | ✔ |
 | Aire en el enfriamiento (`cooldown_air_en`) | — | ✔ |
 | Ganancias PI | — | ✔ |
 | Autotune (lanzar y parámetros) | — | ✔ |
 
-> El sonido al navegar por menús **no** se considera una característica del producto. Solo se mantienen los pitidos de proceso (fin de ciclo, fallo). Ver [feature_budget.md](feature_budget.md).
+> El zumbador solo pita en dos casos: la alarma de proceso (fin de ciclo, arranque rechazado) y un pulso corto cuando HotPanel guarda un valor en EEPROM. No hay pitido al mover el cursor, arrancar, parar ni salir de USB. Ver [feature_budget.md](feature_budget.md).
 
 ---
 
@@ -211,7 +209,7 @@ La configuración se guarda en EEPROM (versión de formato **v8**). Si al arranc
 
 | Dato | Por defecto | Notas |
 |------|-------------|-------|
-| Ganancias Kp / Ki / Kd (×10) | 246 / 10 / 0 | Tras autotune (`AT+CFG=A`) o `AT+CFG=P` |
+| Ganancias Kp / Ki (×10) | 246 / 10 | Tras autotune (`AT+CFG=A`) o `AT+CFG=P` |
 | `temp_min_c` / `temp_max_c` | 50 / 250 °C | Límites de seguridad |
 | `preheat_en` / `preheat_pct` | activado / 80 % | Rango del % : 50–100, pasos de 5 |
 | `preheat_band_c` / `preheat_band_exit_c` | ±4 / ±6 °C | Bandas de entrada y salida de la estabilización |
@@ -263,7 +261,7 @@ src/app/app_state.h             app_state_t, fases, PROG_HEAT / PROG_PID_TUNE
 src/ui/ui_router.c              → home_view
 src/ui/home_view.c              Heat + Settings embebido + overlay USB
 src/ui/core/ui_components.c     footer 5×7
-src/ui/core/ui_text.c           helpers temp / mm:ss
+src/ui/core/ui_text.c           helpers temp / mm:ss / hh:mm
 src/services/program/           program_runner — fases HEAT (con PREHEAT)
 src/services/pid.c / pid_atune.c
 src/services/cfg_store.c        EEPROM global + heat + rampas
@@ -284,7 +282,7 @@ src/services/at_cmd.c / telemetry.c
 | `max31865` | PT100 |
 | `encoder` | Polling (CW = cursor baja) |
 | `ports` | PTC, fan, buzzer |
-| `avr_uart` | 9600 |
+| `avr_uart` | 9600 hoy; contrato de stream 19200 (firmware y Studio juntos). Anillo RX 32 B |
 | `fonts` | 5×7 (+ X2 / ICONS 16×16 según enlace; ver budget) |
 | `i18n` | PROGMEM CAPS inglés abreviado |
 
@@ -302,8 +300,8 @@ src/services/at_cmd.c / telemetry.c
 ### Límites conocidos
 
 - Sin vista aparte de alarma (`PH_ALARM` se muestra en Home / overlay USB).
-- HotPanel Settings: R1…R4 + DELAY. PID / aire / ESTAB / P% / autotune solo AT / Studio.
-- Autotune: `$HP` a 1 Hz; picos en `pid_atune` (no en `app_state`); sin `$HP,PLOT`.
+- HotPanel Settings: header `SETUP`, 2 px de aire, R1…R4 + reloj DLY `00:00`…`12:00` (1 px entre filas). Heat añade el transcurrido `mm:ss`. PID / aire / autotune solo AT / Studio.
+- Autotune: hoy `$HP` a 1 Hz solo en `RUN=2`; picos en `pid_atune` (no en `app_state`); sin `$HP,PLOT`. El stream de sesión (un `$HP`, baud 19200) está acordado y aún no está en el binario.
 - Sin guía eléctrica aparte del KiCad + datasheets en `hardware/`.
 
 ### Skills / agentes

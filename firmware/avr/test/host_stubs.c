@@ -40,6 +40,11 @@ void fan_off(void)
 {
 }
 
+void cfg_save_global(const app_state_t *st)
+{
+    (void)st;
+}
+
 #ifndef PID_HOST_TEST
 void pid_reset(app_state_t *st)
 {

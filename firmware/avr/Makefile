@@ -88,7 +88,7 @@ SRC := \
 	src/services/telemetry.c \
 	lib/i18n/i18n.c
 
-LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) -name '*.c' ! -name 'font8x12.c' ! -name 'font_icons.c' | tr '\n' ' ')
+LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) -name '*.c' ! -name 'font8x12.c' | tr '\n' ' ')
 
 ALL_SRC := $(SRC) $(LIB_SRC)
 OBJ := $(patsubst %.c,$(BUILD)/%.o,$(ALL_SRC))

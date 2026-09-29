@@ -1,6 +1,6 @@
 # Plan de optimización de firmware (sin romper cores ni UI aprobada)
 
-Contexto: flash **~16374 / 16384 B**. La UI visual aprobada (iconos 16×16, temperatura 2×) está **regresionada** por recortes previos. Este plan busca **margen real** en drivers/AT/CFG descartable y **devolver** esa UI, no seguir financiando features a costa del shell.
+Contexto inicial: flash **~16374 / 16384 B**, con la UI visual aprobada (iconos 16×16, temperatura 2×) **regresionada** por recortes previos. Ejecutado el 2026-09-29: ver [Estado](#estado-2026-09-29). Este plan busca **margen real** en drivers/AT/CFG descartable y **devolver** esa UI, no seguir financiando features a costa del shell.
 
 Maestro de reglas: [feature_budget.md](feature_budget.md).  
 Agente/skill guardián: `.cursor/skills/hotplate-feature-budget/SKILL.md` (actualizar el doc tras cada `make size`).
@@ -30,7 +30,7 @@ Cada paso: `make size` + `usb-host-test` (y `flow-host-test` / `pid-host-test` s
 | `AT+CFG?` → `$CF` | Ajustes de HotPlate Studio |
 | `AT+CFG=R` / `R?` → `$R` | Soldering Profile |
 | `AT+CFG=S` | Límites seguros |
-| `AT+CFG=H` | Flujo HEAT (en, pct, stab, delay, air) |
+| `AT+CFG=H` | Retraso de HEAT (0…43200 s = 00:00…12:00, guardado como hora+minuto) y aire |
 | `AT+CFG=B` | Bandas BN/BX (o fusionar luego en H si cabe `AT_LINE_MAX`) |
 | `AT+CFG=P` | Kp/Ki (Kd fijo 0) |
 | `AT+CFG=T` / `A` | Autotune |
@@ -87,7 +87,7 @@ Ambos se consideran **funcionando bien**. Objetivo: mismo contrato, menos bytes.
 
 ### Autotune (`pid_atune.c`)
 
-- Mantener: bang-bang, Z–N PI, `CFG=A`, stream `$HP`.
+- Mantener: bang-bang, Z–N PI, copia de Kp/Ki a EEPROM al terminar, campos `AP/AC/AK/AI` en el `$HP` (sin segunda trama ni `CFG=A`).
 - Candidatos: compactar aritmética Ku/Ti; eliminar almacenamiento `Kd` ya siempre 0; reducir locals.
 - Validar con flujo AT documentado + `usb-host-test`.
 
@@ -152,10 +152,16 @@ flowchart LR
 
 ---
 
-## Siguiente paso operativo
+## Estado (2026-09-29)
 
-1. Implementar **Fase A** (snd/nav fuera) — Δ rápido y limpia producto.  
-2. **Fase B** con `avr-nm` sobre `build/firmware.elf` para no adivinar símbolos ST7920.  
-3. Solo entonces **Fase D** (UI).
+| Fase | Resultado | Δ Program |
+|------|-----------|-----------|
+| D (medida primero) | Iconos 16×16 Heat/CFG + separador x=31 + temp y título USB a 2× | +214 B |
+| A | `buzz_nav_*`, `snd` y `kd` fuera de estado, AT, `cfg_store` y HotPlate Studio. EEPROM v8 sin bump (bytes `rsv`). API `buzzer_seq_beep_cat(cat, n)` | −262 B |
+| B | `avr-nm`: la API geométrica ya no se enlazaba. Ganancia real en el blit: buffer `uint8_t row[16]` y un solo `st7920_glyph_row` para COLS 1×/2× y ROWS | −198 B |
+| C | Solo `pid_atune_result(kp, ki)` sin kd. El lazo PI y el autotune no se tocaron | ~0 B |
+| E | Icono USB fuera de `FONT_ICONS` (`-DFONT_ICONS_USB` para volver a compilarlo) | −32 B |
 
-Si se pide ejecución en Agent mode: empezar por A + medición en [feature_budget.md](feature_budget.md).
+Resultado: **16096 B** (288 B libres) con la UI aprobada enlazada. `make test` OK. Queda pendiente la prueba en banco de HEAT con 2 rampas.
+
+Siguiente margen posible, sin tocar core: `home_view_on_event` (edición de Settings, ~850 B inlineados en `ui_router_on_event`) y `cfg_load_ramps`/`cfg_save_ramps` (validación duplicada).

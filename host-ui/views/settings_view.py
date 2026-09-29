@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 import tkinter as tk
 from tkinter import colorchooser, ttk
 
+import protocol as proto
 import theme as ui_theme
 from constants import (
-    PID_KD_DEFAULT,
     PID_KI_DEFAULT,
     PID_KP_DEFAULT,
     TEMP_MAX_C_DEFAULT,
@@ -27,6 +27,21 @@ WEIGHTS = ("normal", "bold")
 
 def _num_entry(parent: ttk.Frame, var: tk.StringVar) -> ttk.Entry:
     return ttk.Entry(parent, textvariable=var, width=ENTRY_W, justify=tk.RIGHT)
+
+
+def _delay_clock(parent: ttk.Frame, hours: tk.StringVar, minutes: tk.StringVar) -> ttk.Frame:
+    """Reloj HH:MM. Horas 0…12, minutos 0…59."""
+    box = ttk.Frame(parent)
+    ttk.Spinbox(
+        box, from_=0, to=12, width=3, textvariable=hours,
+        justify=tk.RIGHT, format="%02.0f",
+    ).pack(side=tk.LEFT)
+    ttk.Label(box, text=":").pack(side=tk.LEFT, padx=2)
+    ttk.Spinbox(
+        box, from_=0, to=59, width=3, textvariable=minutes,
+        justify=tk.RIGHT, format="%02.0f",
+    ).pack(side=tk.LEFT)
+    return box
 
 
 def _labeled_row(
@@ -103,39 +118,22 @@ class SettingsView:
         )
         body1.columnconfigure(1, weight=1)
 
-        g_pre = ttk.LabelFrame(grid, text="Precalentado (fase de HEAT)")
+        g_pre = ttk.LabelFrame(grid, text="Meseta de las rampas")
         g_pre.grid(row=0, column=1, sticky=tk.NSEW, padx=(4, 0), pady=4)
-        _save_bar(g_pre, "Guardar precalentado", ctrl.write_heat)
+        _save_bar(g_pre, "Guardar bandas", ctrl.write_heat)
         body_pre = ttk.Frame(g_pre)
         body_pre.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-        self.var_ph = tk.BooleanVar(value=True)
-        self.var_pct = tk.StringVar(value="80")
-        self.var_sb = tk.StringVar(value="30")
         self.var_bn = tk.StringVar(value="4")
         self.var_bx = tk.StringVar(value="6")
         _labeled_row(
-            body_pre, 0, "Activar precalentado",
-            ttk.Checkbutton(body_pre, variable=self.var_ph),
-            "Activar precalentado", "0 = apagado, 1 = activo",
-            "$CF PH=  ·  AT+CFG=H,<en>,…",
-        )
-        _labeled_row(
-            body_pre, 1, "% de la rampa 1", _num_entry(body_pre, self.var_pct),
-            "% de la rampa 1", "50…100, paso 5", "$CF PCT=  ·  AT+CFG=H",
-        )
-        _labeled_row(
-            body_pre, 2, "Estabilización (s)", _num_entry(body_pre, self.var_sb),
-            "Tiempo de estabilización", "1…3600 s", "$CF SB=  ·  AT+CFG=H",
-        )
-        _labeled_row(
-            body_pre, 3, "Banda entrada (±°C)", _num_entry(body_pre, self.var_bn),
-            "Banda para considerar SET alcanzado", "1…15 °C",
+            body_pre, 0, "Banda entrada (±°C)", _num_entry(body_pre, self.var_bn),
+            "Banda para pasar de subida a meseta", "1…15 °C",
             "$CF BN=  ·  AT+CFG=B,<bn>,<bx>",
         )
         _labeled_row(
-            body_pre, 4, "Banda salida (±°C)", _num_entry(body_pre, self.var_bx),
-            "Histéresis: abortar meseta solo fuera de esta banda",
-            "≥ entrada … 20 °C",
+            body_pre, 1, "Banda salida (±°C)", _num_entry(body_pre, self.var_bx),
+            "Se guarda con la banda de entrada",
+            "≥ entrada … 20 °C. La meseta ya no se aborta por salirse",
             "$CF BX=  ·  AT+CFG=B,<bn>,<bx>",
         )
         body_pre.columnconfigure(1, weight=1)
@@ -145,13 +143,16 @@ class SettingsView:
         _save_bar(g_run, "Guardar arranque / fin", ctrl.write_heat)
         body_run = ttk.Frame(g_run)
         body_run.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
-        self.var_dly = tk.StringVar(value="0")
+        self.var_dly_h = tk.StringVar(value="0")
+        self.var_dly_m = tk.StringVar(value="0")
         self.var_air = tk.BooleanVar(value=True)
-        self.var_snd = tk.BooleanVar(value=True)
+        self.var_dly_h.trace_add("write", self._lock_delay_at_12h)
         _labeled_row(
-            body_run, 0, "Retraso de arranque (s)", _num_entry(body_run, self.var_dly),
-            "Retraso de arranque", "0…3600 s (0 = inmediato)",
-            "$CF DLY=  ·  AT+CFG=H  ·  también en $HP DLY=",
+            body_run, 0, "Retraso de arranque",
+            _delay_clock(body_run, self.var_dly_h, self.var_dly_m),
+            "Retraso de arranque",
+            "00:00 … 12:00 (horas:minutos). 00:00 = inmediato. En 12:00 los minutos quedan en 00",
+            "$CF DLY=<s>  ·  AT+CFG=H,<s>,<air>  ·  también en $HP DLY=",
         )
         _labeled_row(
             body_run, 1, "Aire al enfriar",
@@ -159,27 +160,19 @@ class SettingsView:
             "Aire / ventilador al enfriar", "0 = off, 1 = on al terminar HEAT",
             "$CF AIR=  ·  AT+CFG=H",
         )
-        _labeled_row(
-            body_run, 2, "Sonido de navegación",
-            ttk.Checkbutton(body_run, variable=self.var_snd),
-            "Sonido de navegación (beeps UI)", "0 = off, 1 = on",
-            "$CF SND=  ·  AT+CFG=H",
-        )
         body_run.columnconfigure(1, weight=1)
 
-        g3 = ttk.LabelFrame(grid, text="Ganancias PID (valores ×10)")
+        g3 = ttk.LabelFrame(grid, text="Ganancias PI (valores ×10)")
         g3.grid(row=1, column=1, sticky=tk.NSEW, padx=(4, 0), pady=4)
         _save_bar(g3, "Sobrescribir valores PID", ctrl.write_pid)
         body_pid = ttk.Frame(g3)
         body_pid.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
         self.var_kp = tk.StringVar(value=str(PID_KP_DEFAULT))
         self.var_ki = tk.StringVar(value=str(PID_KI_DEFAULT))
-        self.var_kd = tk.StringVar(value=str(PID_KD_DEFAULT))
         for i, (lab, var, tip_name, trama) in enumerate(
             [
                 ("Proporcional Kp", self.var_kp, "Kp ×10", "$CF KP=  ·  AT+CFG=P"),
                 ("Integral Ki", self.var_ki, "Ki ×10", "$CF KI=  ·  AT+CFG=P"),
-                ("Derivativo Kd", self.var_kd, "Kd ×10", "$CF KD=  ·  AT+CFG=P"),
             ]
         ):
             _labeled_row(
@@ -191,8 +184,8 @@ class SettingsView:
         ttk.Label(
             content,
             text=(
-                "Guardar precalentado y Guardar arranque / fin envían juntos "
-                "AT+CFG=H (flujo HEAT completo)."
+                "Guardar bandas envía AT+CFG=B. Guardar arranque / fin envía "
+                "AT+CFG=H,<delay>,<air>."
             ),
             wraplength=900,
         ).pack(anchor=tk.W, padx=8, pady=(0, 4))
@@ -394,6 +387,22 @@ class SettingsView:
             if k in self._theme_vars:
                 self._theme_vars[k].set(v)
 
+    def _lock_delay_at_12h(self, *_args: object) -> None:
+        try:
+            hours = int(self.var_dly_h.get())
+        except (TypeError, ValueError):
+            return
+        if hours >= 12 and self.var_dly_m.get() not in ("0", "00"):
+            self.var_dly_m.set("0")
+
+    def delay_seconds(self) -> int:
+        hours = int(self.var_dly_h.get())
+        minutes = 0 if hours >= 12 else int(self.var_dly_m.get())
+        return proto.delay_hm_to_s(hours, minutes)
+
+    def delay_clock(self) -> str:
+        return proto.fmt_hhmm_s(self.delay_seconds())
+
     def apply_cf(self, fields: dict[str, Any], state_tmin_tmax) -> None:
         if "MN" in fields:
             self.var_mn.set(str(fields["MN"]))
@@ -401,24 +410,20 @@ class SettingsView:
         if "MX" in fields:
             self.var_mx.set(str(fields["MX"]))
             state_tmin_tmax.tmax = int(fields["MX"])
-        if "PH" in fields:
-            self.var_ph.set(int(fields["PH"]) != 0)
         if "AIR" in fields:
             self.var_air.set(int(fields["AIR"]) != 0)
-        if "SND" in fields:
-            self.var_snd.set(int(fields["SND"]) != 0)
+        if "DLY" in fields:
+            try:
+                hours, minutes = proto.delay_s_to_hm(int(fields["DLY"]))
+            except (TypeError, ValueError):
+                hours, minutes = 0, 0
+            self.var_dly_h.set(str(hours))
+            self.var_dly_m.set(str(minutes))
         for src, var in (
-            ("PCT", self.var_pct),
-            ("SB", self.var_sb),
             ("BN", self.var_bn),
             ("BX", self.var_bx),
-            ("DLY", self.var_dly),
             ("KP", self.var_kp),
             ("KI", self.var_ki),
-            ("KD", self.var_kd),
         ):
             if src in fields:
                 var.set(str(fields[src]))
-
-    def preheat_en_str(self) -> str:
-        return "1" if self.var_ph.get() else "0"

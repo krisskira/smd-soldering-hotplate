@@ -2,6 +2,7 @@
 #include "ui_text.h"
 #include "ui_router.h"
 #include "ui_components.h"
+#include "ui_icons.h"
 #include "i18n/i18n_c.h"
 #include "../services/buzzer_seq.h"
 #include "../services/cfg_store.h"
@@ -17,11 +18,13 @@
 #define PANEL_W    96u
 #define BOX_H      32u
 #define TEMP_TOP   3u    /* aire bajo el borde superior */
-#define TEMP_H     8u    /* FONT_5X7 (sin X2: flash) */
+#define TEMP_H     14u   /* FONT_5X7_X2 */
+#define TEMP_ADV   12u
 #define LINE_H     8u    /* 5×7 + 1 */
 #define LINE_GAP   4u    /* entre temp / fase / info */
 #define PCOLS      ((128u - PANEL_TX) / 6u) /* ~15 cols visibles */
-/* Sidebar texto 5×7 (sin FONT_ICONS: presupuesto flash). */
+#define ICO_PX     16u /* nativo 16×16; centrado en sidebar 32 */
+#define ICO_SIDE_X ((32u - ICO_PX) / 2u) /* 8 */
 
 /* 0=heat 1=set 2=usb — wipe del panel solo al cambiar de modo. */
 static uint8_t s_panel_mode;
@@ -79,15 +82,19 @@ static void sel_rot(uint8_t *sel, uint8_t count, int8_t dir)
 
 static void side_box(uint8_t i, uint8_t inv)
 {
-    st7920_span_t sp;
-    char lab[2];
+    uint8_t gid = (i == HOME_IDX_HEAT) ? (uint8_t)ICO_HEAT : (uint8_t)ICO_CFG;
+    uint8_t y0 = (uint8_t)(i * BOX_H);
+    uint8_t iy = (uint8_t)(y0 + (BOX_H - ICO_PX) / 2u);
+    uint8_t py, fill = inv ? 0xFFu : 0u;
+    uint8_t row[4];
 
-    lab[0] = (i == HOME_IDX_HEAT) ? 'H' : 'S';
-    lab[1] = '\0';
-    sp.f = &FONT_5X7;
-    sp.str = lab;
-    sp.x = 12u;
-    st7920_draw_band(0u, 32u, (uint8_t)(i * BOX_H), BOX_H, &sp, 1u, inv);
+    for (py = y0; py < (uint8_t)(y0 + BOX_H); py++) {
+        row[0] = row[1] = row[2] = fill;
+        row[3] = (uint8_t)(fill | 0x01u); /* separador x=31 */
+        st7920_glyph_row(row, py, &FONT_ICONS, gid, ICO_SIDE_X, iy, inv);
+        st7920_write_gdram(0, py, row[0], row[1]);
+        st7920_write_gdram(1, py, row[2], row[3]);
+    }
 }
 
 static void panel_band(uint8_t y, uint8_t h, const char *s, uint8_t inv)
@@ -113,7 +120,19 @@ static void panel_center(uint8_t y, uint8_t h, const char *str, uint8_t inv)
     panel_band(y, h, line, inv);
 }
 
-/* "123.4°C"; sin sensor "ERR". */
+/* Texto FONT_5X7_X2 centrado en el panel. */
+static void panel_center_x2(uint8_t y, const char *str)
+{
+    st7920_span_t s;
+    uint8_t tw = (uint8_t)(ui_str_len(str) * TEMP_ADV);
+
+    s.f = &FONT_5X7_X2;
+    s.str = str;
+    s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
+    st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
+}
+
+/* "123.4°C" a 2× (7 × 12 px = 84 ≤ PANEL_W); sin sensor "ERR". */
 static void draw_centered_temp(const app_state_t *st, uint8_t y)
 {
     char val[10];
@@ -126,10 +145,10 @@ static void draw_centered_temp(const app_state_t *st, uint8_t y)
         val[n++] = 'C';
         val[n] = '\0';
     }
-    panel_center(y, TEMP_H, val, 0u);
+    panel_center_x2(y, val);
 }
 
-/* "R1 150 01:30" — rampa | T objetivo | remain/delay. */
+/* "R1 150°C 01:30" — rampa | T objetivo | remain/delay. */
 static void draw_heat_info(const app_state_t *st, uint8_t y)
 {
     char body[16];
@@ -149,26 +168,56 @@ static void draw_heat_info(const app_state_t *st, uint8_t y)
     } else {
         body[n++] = '1';
         tset = st->ramp_step[0].temp_c;
-        trem = is_run(st) ? st->t_remain_s : st->delay_s;
+        trem = st->t_remain_s;
     }
     body[n++] = ' ';
     ui_u16_to_str(tset, num);
     ui_line_put(body, n, num);
     n = (uint8_t)(n + ui_str_len(num));
+    body[n++] = (char)FONT_DEG_CHAR;
+    body[n++] = 'C';
     body[n++] = ' ';
-    ui_mmss_to_str(trem, num);
+    if (st->phase == PH_DELAY)
+        ui_hhmm_to_str(st->dly_h, st->dly_m, num);
+    else if (!is_run(st))
+        ui_hhmm_to_str(st->delay_h, st->delay_m, num);
+    else
+        ui_mmss_to_str(trem, num);
     ui_line_put(body, n, num);
     n = (uint8_t)(n + 5u);
     body[n] = '\0';
     panel_center(y, LINE_H, body, 0u);
 }
 
+/* mm:ss desde el arranque. En reposo, 00:00. Pasados 99 min siguen los minutos. */
+static void draw_elapsed(const app_state_t *st, uint8_t y)
+{
+    char num[8];
+    uint16_t sec = (st->phase == PH_IDLE) ? 0u : st->t_elapsed_s;
+    uint16_t m = (uint16_t)(sec / 60u);
+    uint8_t s = (uint8_t)(sec % 60u);
+    uint8_t n;
+
+    if (m <= 99u)
+        ui_mmss_to_str(sec, num);
+    else {
+        ui_u16_to_str(m, num);
+        n = ui_str_len(num);
+        num[n++] = ':';
+        num[n++] = (char)('0' + (s / 10u));
+        num[n++] = (char)('0' + (s % 10u));
+        num[n] = '\0';
+    }
+    panel_center(y, LINE_H, num, 0u);
+}
+
 static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
 {
-    uint8_t y_phase, y_info, mode;
+    uint8_t y_phase, y_info, y_elapsed, mode;
 
     y_phase = (uint8_t)(TEMP_TOP + TEMP_H + LINE_GAP);
     y_info = (uint8_t)(y_phase + LINE_H + LINE_GAP);
+    y_elapsed = (uint8_t)(y_info + LINE_H + LINE_GAP);
     mode = is_usb(st) ? 2u : 0u;
     if (s_panel_mode != mode) {
         panel_wipe();
@@ -184,11 +233,12 @@ static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
         return;
 
     if (mode == 2u) {
-        panel_center(y_phase, LINE_H, i18n_tr_hash(I18N_TITLE_USB), 0u);
+        panel_center_x2(y_phase, i18n_tr_hash(I18N_TITLE_USB));
         return;
     }
     panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);
     draw_heat_info(st, y_info);
+    draw_elapsed(st, y_elapsed);
 }
 
 static uint8_t ramp_on(const app_state_t *st, uint8_t idx)
@@ -200,6 +250,7 @@ static void save_ramps(app_state_t *st)
 {
     cfg_save_ramps(st);
     st->telem_dirty = 1u;
+    buzzer_seq_beep_cat(BEEP_CONFIRM, 1);
 }
 
 static void ensure_ramp(app_state_t *st, uint8_t idx)
@@ -243,9 +294,11 @@ static void build_set_item(const app_state_t *st, uint8_t idx, char *buf)
         return;
     }
     ui_line_put(buf, 0, i18n_tr_hash(I18N_SET_DELAY));
-    if (ed == SET_EDIT_DELAY)
-        buf[9] = '*';
-    ui_mmss_to_str(st->delay_s, v);
+    ui_hhmm_to_str(st->delay_h, st->delay_m, v);
+    if (ed == SET_EDIT_DELAY_M)
+        v[2] = '*';
+    if (ed == SET_EDIT_DELAY_H)
+        buf[PCOLS - 6u] = '*';
     ui_line_put(buf, (uint8_t)(PCOLS - 5u), v);
 }
 
@@ -265,7 +318,7 @@ static void draw_set_panel(const app_state_t *st)
         build_set_item(st, r, buf);
         buf[PCOLS] = '\0';
         inv = (armed && r == st->settings_sel) ? 1u : 0u;
-        panel_band((uint8_t)(SET_ROW_Y0 + r * SET_ROW_H), SET_ROW_H, buf, inv);
+        panel_band((uint8_t)(SET_ROW_Y0 + r * SET_ROW_STEP), SET_ROW_H, buf, inv);
     }
 }
 
@@ -292,15 +345,31 @@ static void enc_edit(app_state_t *st, int8_t dir)
     uint8_t sel = st->settings_sel;
     int16_t v;
 
-    if (st->edit_armed == SET_EDIT_DELAY) {
-        v = (int16_t)st->delay_s + dir * (int16_t)START_DELAY_STEP_S;
-        if (v < 0)
-            v = 0;
-        if (v > (int16_t)TIMER_MAX_S)
-            v = (int16_t)TIMER_MAX_S;
-        st->delay_s = (uint16_t)v;
+    if (st->edit_armed == SET_EDIT_DELAY_H
+        || st->edit_armed == SET_EDIT_DELAY_M) {
+        if (st->edit_armed == SET_EDIT_DELAY_H) {
+            v = (int16_t)st->delay_h + dir;
+            if (v < 0)
+                v = 0;
+            if (v > (int16_t)DELAY_H_MAX)
+                v = (int16_t)DELAY_H_MAX;
+            st->delay_h = (uint8_t)v;
+            if (st->delay_h >= DELAY_H_MAX)
+                st->delay_m = 0;
+        } else if (st->delay_h >= DELAY_H_MAX) {
+            return;
+        } else {
+            v = (int16_t)st->delay_m + dir;
+            if (v < 0)
+                v = 0;
+            if (v > (int16_t)DELAY_M_MAX)
+                v = (int16_t)DELAY_M_MAX;
+            st->delay_m = (uint8_t)v;
+        }
+        delay_clamp(st);
         cfg_save_program(st, PROG_HEAT);
         st->telem_dirty = 1u;
+        buzzer_seq_beep_cat(BEEP_CONFIRM, 1);
         return;
     }
     if (sel > SET_IDX_RAMP3)
@@ -354,7 +423,6 @@ static void set_press(app_state_t *st)
 
     if (sel >= SETTINGS_COUNT) {
         leave_set(st);
-        buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         return;
     }
     if (sel <= SET_IDX_RAMP3) {
@@ -373,13 +441,14 @@ static void set_press(app_state_t *st)
                 st->edit_armed = SET_EDIT_TIME;
         } else
             st->edit_armed = SET_EDIT_NONE;
-        buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         return;
     }
-    st->edit_armed = (st->edit_armed == SET_EDIT_DELAY)
-                         ? SET_EDIT_NONE
-                         : SET_EDIT_DELAY;
-    buzzer_seq_beep_cat(st, BEEP_NAV, 1);
+    if (st->edit_armed == SET_EDIT_NONE)
+        st->edit_armed = SET_EDIT_DELAY_H;
+    else if (st->edit_armed == SET_EDIT_DELAY_H)
+        st->edit_armed = SET_EDIT_DELAY_M;
+    else
+        st->edit_armed = SET_EDIT_NONE;
 }
 
 static void on_set_event(app_state_t *st, app_event_t evt)
@@ -401,15 +470,12 @@ static void on_set_event(app_state_t *st, app_event_t evt)
     }
     sel_rot(&st->settings_sel, (uint8_t)(SETTINGS_COUNT + 1u), dir);
     dirty_all(st);
-    buzzer_seq_beep_cat(st, BEEP_NAV, 1);
 }
 
 static uint8_t do_start(app_state_t *st)
 {
     st->program = PROG_HEAT;
-    if (st->delay_s > TIMER_MAX_S)
-        st->delay_s = TIMER_MAX_S;
-    st->delay_s = (uint16_t)((st->delay_s / 60u) * 60u);
+    delay_clamp(st);
     cfg_save_program(st, PROG_HEAT);
     cfg_load_ramps(st);
     if (st->ramp_n < 1u)
@@ -495,7 +561,6 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
             st->home_sel = HOME_IDX_HEAT;
             st->home_page = HOME_PAGE_MENU;
             dirty_all(st);
-            buzzer_seq_beep_cat(st, BEEP_CONFIRM, 2);
         }
         return;
     }
@@ -510,7 +575,6 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
         if (evt == EVT_PRESS) {
             st->phase = PH_IDLE;
             dirty_all(st);
-            buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         }
         return;
     }
@@ -519,7 +583,6 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
         if (evt == EVT_PRESS) {
             device_session_safe_stop(st, CTRL_UI);
             dirty_all(st);
-            buzzer_seq_beep_cat(st, BEEP_CONFIRM, 2);
         }
         return;
     }
@@ -534,7 +597,6 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
                 cfg_load_program(st, PROG_HEAT);
             }
             dirty_all(st);
-            buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         }
         return;
     }
@@ -544,10 +606,10 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
 
     if (st->home_sel == HOME_IDX_SETTINGS) {
         enter_set(st);
-        buzzer_seq_beep_cat(st, BEEP_NAV, 1);
         return;
     }
-    buzzer_seq_beep_cat(st, do_start(st) ? BEEP_ALARM : BEEP_CONFIRM, 2);
+    if (do_start(st))
+        buzzer_seq_beep_cat(BEEP_ALARM, 2);
 }
 
 void home_view_on_sensor(app_state_t *st)

@@ -408,12 +408,8 @@ class AppController:
         """Persiste AT+CFG=H y bandas AT+CFG=B."""
         try:
             vals = [
-                1 if self.settings.var_ph.get() else 0,
-                int(self.settings.var_pct.get()),
-                int(self.settings.var_sb.get()),
-                int(self.settings.var_dly.get()),
+                self.settings.delay_seconds(),
                 1 if self.settings.var_air.get() else 0,
-                1 if self.settings.var_snd.get() else 0,
             ]
             bn = int(self.settings.var_bn.get())
             bx = int(self.settings.var_bx.get())
@@ -446,20 +442,19 @@ class AppController:
         try:
             kp = int(self.settings.var_kp.get())
             ki = int(self.settings.var_ki.get())
-            kd = int(self.settings.var_kd.get())
         except ValueError:
             messagebox.showerror("PID", "valores numéricos")
             return
-        err = proto.validate_pid(kp, ki, kd)
+        err = proto.validate_pid(kp, ki)
         if err:
             messagebox.showerror("PID", err)
             return
 
         def _ok() -> None:
-            self.tune.apply_working_pid({"KP": kp, "KI": ki, "KD": kd})
+            self.tune.apply_working_pid({"KP": kp, "KI": ki})
 
         self.send(
-            proto.cmd_cfg_pid(kp, ki, kd),
+            proto.cmd_cfg_pid(kp, ki),
             after_ok=_ok,
             ok_msg="Ganancias PID guardadas en el equipo.",
             err_title="PID",
@@ -529,26 +524,9 @@ class AppController:
         )
 
     def apply_atune(self) -> None:
-        def _ok() -> None:
-            self.tune._atune_result_ready = False
-            self.read_cfg()
-            messagebox.showinfo(
-                "Guardado",
-                "Ganancias del autoajuste aplicadas al PID del equipo.",
-            )
-
-        def _fail(_r=None) -> None:
-            messagebox.showerror(
-                "Autoajuste",
-                "No se pudieron aplicar las ganancias (¿autoajuste en DONE?).",
-            )
-
-        self.send(
-            proto.cmd_cfg_apply_atune(),
-            after_ok=_ok,
-            after_err=_fail,
-            err_title="Autoajuste",
-        )
+        """Kp/Ki ya están en EEPROM al terminar el autoajuste. Solo refresca $CF."""
+        self.tune._atune_result_ready = False
+        self.read_cfg()
 
     # ---- sondeo STAT ----
 
@@ -638,9 +616,7 @@ class AppController:
         self.state.last_hp = fields
         self.heat.apply_hp(
             fields,
-            delay_cfg=self.settings.var_dly.get(),
-            preheat_en=self.settings.preheat_en_str(),
-            preheat_pct=self.settings.var_pct.get(),
+            delay_cfg=self.settings.delay_clock(),
         )
         self.tune.apply_atune_fields(fields)
 
@@ -656,7 +632,7 @@ class AppController:
             if self.state.t0 is None:
                 self.state.t0 = now
             plot_set = float("nan")
-            if a in (2, 3, 4, 5):
+            if a in (4, 5):
                 try:
                     plot_set = float(fields.get("SET", float("nan")))
                 except (TypeError, ValueError):

@@ -18,7 +18,7 @@ Se puede usar de dos formas:
 | Característica | Qué significa para el usuario | Más detalle |
 |----------------|-------------------------------|-------------|
 | **Ciclo HEAT** | Con un solo gesto, HotPlate ejecuta el Soldering Profile completo: espera (si se programó), precalienta, recorre las etapas, avisa al terminar y se enfría. | [Flujos del programa](firmware/avr/doc/program_flows.md) |
-| **Inicio programado** | Tiempo de espera antes de arrancar (0 = inmediato). | [Características del producto](firmware/avr/doc/product_features.md) |
+| **Inicio programado** | Espera antes de arrancar, en reloj de horas y minutos, de 00:00 (inmediato) hasta 12:00. | [Características del producto](firmware/avr/doc/product_features.md) |
 | **Precalentamiento** | Antes del perfil pleno, HotPlate sube a una temperatura intermedia y se estabiliza, para repartir el calor de forma pareja por toda la placa. | [Características del producto](firmware/avr/doc/product_features.md) |
 | **Etapas del Soldering Profile** | Hasta 4 escalones, cada uno con temperatura y tiempo de permanencia. Solo ascienden o se sostienen: nunca bajan a mitad de perfil. | [Flujos del programa](firmware/avr/doc/program_flows.md) |
 | **Control térmico preciso** | HotPlate anticipa su propia inercia y corta potencia antes del objetivo, evitando sobrepasar la temperatura. | [Control PI y autoajuste](firmware/avr/doc/pid_control.md) |
@@ -33,8 +33,8 @@ Se puede usar de dos formas:
 
 **HotPanel** es la cara de HotPlate: temperatura en grande, dos casillas y un mando al alcance. Gira para elegir, pulsa para confirmar.
 
-- **Heat**: inicia o detiene el ciclo y muestra el avance del Soldering Profile.
-- **Ajustes**: edita las temperaturas de las 4 etapas y el tiempo de espera antes de empezar.
+- **Heat**: inicia o detiene el ciclo. Muestra la temperatura, la fase, la rampa en curso (con `°C`) y cuánto tiempo lleva el programa.
+- **Ajustes**: edita las temperaturas de las 4 etapas y el reloj de espera (horas y minutos, hasta 12:00).
 
 Cuando HotPlate Studio toma el mando, HotPanel lo indica con **USB** y el control local queda bloqueado: nunca hay dos mandos a la vez.
 
@@ -68,11 +68,11 @@ Desde **HotPlate Studio** (y en parte desde **HotPanel**):
 - Temperaturas mínima y máxima permitidas.
 - Precalentamiento on/off y porcentaje respecto a la primera etapa.
 - Tiempo y bandas de tolerancia para considerar la temperatura “estable”.
-- Espera antes de iniciar.
+- Espera antes de iniciar, de 00:00 a 12:00 (horas y minutos).
 - Ventilador de enfriamiento al final.
 - Ganancias del control y parámetros de autoajuste.
 
-Desde **HotPanel** solo se editan las 4 etapas del Soldering Profile y el tiempo de espera — interfaz lista para su uso.
+Desde **HotPanel** solo se editan las 4 etapas del Soldering Profile y el reloj de espera — interfaz lista para su uso.
 
 ---
 

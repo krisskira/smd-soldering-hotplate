@@ -97,26 +97,43 @@ def cmd_cfg_safety(mn: int, mx: int) -> str:
     return _cmd(f"AT+CFG=S,{mn},{mx}")
 
 
-def cmd_cfg_heat(
-    en: int, pct: int, stab: int, delay: int, air: int, snd: int
-) -> str:
-    return _cmd(f"AT+CFG=H,{en},{pct},{stab},{delay},{air},{snd}")
+# Retraso de HEAT: la trama sigue en segundos enteros, tope 12 h.
+# El equipo lo guarda como hora + minuto (el resto < 60 s se descarta).
+DELAY_MAX_S = 12 * 3600
+
+
+def delay_hm_to_s(hours: int, minutes: int) -> int:
+    return hours * 3600 + minutes * 60
+
+
+def delay_s_to_hm(seconds: int) -> tuple[int, int]:
+    if seconds < 0:
+        seconds = 0
+    if seconds > DELAY_MAX_S:
+        seconds = DELAY_MAX_S
+    seconds -= seconds % 60
+    return seconds // 3600, (seconds % 3600) // 60
+
+
+def fmt_hhmm_s(seconds: int) -> str:
+    hours, minutes = delay_s_to_hm(seconds)
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def cmd_cfg_heat(delay: int, air: int) -> str:
+    return _cmd(f"AT+CFG=H,{delay},{air}")
 
 
 def cmd_cfg_band(band: int, band_exit: int) -> str:
     return _cmd(f"AT+CFG=B,{band},{band_exit}")
 
 
-def cmd_cfg_pid(kp: int, ki: int, kd: int) -> str:
-    return _cmd(f"AT+CFG=P,{kp},{ki},{kd}")
+def cmd_cfg_pid(kp: int, ki: int) -> str:
+    return _cmd(f"AT+CFG=P,{kp},{ki}")
 
 
 def cmd_cfg_ramp(idx: int, temp: int, hold: int) -> str:
     return _cmd(f"AT+CFG=R,{idx},{temp},{hold}")
-
-
-def cmd_cfg_apply_atune() -> str:
-    return _cmd("AT+CFG=A")
 
 
 def cmd_cfg_tune(cycles: int, hyst: int, max_s: int) -> str:
@@ -135,18 +152,11 @@ def validate_safety(mn: int, mx: int) -> Optional[str]:
     return None
 
 
-def validate_heat(
-    en: int, pct: int, stab: int, delay: int, air: int, snd: int
-) -> Optional[str]:
-    for name, v in (("en", en), ("air", air), ("snd", snd)):
-        if v not in (0, 1):
-            return f"{name} debe ser 0 o 1"
-    if not (50 <= pct <= 100) or (pct % 5) != 0:
-        return "pct debe estar en 50..100 paso 5"
-    if not (1 <= stab <= 3600):
-        return "stab debe estar en 1..3600"
-    if not (0 <= delay <= 3600):
-        return "delay debe estar en 0..3600"
+def validate_heat(delay: int, air: int) -> Optional[str]:
+    if air not in (0, 1):
+        return "air debe ser 0 o 1"
+    if not (0 <= delay <= DELAY_MAX_S):
+        return "delay debe estar en 0:00..12:00"
     return None
 
 
@@ -158,8 +168,8 @@ def validate_band(band: int, band_exit: int) -> Optional[str]:
     return None
 
 
-def validate_pid(kp: int, ki: int, kd: int) -> Optional[str]:
-    for name, v in (("kp", kp), ("ki", ki), ("kd", kd)):
+def validate_pid(kp: int, ki: int) -> Optional[str]:
+    for name, v in (("kp", kp), ("ki", ki)):
         if not (0 <= v <= 999):
             return f"{name} debe estar en 0..999"
     return None
