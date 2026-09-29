@@ -1,13 +1,14 @@
+/* Generado por tools/gen_fonts.py — no editar a mano. */
 /*
- * font8x12 — temperatura grande (enlazado en el build estándar).
- * Juego: "-.0123456789". El menos y el punto hacen falta para el valor.
+ * font8x12 — temperatura del panel Heat / USB (nativa, sin escalar).
+ * Solo "-.0123456789°CER": valor con °C y ERR sin sensor.
  * Trazo de 2 px; avance 9.
  * Formato FONT_ROWS: 1 byte por fila, MSB = izquierda.
  */
 #include "font.h"
 #include <avr/pgmspace.h>
 
-static const char font8x12_map[] PROGMEM = "-.0123456789";
+static const char font8x12_map[] PROGMEM = "-.0123456789\xB0" "CER";
 
 static const uint8_t font8x12_data[] PROGMEM = {
     /* '-' */
@@ -166,6 +167,58 @@ static const uint8_t font8x12_data[] PROGMEM = {
     0x06,  /*      ##  */
     0x0C,  /*     ##   */
     0x78,  /*  ####    */
+    /* grado */
+    0x38,  /*   ###    */
+    0x6C,  /*  ## ##   */
+    0x6C,  /*  ## ##   */
+    0x38,  /*   ###    */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    0x00,  /*          */
+    /* 'C' */
+    0x3E,  /*   #####  */
+    0x63,  /*  ##   ## */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0x63,  /*  ##   ## */
+    0x3E,  /*   #####  */
+    /* 'E' */
+    0xFF,  /* ######## */
+    0xFF,  /* ######## */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xFC,  /* ######   */
+    0xFC,  /* ######   */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xC0,  /* ##       */
+    0xFF,  /* ######## */
+    0xFF,  /* ######## */
+    /* 'R' */
+    0xFC,  /* ######   */
+    0xFE,  /* #######  */
+    0xC3,  /* ##    ## */
+    0xC3,  /* ##    ## */
+    0xC3,  /* ##    ## */
+    0xFE,  /* #######  */
+    0xFC,  /* ######   */
+    0xCC,  /* ##  ##   */
+    0xC6,  /* ##   ##  */
+    0xC6,  /* ##   ##  */
+    0xC3,  /* ##    ## */
+    0xC3,  /* ##    ## */
 };
 
 const font_t FONT_8X12 = {

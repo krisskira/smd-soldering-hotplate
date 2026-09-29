@@ -25,7 +25,7 @@
 - Plan optimización: [optimization_plan.md](firmware/avr/doc/optimization_plan.md)
 - Erratas / mejoras futuras: [mejoras_futuras.md](firmware/avr/doc/mejoras_futuras.md)
 
-**Core** y **UI aprobada** (iconos, temp 2×) mandan sobre AT opcional. Flash: `make size` + actualizar `feature_budget.md`.
+**Core** y **UI aprobada** (iconos, temperatura 8×12) mandan sobre AT opcional. Flash: `make size` + actualizar `feature_budget.md`.
 
 ## Programs
 
@@ -57,7 +57,7 @@ Agentes en `.cursor/agents/` delegan al skill homónimo; el de budget es obligat
 - ALWAYS dirty rows; textos `i18n_tr_hash`.
 - ALWAYS actualizar `feature_budget.md` (medición) tras cambios de tamaño — nunca dejar el doc desactualizado.
 - ALWAYS en trabajo PID/autotune: leer `pid_control.md` completo.
-- NEVER financiar features quitando UI aprobada (iconos 16×16, FONT_5X7_X2) ni core térmico.
+- NEVER financiar features quitando UI aprobada (iconos 16×16, temperatura FONT_8X12) ni core térmico.
 - NEVER reintroducir START_IN/STOP_IN, PROG_TIMED, RAMPS como programa, PANEL.
 - NEVER PREHEAT en menú Home.
 - NEVER vista USB ni Settings aparte: overlays en Home (`AT+MODE=1` / casilla Ajustes).

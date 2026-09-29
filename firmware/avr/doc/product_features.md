@@ -284,7 +284,7 @@ src/services/at_cmd.c / telemetry.c
 | `encoder` | Polling (CW = cursor baja) |
 | `ports` | PTC, fan, buzzer |
 | `avr_uart` | 19200 8N1 (igual en HotPlate Studio). TX bloqueante; anillo RX 32 B |
-| `fonts` | 5×7 (+ X2 / ICONS 16×16 según enlace; ver budget) |
+| `fonts` | 5×7; temperatura en 8×12 nativa (con `°C`); `USB` en 5×7 a 2×; ICONS 16×16 (ver budget) |
 | `i18n` | PROGMEM CAPS inglés abreviado |
 
 ### Hechos cerrados

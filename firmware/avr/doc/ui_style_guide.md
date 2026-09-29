@@ -23,9 +23,9 @@ Los datos de ejemplo son siempre los mismos: perfil R1 150 °C / 90 s, R2 180 °
 | 128 × 64 px | Todo cabe en un rectángulo pequeño. No hay segundas páginas; el único desplazamiento es el de la lista de Setup (§ 5) |
 | 1 bit (encendido / apagado) | Sin grises, degradados ni anti-alias. El único énfasis es **invertir** la banda: fondo encendido y glifo apagado |
 | Encoder + pulsación | Girar a la derecha (`EVT_ENCODER_NEXT`) avanza el cursor **hacia abajo**. Girar a la izquierda sube. Pulsar confirma |
-| Fuentes enlazadas | `FONT_5X7` (celda de 6 px: 5 de glifo + 1 de separación; en el panel caben unas **15 columnas**), `FONT_5X7_X2` (la misma tabla a 2×, celda de 12 px) y `FONT_ICONS` (16×16) |
+| Fuentes enlazadas | `FONT_5X7` (celda de 6 px: 5 de glifo + 1 de separación; en el panel caben unas **15 columnas**), `FONT_8X12` (temperatura nativa, trazo de 2 px, avance 9 px; solo `-.0123456789°CER`), `FONT_5X7_X2` (la tabla 5×7 a 2×, solo para `USB`) y `FONT_ICONS` (16×16) |
 
-`font8x12.c` no se enlaza. `ui_display.c` y `ui_window.c` tampoco forman parte del binario. El icono USB de `font_icons.c` solo se compila con `-DFONT_ICONS_USB`: el overlay USB usa el texto `USB` a 2×.
+`font8x12.c` se genera con `tools/gen_fonts.py` (el dibujo de cada glifo está ahí). `ui_display.c` y `ui_window.c` tampoco forman parte del binario. El icono USB de `font_icons.c` solo se compila con `-DFONT_ICONS_USB`: el overlay USB usa el texto `USB` a 2×.
 
 ### Glifos 5×7
 
@@ -90,7 +90,7 @@ Cuatro líneas centradas. Temperatura, fase y perfil siguen en su sitio; el tran
 
 | Línea | y | Qué muestra |
 |-------|---|-------------|
-| Temperatura | 3 (14 px) | `123.4°C` con `FONT_5X7_X2` (7 × 12 px = 84 px). Si el sensor no es válido, `ERR` |
+| Temperatura | 3 (banda de 14 px, glifo de 12) | `123.4°C` con `FONT_8X12` nativa (7 × 9 px = 63 px). Si el sensor no es válido, `ERR` en la misma fuente |
 | Fase | 21 | Nombre corto de la fase (tabla de abajo) |
 | Perfil | 33 | `R2 180°C 01:30`: rampa, consigna con `°C` y tiempo. En meseta es `mm:ss`; el retraso es `hh:mm` |
 | Transcurrido | 45 | `mm:ss` desde el arranque (`t_elapsed_s`). En reposo, `00:00`. Pasados 99 min el minuto gana un dígito (`100:00`). Termina en y = 52; el pie sigue en y = 54 |

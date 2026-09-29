@@ -26,7 +26,7 @@ PORT := $(shell ls /dev/cu.usbserial* 2>/dev/null | head -n 1)
 
 ############################################
 # FLAGS — un solo firmware (HOME + USB/AT + pipeline)
-# Fuentes enlazadas: font5x7 + font_icons (sin font8x12: flash).
+# Fuentes enlazadas: font5x7 + font8x12 (temperatura) + font_icons.
 ############################################
 
 # Con LTO el código se genera al enlazar: OPTFLAGS va también en LDFLAGS.
@@ -88,7 +88,7 @@ SRC := \
 	src/services/telemetry.c \
 	lib/i18n/i18n.c
 
-LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) -name '*.c' ! -name 'font8x12.c' | tr '\n' ' ')
+LIB_SRC := $(shell find lib \( -path '*/avr_spi/*' -o -path '*/avr_soft_spi/*' -o -path '*/avr_delay/*' -o -path '*/avr_uart/*' -o -path '*/encoder/*' -o -path '*/st7920/*' -o -path '*/ports/*' -o -path '*/fonts/*' -o -path '*/max31865/*' \) -name '*.c' | tr '\n' ' ')
 
 ALL_SRC := $(SRC) $(LIB_SRC)
 OBJ := $(patsubst %.c,$(BUILD)/%.o,$(ALL_SRC))
@@ -188,7 +188,7 @@ test: usb-host-test flow-host-test pid-atune-host-test pid-host-test
 UI_SCREENS_SRC := tools/ui_screens/screens.c src/ui/home_view.c \
 	src/ui/core/ui_text.c src/ui/core/ui_components.c lib/i18n/i18n.c \
 	lib/st7920/st7920_text.c lib/fonts/font.c lib/fonts/font5x7.c \
-	lib/fonts/font_icons.c
+	lib/fonts/font8x12.c lib/fonts/font_icons.c
 
 ui-screens:
 	@mkdir -p build/ui_screens doc/img/hotpanel

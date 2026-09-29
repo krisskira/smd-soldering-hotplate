@@ -115,7 +115,7 @@ Orden cuando el libre ≥ ~400 B:
 | `cfg_store.c` | Validaciones duplicadas | Compactar clamps |
 | `home_view.c` | Lógica Settings R1–R4 | No quitar filas; sí deduplicar edit |
 | `buzzer_seq.c` | Tras quitar nav flag | Simplificar API NAV |
-| `font8x12.c` | Ya fuera del link | Mantener fuera |
+| `font8x12.c` | Enlazado: temperatura (UI aprobada) | Solo glifos `-.0-9°CER` |
 | `features/parked/` | No enlazar | Mantener parked |
 | HotPlate Studio `settings_view` | Quitar control SND | Alinear con F2 |
 
@@ -148,7 +148,7 @@ flowchart LR
 
 - Cambiar algoritmo PI (RISE/LOOKAHEAD) salvo experimento de banco documentado.
 - Migraciones EEPROM complejas más allá de v9 para quitar `buzz_nav_*`.
-- Reintroducir `FONT_8X12`, animaciones parked, o AT de programas eliminados (START_IN, etc.).
+- Ampliar `FONT_8X12` a ASCII completo, animaciones parked, o AT de programas eliminados (START_IN, etc.).
 
 ---
 

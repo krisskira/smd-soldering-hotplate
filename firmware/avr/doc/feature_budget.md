@@ -5,7 +5,7 @@ Documento vivo: **actualizar la columna de coste tras cada `make size`** (o al m
 Complementa: [product_features.md](product_features.md) · [program_flows.md](program_flows.md) · [architecture.md](architecture.md) · [usb-automation.md](usb-automation.md) · [ui_style_guide.md](ui_style_guide.md) · [pid_control.md](pid_control.md) (C6/C7).
 
 **MCU:** ATmega16 · Flash **16384 B** · Medición: `cd firmware/avr && make size`  
-**Última medición de referencia:** Program **15698 B** (95,8 %) · Data **283 B** · EEPROM **62 B** (2026-09-29).
+**Última medición de referencia:** Program **15924 B** (97,2 %) · Data **293 B** · EEPROM **62 B** (2026-09-29).
 
 ---
 
@@ -42,7 +42,8 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | 2026-09-29 | 15536 | 848 | Reloj DLY `hh:mm` (tope 12:00). Base de este cambio de HotPanel. Data 283 B |
 | 2026-09-29 | 15696 | 688 | Setup: 2 px bajo el header y 1 px entre filas. Heat: `°C` en la consigna de rampa y `mm:ss` transcurrido. **+160 B**. Data 283 B |
 | 2026-09-29 | 15676 | 708 | Stream de sesión: `$HP` a 1 Hz en todo USB (mismo formateador) y UART a 19200. **−20 B**. Data 283 B, EEPROM 62 B |
-| 2026-09-29 | **15698** | **686** | Setup: banda invertida de 9 px (1 px sobre y bajo la letra) + 1 px de separación; 4 filas visibles con desplazamiento. **+22 B**. Data 283 B |
+| 2026-09-29 | 15698 | 686 | Setup: banda invertida de 9 px (1 px sobre y bajo la letra) + 1 px de separación; 4 filas visibles con desplazamiento. **+22 B**. Data 283 B |
+| 2026-09-29 | **15924** | **460** | Temperatura en `FONT_8X12` nativa (trazo 2 px) con `°C` y `ERR`; `USB` sigue en 5×7 a 2×. **+226 B**. Data 293 B (+10: descriptor de fuente), EEPROM 62 B |
 
 ---
 
@@ -61,7 +62,7 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | C9 | **Alarmas de proceso** (`ALARM:2`, beeps READY/FAULT) | CORE | Fin HEAT → alarma; cancel UI ≠ ALARM USB | Fijar reps; no quitar ALARM:2 | Mantener beeps de **proceso** | `buzzer_seq` · **medir** |
 | S1 | **Home Heat \| Settings** (2 casillas, overlays) | SHELL | Nunca vistas USB/Settings aparte; dirty rows; i18n | Compactar `home_view` sin cambiar layout | Layout [ui_style_guide](ui_style_guide.md) | Aire de Setup + `°C` de rampa + transcurrido **+160 B** (15536 → 15696). Filas de Setup de 9+1 px con desplazamiento **+22 B** (15676 → 15698) |
 | S2 | **Iconos sidebar 16×16** (`FONT_ICONS`) | SHELL / **APROBADO** | Contrato visual; no sustituir por letra si hay margen | Comprimir glifos; 2 iconos | **Enlazado** Heat/CFG (+ USB si cabe) | S2+S3 juntos **+214 B** medido · **enlazado** Heat/CFG + separador x=31; USB solo con `-DFONT_ICONS_USB` (+32 B) |
-| S3 | **Temperatura FONT_5X7_X2** | SHELL / **APROBADO** | Temp legible centrada con `°C` | Mantener X2; no bajar a 1× salvo emergencia documentada | **X2 en Heat/USB** | Incluido en los +214 B de S2 · **enlazado** (temp + título USB) |
+| S3 | **Temperatura `FONT_8X12`** (+ título USB en `FONT_5X7_X2`) | SHELL / **APROBADO** | Temp legible centrada con `°C` | Tabla solo `-.0-9°CER`; no bajar a 5×7 1× salvo emergencia documentada | **8×12 nativa en Heat/USB**, `USB` a 2× | `font8x12` **+226 B** (15698 → 15924) · **enlazado** |
 | S4 | **i18n CAPS** (fases / footer) | SHELL | Textos vía `i18n_tr_hash` | Strings más cortos | Labels actuales | Pequeño · **medir** |
 | U1 | **Sesión USB** (`AT+MODE`, mutex manual) | CORE-IF | USB y MANUAL no activos a la vez | — | Mantener | `device_session` + AT · **medir** |
 | U2 | **Telemetría `$HP`** (T, fase A, SET, DU, RI, …) | CORE-IF | Una trama a 1 Hz en toda la sesión USB, UART 19200, enriquecida en autotune. No tres formateadores | Quitar campos raros; no quitar A/SET/DU/RI | Chart fases + potencia | `telemetry` · stream de sesión **−20 B** (15696 → 15676) · TX 34–54 ms/s |
@@ -76,7 +77,7 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | F2 | **Sonido de navegación** | OPT / **DESCARTADO** | Beeps de proceso y el pulso al guardar se quedan | **Hecho:** fuera de estado, `CFG=H`, HotPlate Studio y de HotPanel (cursor, RUN, STOP, EXIT). EEPROM v8 conserva los bytes como `rsv` | **Fuera** | Fase A −262 B; quitar las llamadas del panel **−52 B** |
 | D1 | **Driver ST7920** (draw/text/config) | SHELL-DRV | Home usa `draw_band` / GDRAM / clear | La API geométrica ya no se enlazaba (gc-sections). **Hecho:** blit con `uint8_t row[16]` y un solo `st7920_glyph_row` para COLS (1×/2×) y ROWS | Solo API usada por Home | **−198 B** medido. `draw_band` 342 B + `glyph_row` 268 B |
 | D2 | **MAX31865 + soft SPI** | CORE-DRV | Lectura válida para PID/safety | — | Mantener | Necesario |
-| D3 | **Fonts** `font5x7` (+ icons/X2 cuando restaurados) | SHELL | Guía UI | No reintroducir `font8x12` | 5×7 + icons + X2 | icons/X2 ver S2/S3 |
+| D3 | **Fonts** `font5x7` + `font8x12` + icons | SHELL | Guía UI | `font8x12` solo con los glifos de temperatura (`tools/gen_fonts.py`) | 5×7 + 8×12 + icons + X2 (USB) | icons ver S2; 8×12 ver S3 |
 
 ---
 
@@ -90,7 +91,7 @@ Complementa: [product_features.md](product_features.md) · [program_flows.md](pr
 | ~~P3~~ | ~~Acortar **U5**~~ | — | **Hecho** |
 | P4 | Compactar parse AT / `$CF` redundante | No si se mantiene chart | Cuidado con HotPlate Studio |
 | P5 | Micro-opts PID/autotune (mismo comportamiento) | No si tests verdes | No “elegancia” cara |
-| **Prohibido** | Quitar iconos / temp X2 / HEAT / PI / safety para meter otra feature | Sí | Ya ocurrió; no repetir |
+| **Prohibido** | Quitar iconos / temperatura 8×12 / HEAT / PI / safety para meter otra feature | Sí | Ya ocurrió; no repetir |
 
 ---
 
@@ -113,6 +114,7 @@ Historial breve de Δ conocidos (aprox., LTO):
 | D1 blit de glifos en bytes | −198 B |
 | Icono USB fuera de `FONT_ICONS` | −32 B |
 | Aire de Setup (2 px / 1 px) + `°C` en la fila de rampa + `mm:ss` transcurrido | +160 B |
+| Temperatura en `FONT_8X12` nativa, con `°C` y `ERR` | +226 B |
 
 ---
 

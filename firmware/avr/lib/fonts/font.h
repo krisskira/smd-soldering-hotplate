@@ -6,9 +6,9 @@
  * El dibujo en pantalla está en lib/st7920 (st7920_draw_font_gdram).
  *
  *   FONT_5X7     menús / footer
- *   FONT_5X7_X2  misma tabla a 2×: temperatura / título USB
+ *   FONT_5X7_X2  misma tabla a 2×: título USB
+ *   FONT_8X12    temperatura nativa "-.0-9°CER" (tools/gen_fonts.py)
  *   FONT_ICONS   símbolos 16×16 nativos (glifo = ui_icon_id_t)
- * FONT_8X12 opcional (tools/gen_fonts.py); no se enlaza por flash.
  */
 
 #include <stdint.h>
@@ -38,6 +38,7 @@ typedef struct {
 
 extern const font_t FONT_5X7;
 extern const font_t FONT_5X7_X2;
+extern const font_t FONT_8X12;
 extern const font_t FONT_ICONS;
 
 /** Tabla 5×7 cruda: la usa también el texto 5×7 original de st7920. */

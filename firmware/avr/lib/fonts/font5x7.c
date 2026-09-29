@@ -50,7 +50,7 @@ const font_t FONT_5X7 = {
     font5x7_data, font5x7_map, 5u, 7u, 6u, 0u, 0u, FONT_NO_GLYPH, FONT_COLS
 };
 
-/* Misma tabla a 2× (10×14): temperatura y título USB. */
+/* Misma tabla a 2× (10×14): título USB. */
 const font_t FONT_5X7_X2 = {
     font5x7_data, font5x7_map, 10u, 14u, 12u, 0u, 0u, FONT_NO_GLYPH, FONT_COLS
 };

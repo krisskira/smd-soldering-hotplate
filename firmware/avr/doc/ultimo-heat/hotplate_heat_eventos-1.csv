@@ -1,0 +1,19 @@
+Tiempo,Duración,Temperatura (°C),Evento
+00:00,03:56,47.3,Fase: Rampa 1
+00:01,—,47.3,Calentador ON
+03:45,—,144.4,Calentador OFF
+03:46,—,144.8,Calentador ON
+03:47,—,145.0,Calentador OFF
+03:47,—,145.3,Calentador ON
+03:51,—,146.0,Calentador OFF
+03:52,—,146.2,Calentador ON
+03:56,—,147.0,Calentador OFF
+03:56,02:00,147.0,Fase: Meseta 1
+03:58,—,147.2,Calentador ON
+04:00,—,147.5,Calentador OFF
+04:01,—,147.6,Calentador ON
+05:56,01:36,145.3,Fase: Rampa 2
+07:32,00:01,162.0,Fase: Meseta 2
+07:33,07:04,162.0,Fase: Rampa 3
+07:35,—,162.1,Calentador OFF
+07:36,—,162.2,Calentador ON

@@ -16,7 +16,7 @@ Temporización (sin bloquear): [temporizacion_no_bloqueante.md](temporizacion_no
 | **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
 | **Shell** | `home_view` (Heat + Ajustes embebido + overlay USB), ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
 
-Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`** + [feature_budget.md](feature_budget.md), no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`). **UI aprobada** (iconos 16×16, temp X2) no se sacrifica para meter AT opcional.
+Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`** + [feature_budget.md](feature_budget.md), no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`). **UI aprobada** (iconos 16×16, temperatura 8×12) no se sacrifica para meter AT opcional.
 ## Actuador de calor
 
 Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). No es un relé mecánico. Ver BOM PCB y [program_flows.md](program_flows.md).
@@ -112,4 +112,4 @@ Detalle de fases: [program_flows.md](program_flows.md).
 
 ## Flash
 
-Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Fuentes enlazadas: `FONT_5X7`, `FONT_5X7_X2` (misma tabla a 2×) y `FONT_ICONS` (Heat/CFG). `FONT_8X12` no se enlaza (presupuesto flash).
+Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Fuentes enlazadas: `FONT_5X7`, `FONT_8X12` (temperatura con `°C`), `FONT_5X7_X2` (misma tabla a 2×, título USB) y `FONT_ICONS` (Heat/CFG).

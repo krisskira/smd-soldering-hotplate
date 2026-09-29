@@ -13,12 +13,12 @@
     },
     {
       "active": true,
-      "temp": 175,
+      "temp": 170,
       "hold": 1
     },
     {
       "active": true,
-      "temp": 190,
+      "temp": 195,
       "hold": 90
     }
   ]

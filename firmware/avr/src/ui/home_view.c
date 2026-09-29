@@ -18,8 +18,7 @@
 #define PANEL_W    96u
 #define BOX_H      32u
 #define TEMP_TOP   3u    /* aire bajo el borde superior */
-#define TEMP_H     14u   /* FONT_5X7_X2 */
-#define TEMP_ADV   12u
+#define TEMP_H     14u   /* banda: 8×12 centrado / USB 5×7 a 2× */
 #define LINE_H     8u    /* 5×7 + 1 */
 #define LINE_GAP   4u    /* entre temp / fase / info */
 #define PCOLS      ((128u - PANEL_TX) / 6u) /* ~15 cols visibles */
@@ -120,19 +119,19 @@ static void panel_center(uint8_t y, uint8_t h, const char *str, uint8_t inv)
     panel_band(y, h, line, inv);
 }
 
-/* Texto FONT_5X7_X2 centrado en el panel. */
-static void panel_center_x2(uint8_t y, const char *str)
+/* Texto grande centrado en el panel (f->advance por carácter). */
+static void panel_center_big(uint8_t y, const font_t *f, const char *str)
 {
     st7920_span_t s;
-    uint8_t tw = (uint8_t)(ui_str_len(str) * TEMP_ADV);
+    uint8_t tw = (uint8_t)(ui_str_len(str) * f->advance);
 
-    s.f = &FONT_5X7_X2;
+    s.f = f;
     s.str = str;
     s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
     st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
 }
 
-/* "123.4°C" a 2× (7 × 12 px = 84 ≤ PANEL_W); sin sensor "ERR". */
+/* "123.4°C" en 8×12 nativo (7 × 9 px = 63); sin sensor "ERR". */
 static void draw_centered_temp(const app_state_t *st, uint8_t y)
 {
     char val[10];
@@ -145,7 +144,7 @@ static void draw_centered_temp(const app_state_t *st, uint8_t y)
         val[n++] = 'C';
         val[n] = '\0';
     }
-    panel_center_x2(y, val);
+    panel_center_big(y, &FONT_8X12, val);
 }
 
 /* "R1 150°C 01:30" — rampa | T objetivo | remain/delay. */
@@ -233,7 +232,7 @@ static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
         return;
 
     if (mode == 2u) {
-        panel_center_x2(y_phase, i18n_tr_hash(I18N_TITLE_USB));
+        panel_center_big(y_phase, &FONT_5X7_X2, i18n_tr_hash(I18N_TITLE_USB));
         return;
     }
     panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);
