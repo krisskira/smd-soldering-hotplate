@@ -2,7 +2,7 @@
 
 ## PCB (`pcb/`)
 
-Proyecto KiCad de la plancha:
+Proyecto KiCad de **HotPlate**:
 
 - `controller.*` — placa de control (ATmega16, LCD, encoder, MAX31865, …)
 - `power-stage.*` — etapa de potencia / SSR

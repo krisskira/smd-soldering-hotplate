@@ -111,6 +111,8 @@ class SettingsView:
         self.var_ph = tk.BooleanVar(value=True)
         self.var_pct = tk.StringVar(value="80")
         self.var_sb = tk.StringVar(value="30")
+        self.var_bn = tk.StringVar(value="4")
+        self.var_bx = tk.StringVar(value="6")
         _labeled_row(
             body_pre, 0, "Activar precalentado",
             ttk.Checkbutton(body_pre, variable=self.var_ph),
@@ -124,6 +126,17 @@ class SettingsView:
         _labeled_row(
             body_pre, 2, "Estabilización (s)", _num_entry(body_pre, self.var_sb),
             "Tiempo de estabilización", "1…3600 s", "$CF SB=  ·  AT+CFG=H",
+        )
+        _labeled_row(
+            body_pre, 3, "Banda entrada (±°C)", _num_entry(body_pre, self.var_bn),
+            "Banda para considerar SET alcanzado", "1…15 °C",
+            "$CF BN=  ·  AT+CFG=B,<bn>,<bx>",
+        )
+        _labeled_row(
+            body_pre, 4, "Banda salida (±°C)", _num_entry(body_pre, self.var_bx),
+            "Histéresis: abortar meseta solo fuera de esta banda",
+            "≥ entrada … 20 °C",
+            "$CF BX=  ·  AT+CFG=B,<bn>,<bx>",
         )
         body_pre.columnconfigure(1, weight=1)
 
@@ -397,6 +410,8 @@ class SettingsView:
         for src, var in (
             ("PCT", self.var_pct),
             ("SB", self.var_sb),
+            ("BN", self.var_bn),
+            ("BX", self.var_bx),
             ("DLY", self.var_dly),
             ("KP", self.var_kp),
             ("KI", self.var_ki),

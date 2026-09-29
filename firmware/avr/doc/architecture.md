@@ -1,10 +1,13 @@
 # Arquitectura del firmware AVR
 
 Maestro de fases, alarmas y EEPROM: [program_flows.md](program_flows.md). Si este archivo discrepa, manda ese.  
-Producto: [product_features.md](product_features.md).  
-UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automation.md).
+Producto (+ mapa código): [product_features.md](product_features.md).
+UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automation.md).  
+Flash / minify: [feature_budget.md](feature_budget.md) (skill `hotplate-feature-budget`).  
+PI / Autotune: [pid_control.md](pid_control.md).  
+Temporización (sin bloquear): [temporizacion_no_bloqueante.md](temporizacion_no_bloqueante.md).
 
-Última revisión: 2026-09-27. Un solo binario (`make`). Sin perfiles PANEL/USB.
+Última revisión: 2026-09-29. Un solo binario (`make`). Sin perfiles PANEL/USB.
 
 ## Core vs shell
 
@@ -13,8 +16,7 @@ UI: [ui_style_guide.md](ui_style_guide.md). AT: [usb-automation.md](usb-automati
 | **Core** | `program_runner`, `pid`, `pid_atune`, `cfg_store`, `at_cmd`, `app_state`, sensor, safety, outputs, alarmas/beeps | Dueño del comportamiento térmico. En conflicto de flash, el core gana. |
 | **Shell** | `home_view` (Heat + Ajustes embebido + overlay USB), ST7920, fonts, i18n | Adaptador: refleja `app_state_t`. No redefine la secuencia. |
 
-Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`**, no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`).
-
+Presupuesto de UI (iconos, animaciones, fuentes grandes): se decide con **`make size`** + [feature_budget.md](feature_budget.md), no con prohibiciones eternas. Mientras el margen sea mínimo, no se enlazan módulos parked (`features/parked/`). **UI aprobada** (iconos 16×16, temp X2) no se sacrifica para meter AT opcional.
 ## Actuador de calor
 
 Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). No es un relé mecánico. Ver BOM PCB y [program_flows.md](program_flows.md).
@@ -24,7 +26,7 @@ Banco PTC1+PTC2: GPIO → optoacoplador **MOC3021** → triac **BT136** (SSR). N
 ```
 firmware/avr/
   src/main.c                 super-loop; g_state
-  src/app/                   app_state.h, app_config.h (EEPROM v7)
+  src/app/                   app_state.h, app_config.h (EEPROM v8)
   src/ui/                    home (Heat|Ajustes embebido|overlay USB)
   src/ui/core/               window, bands, texto
   src/services/program/      máquina de fases (HEAT con fase PREHEAT / PID_TUNE)
@@ -110,4 +112,4 @@ Detalle de fases: [program_flows.md](program_flows.md).
 
 ## Flash
 
-Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Fuentes enlazadas: `FONT_5X7` (1× y 2× vía `FONT_5X7_X2`, misma tabla), `FONT_ICONS` (16×16). Sin escala 3×. `FONT_8X12` no se enlaza (presupuesto flash para PI predictivo).
+Límite ATmega16: **16384 B**. Medir con `make size` tras cada cambio. Fuente enlazada: `FONT_5X7`. `FONT_5X7_X2` / `FONT_ICONS` / `FONT_8X12` no se enlazan (presupuesto flash).

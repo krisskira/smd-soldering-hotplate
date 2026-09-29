@@ -1,4 +1,4 @@
-"""Tema de la Host UI: defaults, persistencia y aplicación ttk/widgets."""
+"""Tema de HotPlate Studio: defaults, persistencia y aplicación ttk/widgets."""
 
 from __future__ import annotations
 

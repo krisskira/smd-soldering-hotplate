@@ -1,9 +1,9 @@
 # SMI Soldering Hot Plate – Firmware AVR
 
 Firmware ATmega16 @ **8 MHz**: HOME (Heat|Settings), HEAT (+ fase PREHEAT), PID_TUNE,
-rampas EEPROM, PID (SSR MOC3021+BT136), MODO USB / AT, EEPROM **v7**.
+rampas EEPROM, PID (SSR MOC3021+BT136), MODO USB / AT, EEPROM **v8**.
 
-**Docs:** [product_features.md](doc/product_features.md) · [program_flows.md](doc/program_flows.md) · [architecture.md](doc/architecture.md) · [usb-automation.md](doc/usb-automation.md)
+**Docs:** [product_features.md](doc/product_features.md) (producto + mapa código) · [program_flows.md](doc/program_flows.md) · [architecture.md](doc/architecture.md) · [usb-automation.md](doc/usb-automation.md)
 
 ## Build
 

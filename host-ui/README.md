@@ -1,4 +1,4 @@
-# Host UI — app de escritorio (modo USB / AT)
+# HotPlate Studio — control y personalización (modo USB / AT)
 
 ```bash
 cd host-ui

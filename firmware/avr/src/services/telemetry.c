@@ -94,10 +94,10 @@ void telemetry_emit_cfg(const app_state_t *st)
     kv_u(PSTR(",PH="), st->preheat_en);
     kv_u(PSTR(",PCT="), st->preheat_pct);
     kv_u(PSTR(",SB="), st->stabilize_s);
+    kv_u(PSTR(",BN="), st->preheat_band_c);
+    kv_u(PSTR(",BX="), st->preheat_band_exit_c);
     kv_u(PSTR(",DLY="), st->delay_s);
     kv_u(PSTR(",AIR="), st->cooldown_air_en);
-    kv_u(PSTR(",SND="), st->buzz_nav_en);
-    kv_u(PSTR(",RN="), st->ramp_n);
     kv_u(PSTR(",AMS="), st->atune_max_s);
     avr_uart_transmit_pstr(PROTO_CRLF);
 }

@@ -1,155 +1,221 @@
-# UART / AT / MODO USB — SMI Soldering Hot Plate
+# UART / AT — HotPlate Studio ↔ HotPlate
 
-Contrato del host. Fases, beeps y EEPROM: [program_flows.md](program_flows.md). Si discrepan, manda ese en el proceso térmico; este archivo manda en lo que sale y entra por UART.
+Contrato de lo que entra y sale por el cable USB/serie.  
+HotPlate Studio habla este protocolo; el firmware lo implementa en `at_cmd.c` + `telemetry.c`.
 
-UART **9600 8N1**. Una línea = un comando. Fin `\r` o `\n`. Mayúsculas. Trim de espacios/tabs finales. Máximo **31** caracteres de entrada: si se pasa, la línea se tira.
+| Si hay duda sobre… | Mira |
+|--------------------|------|
+| Fases, alarmas, EEPROM, pitidos | [program_flows.md](program_flows.md) (**manda** en el proceso térmico) |
+| PI / autoajuste | [pid_control.md](pid_control.md) |
+| Flash / qué se puede recortar | [feature_budget.md](feature_budget.md) |
 
-Boot: `\r\nHP\r\n` una vez.
+---
 
-**Protocolo numérico:** `ERROR:`, `ALARM:` y campos `P`/`A` de `$HP` usan enteros. Los nombres de la tabla son solo documentación (ahorro de Flash).
+## Cómo hablar con HotPlate
 
-Cinco verbos: `MODE`, `RUN`, `STOP`, `CFG`, `STAT`. PREHEAT no es un programa AT: es la fase de HEAT cuando `preheat_en` está activo.
+| Detalle | Valor |
+|---------|-------|
+| Puerto | UART **9600 8N1** |
+| Forma | Una línea = un comando |
+| Fin de línea | `\r` o `\n` |
+| Mayúsculas | Sí |
+| Espacios finales | Se ignoran |
+| Largo máximo | **31** caracteres; si se pasa, la línea se descarta |
 
-## Sesión
+Al encender, HotPlate saluda una vez: `\r\nHP\r\n`.
 
-MANUAL y USB no se mezclan. Entrar a USB exige equipo libre.
+**Números, no nombres largos.** `ERROR:`, `ALARM:` y los campos `P` / `A` de `$HP` van como enteros. Los nombres de las tablas de abajo son solo para humanos (ahorro de Flash en el micro).
 
-| Comando | USB previo | Respuesta |
-|---------|------------|-----------|
-| `AT` | no | `OK` |
-| `AT+MODE=1` | no | Entra USB si libre → `$HP` + `OK`. Ocupado → `ERROR:4`. Ya USB → `OK` |
-| `AT+MODE=0` | no | Sale a MANUAL (STOP de sesión), quita overlay USB en Heat → `$HP` + `OK` |
+Hay **cinco verbos**: `MODE`, `RUN`, `STOP`, `CFG`, `STAT`.  
+El precalentamiento **no** es un programa AT: es una fase de HEAT cuando `preheat_en` está activo.
 
-`AT+STAT?` no exige USB. El resto (`CFG`, `CFG?`, `RUN`, `STOP`) sí → si no, `ERROR:3`.
+---
 
-`AT+MODE=1`: overlay en casilla Heat (temp + etiqueta **`USB`** + icono 16×16; pie **`EXIT`**). PRESS `EXIT`: MANUAL, `ERROR:8`, beep CONFIRM ×2.
+## Sesión: Manual vs USB
 
-## Códigos ERROR
+HotPanel (modo manual) y HotPlate Studio (modo USB) **no** mandan a la vez. Para tomar el control por USB el equipo tiene que estar libre.
 
-`ERROR:<n>\r\n`
+| Comando | ¿Hace falta estar en USB? | Qué ocurre |
+|---------|---------------------------|------------|
+| `AT` | No | Ping → `OK` |
+| `AT+MODE=1` | No | Entra en USB si está libre → `$HP` + `OK`. Ocupado → `ERROR:4`. Ya en USB → `OK` |
+| `AT+MODE=0` | No | Vuelve a Manual (para la sesión), quita el overlay USB de HotPanel → `$HP` + `OK` |
 
-| n | Nombre | Cuándo |
-|--:|--------|--------|
-| 1 | INVALID_COMMAND | Nombre desconocido en USB / terminador inválido |
-| 2 | INVALID_PARAMETER | Argumento malo/rango; `RUN=1` sin rampas; `RUN=2` fuera de rango; `CFG=A` sin DONE |
-| 3 | USB_MODE_REQUIRED | Comando USB en MANUAL (también desconocidos en MANUAL) |
-| 4 | DEVICE_BUSY | `MODE=1` ocupado; `RUN` en `PH_FAULT` |
-| 5 | PROGRAM_BUSY | `RUN` con ciclo o autotune activo |
+`AT+STAT?` funciona sin estar en USB.  
+El resto (`CFG`, `CFG?`, `RUN`, `STOP`) exige USB → si no, `ERROR:3`.
+
+Con `AT+MODE=1`, HotPanel muestra en Heat la etiqueta **`USB`** y el pie **`EXIT`**.  
+Pulsar **EXIT** en HotPanel: vuelve a Manual, emite `ERROR:8` y un pitido de confirmación ×2.
+
+---
+
+## Errores (`ERROR:n`)
+
+Formato: `ERROR:<n>\r\n`
+
+| n | Nombre (doc) | Cuándo |
+|--:|--------------|--------|
+| 1 | INVALID_COMMAND | Comando desconocido / mal formado en USB |
+| 2 | INVALID_PARAMETER | Argumento fuera de rango; `RUN=1` sin rampas; `RUN=2` inválido; `CFG=A` sin autoajuste DONE |
+| 3 | USB_MODE_REQUIRED | Comando que exige USB estando en Manual |
+| 4 | DEVICE_BUSY | `MODE=1` con el equipo ocupado; `RUN` en fallo (`PH_FAULT`) |
+| 5 | PROGRAM_BUSY | `RUN` con un ciclo o autoajuste ya en marcha |
 | 6 | SENSOR_INVALID | `RUN` sin sensor válido |
-| 7 | OVER_TEMPERATURE | Corte safety (`temp_max_c`) |
-| 8 | ABORTED_BY_DEVICE | PRESS `EXIT` en overlay USB |
+| 7 | OVER_TEMPERATURE | Corte de seguridad (`temp_max_c`) |
+| 8 | ABORTED_BY_DEVICE | Pulsar **EXIT** en el overlay USB de HotPanel |
 
-## Códigos ALARM
+---
 
-Espontáneos con sesión USB: `ALARM:<n>\r\n`
+## Alarmas (`ALARM:n`)
+
+Líneas espontáneas mientras hay sesión USB: `ALARM:<n>\r\n`
 
 | n | Nombre | Cuándo |
 |--:|--------|--------|
-| 2 | DONE | HEAT fin de rampas (o `AT+STOP` en marcha, que cierra como fin). Cancel UI → IDLE sin ALARM |
+| 2 | DONE | HEAT terminó las rampas (o `AT+STOP` en marcha, que cierra como fin). Cancelar desde HotPanel → IDLE **sin** `ALARM` |
 
-No hay `ALARM:1`. El precalentado de HEAT no emite alarma: al estabilizar, o al vencer el timeout de sobrepaso entre el tope y Ramp1, pasa a la rampa.
+No existe `ALARM:1`. El precalentamiento no emite alarma: al estabilizar (o al vencer el timeout de sobrepaso) pasa a la rampa.
 
-## PROGRAM / ACTION (`$HP`)
+---
 
-`P=<n>` = `program_id_t`:
+## Programa y fase en `$HP`
+
+`P=<n>` = qué programa corre:
 
 | n | Programa |
 |--:|----------|
-| 1 | HEAT |
-| 2 | PID_TUNE |
+| 1 | HEAT (Soldering Profile) |
+| 2 | PID_TUNE (autoajuste) |
 
 `P=0` no existe.
 
-`A=<n>` = fase (`process_phase_t`) salvo autotune:
+`A=<n>` = fase del proceso (salvo autoajuste, que fuerza `A=10`):
 
-| n | Fase |
-|--:|------|
-| 0 | IDLE |
-| 1 | DELAY (WAITING) |
-| 2 | PREHEAT |
-| 3 | STABILIZE |
-| 4 | HOLD |
-| 5 | RUN |
-| 6 | COOLDOWN |
-| 7 | ALARM |
-| 8 | DONE |
-| 9 | FAULT |
-| 10 | TUNING (`ATUNE_RUN`) |
+| n | Fase | En palabras |
+|--:|------|-------------|
+| 0 | IDLE | En reposo |
+| 1 | DELAY | Espera antes de calentar |
+| 2 | PREHEAT | Precalentamiento |
+| 3 | STABILIZE | Estabilización |
+| 4 | HOLD | Meseta del escalón |
+| 5 | RUN | Subida hacia el SET |
+| 6 | COOLDOWN | Enfriamiento con aire |
+| 7 | ALARM | Aviso de fin |
+| 8 | DONE | Listo |
+| 9 | FAULT | Fallo / sobretemperatura |
+| 10 | TUNING | Autoajuste en curso |
 
-## Catálogo AT
+---
 
-| Comando | USB | Efecto | Persiste | OK |
-|---------|-----|--------|----------|-----|
+## Catálogo de comandos
+
+| Comando | USB | Efecto | Se guarda | Respuesta OK |
+|---------|-----|--------|-----------|--------------|
 | `AT` | no | Ping | — | `OK` |
-| `AT+STAT?` | no | Emite `$HP` de proceso | — | `$HP` + `OK` |
-| `AT+MODE=0\|1` | no | MANUAL/USB | — | `$HP` + `OK` |
+| `AT+STAT?` | no | Foto del proceso | — | `$HP` + `OK` |
+| `AT+MODE=0\|1` | no | Manual / USB | — | `$HP` + `OK` |
 | `AT+RUN=1` | sí | Arranca HEAT | — | `OK` / `ERROR:n` |
-| `AT+RUN=2,<°C>,<ciclos>,<hyst>[,<max_s>]` | sí | Arranca PID_TUNE y abre stream | global + `ee_tune` | `OK` / `ERROR:n` |
+| `AT+RUN=2,<°C>,<ciclos>,<hyst>[,<max_s>]` | sí | Arranca autoajuste + stream | global + `ee_tune` | `OK` / `ERROR:n` |
 | `AT+STOP` | sí | Parada | — | **solo `OK`** (sin `$HP`) |
-| `AT+CFG=S,<min>,<max>` | sí | `temp_min_c`, `temp_max_c` | global | `OK` |
+| `AT+CFG=S,<min>,<max>` | sí | Límites de temperatura | global | `OK` |
 | `AT+CFG=H,<en>,<pct>,<stab>,<delay>,<air>,<snd>` | sí | Flujo HEAT | global + `ee_heat` | `OK` |
-| `AT+CFG=P,<kp>,<ki>,<kd>` | sí | Ganancias ×10, 0..999 | global | `OK` |
-| `AT+CFG=T,<ciclos>,<hyst>,<max_s>` | sí | Params autotune (sin arrancar) | global | `OK` |
-| `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0..3 | `ee_ramp` | `OK` |
-| `AT+CFG=R?` | sí | Emite `$R` (escalones) | — | `$R` + `OK` |
-| `AT+CFG=A` | sí | Copia resultado autotune → PID si `ATUNE_DONE` | global | `OK` |
-| `AT+CFG?` | sí | Emite `$CF` | — | `$CF` + `OK` |
+| `AT+CFG=B,<bn>,<bx>` | sí | Bandas ±°C (entrada / salida) | global | `OK` |
+| `AT+CFG=P,<kp>,<ki>,<kd>` | sí | Ganancias ×10 (0…999) | global | `OK` |
+| `AT+CFG=T,<ciclos>,<hyst>,<max_s>` | sí | Params autoajuste **sin** arrancar | global | `OK` |
+| `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0…3 del Soldering Profile | `ee_ramp` | `OK` |
+| `AT+CFG=R?` | sí | Lee escalones | — | `$R` + `OK` |
+| `AT+CFG=A` | sí | Copia resultado autoajuste → PID (si DONE) | global | `OK` |
+| `AT+CFG?` | sí | Lee ajustes | — | `$CF` + `OK` |
 
-`CFG=H`: `en`/`air`/`snd` son 0 o 1; `pct` 50..100 paso 5; `stab` 1..3600; `delay` 0..3600 (`0` = HEAT inmediato).
+### Detalles de `CFG`
 
-`CFG=S`: min 30..100, max 40..250, min ≤ max.
+**`CFG=H`** — precalentamiento y arranque de HEAT  
+`en` / `air` / `snd` = 0 o 1 · `pct` 50…100 paso 5 · `stab` 1…3600 · `delay` 0…3600 (`0` = inmediato).  
+`snd` sigue aceptándose por compatibilidad, pero **el sonido de navegación no es feature de producto** y **no** sale en `$CF`.
 
-`CFG=R`: °C dentro de min..max, hold 1..3600. Escribir escalón `i` **fija** `ramp_n = i+1` y limpia huecos altos (así se puede achicar N reescribiendo el último activo). **`temp=0`** (`i≥1`): deshabilita desde `i`. HEAT exige perfil **no decreciente** al `AT+RUN=1` (`ERROR:2` si no). `CFG=R?` → `$R`.
+**`CFG=B`** — histéresis de bandas  
+`bn` entrada ±°C (1…15) · `bx` salida ±°C (`bn`…20). Sirve en precalentamiento y en el approach de cada rampa.
 
-`RUN=2`: consigna en `[TMIN .. TMAX-10]`, ciclos 3..10, histéresis ×10 de 1..99; `max_s` opcional 120..3600 (timeout global del autotune; default EEPROM `AMS`, 2000 s). Si se omite, usa el valor guardado.
+**`CFG=S`** — límites  
+min 30…100 · max 40…250 · min ≤ max.
 
-`CFG=T`: ciclos 3..10, hyst 1..99, `max_s` 120..3600. No arranca el proceso.
+**`CFG=R`** — Soldering Profile  
+°C dentro de min…max · hold 1…3600. Escribir el escalón `i` **fija** `ramp_n = i+1` y limpia los huecos altos (así se puede achicar N).  
+`temp=0` con `i≥1` deshabilita desde ese índice.  
+Al `AT+RUN=1` el perfil debe ser **no decreciente** → si no, `ERROR:2`.  
+Lectura: `CFG=R?` → `$R`.
+
+**`CFG=T` / `RUN=2`** — autoajuste  
+Consigna en `[Tmin .. Tmax−10]` · ciclos 3…10 · histéresis ×10 de 1…99 · `max_s` opcional 120…3600 (default EEPROM `AMS`, 2000 s).  
+`CFG=T` solo guarda; `RUN=2` arranca.
+
+---
 
 ## Lectura — proceso `$HP`
 
-Sin campo `DEVICE`. Settings no van en esta trama.
+Foto del proceso. **No** lleva settings. Sale con `STAT?`, `MODE`, cambios de fase, y a 1 Hz durante el autoajuste.
 
 ```
 $HP,T=<°C.d|--->,P=<prog>,A=<action>,SET=<°C>,DLY=<s>,RUN=<s>,EL=<s>,
 DU=<0..100>,F=0|1,RI=<ramp_idx>,FL=0|1
 ```
 
-Con stream de autotune se añade:
+Con stream de autoajuste se añade:
 
 ```
-,AP=<fase>,AC=<ciclos hechos>,AK=<kp>,AI=<ki>,AD=<kd>
+,AP=<fase>,AC=<ciclos hechos>,AK=<kp>,AI=<ki>
 ```
 
 | Campo | Significado |
 |-------|-------------|
-| `T` | Temperatura ×10 o `---` |
-| `P` `A` | PROGRAM / ACTION |
-| `SET` `DLY` `RUN` `EL` | Consigna, delay, remain, elapsed |
-| `DU` `F` `RI` `FL` | Duty del banco PTC, fan, índice del escalón en curso (`ramp_idx`), fault. `RI` no es el perfil; el contenido de cada escalón va en `$R` |
-| `AP` | `atune_phase` (0 IDLE, 1 RUN, 2 DONE, 3 FAIL). Solo en stream |
-| `AC` | Ciclos ya cerrados. Solo en stream |
-| `AK` `AI` `AD` | Resultado ×10. Cero hasta DONE. Solo en stream |
+| `T` | Temperatura (°C con décima) o `---` si el sensor no vale |
+| `P` `A` | Programa / fase (tablas de arriba) |
+| `SET` | Consigna actual (°C) |
+| `DLY` | Retraso configurado (s) |
+| `RUN` | Tiempo restante de la fase (s) |
+| `EL` | Tiempo transcurrido (s) |
+| `DU` | Duty del banco PTC (0…100 %) |
+| `F` | Ventilador 0/1 |
+| `RI` | Índice del escalón en curso (`ramp_idx`). El contenido del perfil va en `$R` |
+| `FL` | Fault 0/1 |
+| `AP` | Fase del autoajuste: 0 IDLE, 1 RUN, 2 DONE, 3 FAIL |
+| `AC` | Ciclos ya cerrados |
+| `AK` `AI` | Kp / Ki resultado ×10 (cero hasta DONE) |
 
-`AK`/`AI`/`AD` viven en el autotune, no en `app_state`. El host los grafica desde la trama.
+`AK` / `AI` viven en el autoajuste, no en `app_state`. HotPlate Studio los grafica desde la trama.  
+**Nota:** `AD` (Kd) **ya no se emite** (siempre 0; ahorro de Flash).
 
-## Lectura — settings `$CF`
+---
 
-Solo `AT+CFG?`. No sale a 1 Hz.
+## Lectura — ajustes `$CF`
+
+Solo con `AT+CFG?` (no a 1 Hz).
 
 ```
 $CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
-DLY=<s>,AIR=0|1,SND=0|1,RN=<ramp_n>,AMS=<max_s>
-(Kd siempre 0 / autotune PI; `KD=` puede omitirse en `$CF`)
+BN=<band_c>,BX=<band_exit_c>,DLY=<s>,AIR=0|1,AMS=<max_s>
 ```
 
-`RN` es cuántos escalones cuenta el programa (`ramp_n`, 1..4). No trae °C ni hold; eso sale en `$R`.
-`AMS` = timeout global del autotune en segundos (`atune_max_s`, 120..3600).
+| Campo | Significado |
+|-------|-------------|
+| `MN` `MX` | Límites de temperatura |
+| `KP` `KI` | Ganancias PI ×10 (`KD` omitido: siempre 0) |
+| `PH` `PCT` `SB` | Precalentamiento on/off, %, segundos de estabilización |
+| `BN` `BX` | Bandas entrada / salida (±°C) |
+| `DLY` | Retraso de arranque (s) |
+| `AIR` | Aire al final de HEAT |
+| `AMS` | Timeout global del autoajuste (s) |
 
-No se exponen dirty flags ni se permite forzar calentadores fuera del runner/PID.
+Omitidos a propósito por Flash: `KD`, `SND`, `RN`.  
+La cuenta de escalones (`ramp_n`) se lee en `$R` como `N=`.
 
-## Lectura — escalones `$R`
+No se exponen dirty flags ni se pueden forzar calentadores fuera del runner/PID.
 
-Solo `AT+CFG=R?`. Emite siempre los cuatro huecos (0..3); `N` dice cuántos usa HEAT.
+---
+
+## Lectura — Soldering Profile `$R`
+
+Solo con `AT+CFG=R?`. Siempre emite los cuatro huecos (0…3); `N` dice cuántos usa HEAT.
 
 ```
 $R,N=<n>,0=<°C>/<s>,1=<°C>/<s>,2=<°C>/<s>,3=<°C>/<s>
@@ -157,70 +223,78 @@ $R,N=<n>,0=<°C>/<s>,1=<°C>/<s>,2=<°C>/<s>,3=<°C>/<s>
 
 Ejemplo: `$R,N=2,0=180/90,1=220/60,2=100/60,3=125/60`.
 
-## Arranque
+---
+
+## Recetas rápidas
+
+### Tomar el control y lanzar HEAT
 
 ```
 AT+MODE=1
-AT+CFG=R,0,<°C>,<s>
-AT+CFG=H,1,80,0,0,1,1
-AT+RUN=1
-```
-
-### HEAT (`P=1`)
-
-```
 AT+CFG=R,0,180,90
 AT+CFG=R,1,220,60
-AT+CFG=H,1,80,30,0,1,1
+AT+CFG=H,1,80,30,0,1,0
+AT+CFG=B,4,6
 AT+RUN=1
 ```
 
-`CFG=H` activa el precalentado al 80 % de la rampa 1, 30 s de banda, delay 0, aire on, sonido on. `PH=0` en un `CFG=H` salta PREHEAT y STABILIZE y entra en Ramp1.
+En ese ejemplo: precalentamiento al 80 % de Ramp1, 30 s de meseta, delay 0, aire on, `snd=0`. Bandas ±4 / ±6 °C.  
+Con `PH=0` (primer argumento de `H`) se salta precalentamiento y estabilización.
 
-### PID_TUNE (`P=2`)
+### Autoajuste
 
 ```
 AT+CFG=T,5,15,1200
 AT+RUN=2,150,5,15,1200
 ```
 
-- Fuera de rango → `ERROR:2` (no hay `OK` vacío).
-- Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI` mientras corre.
-- En medio-ciclo OFF: fan ON (acelera enfriamiento / reduce tiempo sobre consigna).
-- Timeout global: `AMS` / `max_s` (default **2000** s); FAIL si se supera.
-- Al terminar: una trama con `AP=2` y `AK/AI/AD`.
-- Aplicar al PID de trabajo: `AT+CFG=A` → EEPROM. Si no DONE → `ERROR:2`.
+- Fuera de rango → `ERROR:2`.
+- Stream `$HP` a 1 Hz con `A=10` y `AP,AC,AK,AI`.
+- En medio-ciclo OFF el fan ayuda a bajar.
+- Timeout: `AMS` / `max_s` (default **2000** s) → FAIL si se supera.
+- Al terminar: trama con `AP=2` y `AK`/`AI`.
+- Aplicar al lazo: `AT+CFG=A` → EEPROM. Si no está DONE → `ERROR:2`.
 
-Ganancias de trabajo: `AT+CFG=P,kp,ki,kd`. La UI de Ajustes no edita PID ni lanza Auto.
+Ganancias a mano: `AT+CFG=P,kp,ki,kd`. HotPanel no edita PID ni lanza Auto.
 
-## Parada
+### Parar
 
-`AT+STOP` → **solo `OK`**. Efectos internos iguales (fin HEAT / abort / cancel atune); el host pide `STAT?` si necesita foto.
+`AT+STOP` → **solo `OK`**. Internamente cierra HEAT / aborta autoajuste; Studio pide `STAT?` si quiere una foto.
 
-PRESS local → `ERROR:8` (no es STOP).
+Pulsar **EXIT** en HotPanel → `ERROR:8` (no es lo mismo que `STOP`).
 
-## Gaps
+---
 
-Sin comando AT: `alarm_duration_s`, `alarm_period_s`. Achicar `ramp_n`: reescribir el último escalón activo (`AT+CFG=R,<n-1>,°C,s` fija N) o `AT+CFG=R,<i>,0,<hold>` con `i≥1`.
+## Qué no tiene comando AT
 
-## Streams
+- `alarm_duration_s` / `alarm_period_s` (solo en firmware / EEPROM).
+- Achicar el Soldering Profile: reescribir el último escalón activo (`AT+CFG=R,<n-1>,°C,s` fija N) o `AT+CFG=R,<i>,0,<hold>` con `i≥1`.
 
-| Stream | Cuándo | Fin |
-|--------|--------|-----|
-| Foto de proceso | `STAT?`, `MODE`, cambios de fase, beep de alarma | un disparo |
-| Settings | `CFG?` | un disparo |
-| Escalones | `CFG=R?` | un disparo |
-| Autotune 1 Hz | `RUN=2` OK | STOP / fin DONE\|FAIL / fault |
+---
 
-## Herramienta host
+## Cuándo salen las tramas
 
-UI de escritorio en la raíz del repo: [`host-ui/`](../../../host-ui/). Habla este contrato por puerto serie (sin simulador).
+| Trama | Cuándo | Fin |
+|-------|--------|-----|
+| `$HP` (foto) | `STAT?`, `MODE`, cambio de fase, beep de alarma | Un disparo |
+| `$CF` | `CFG?` | Un disparo |
+| `$R` | `CFG=R?` | Un disparo |
+| `$HP` autotune 1 Hz | Tras `RUN=2` OK | `STOP` / DONE / FAIL / fault |
+
+---
+
+## HotPlate Studio
+
+App de escritorio en [`host-ui/`](../../../host-ui/). Habla este contrato por puerto serie (sin simulador).
 
 ```bash
 pip install -r host-ui/requirements.txt
 python host-ui/app.py
 ```
 
-## Nota Flash
+---
 
-ATmega16: **16384 B**. Medir siempre con `make size` tras cambios (LTO). Fuentes: FONT_5X7 + FONT_ICONS. Margen mínimo: cualquier string/glifo nuevo exige recorte equivalente.
+## Nota de Flash
+
+ATmega16: **16384 B**. Tras tocar el protocolo: `make size` y actualizar [feature_budget.md](feature_budget.md) (skill `hotplate-feature-budget`).  
+UI aprobada (iconos, temp ×2) no se sacrifica para meter campos AT opcionales.

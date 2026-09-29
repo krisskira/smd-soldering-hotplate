@@ -92,7 +92,7 @@ class TuneView:
         ToolTip(
             btn_save,
             "Valida y envía AT+CFG=T al equipo (EEPROM).\n"
-            "También guarda caché local en el host.\n"
+            "También guarda una caché local en HotPlate Studio.\n"
             "Al iniciar: AT+RUN=2 con temp + estos params.",
         )
 

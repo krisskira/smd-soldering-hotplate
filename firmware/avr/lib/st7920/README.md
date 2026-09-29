@@ -128,12 +128,12 @@ st7920_render();
 
 ## Animaciones no bloqueantes
 
-`st7920_draw_animation()` es bloqueante. Para **una o varias** animaciones sin bloquear se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md)):
+`st7920_draw_animation()` es bloqueante. Para **una o varias** animaciones sin bloquear se sigue el principio **configuración → primera ejecución (init) → ciclo temporizado** (ver [st7920_pantalla.md](../../doc/st7920_pantalla.md)):
 
 - **Una animación:** `st7920_animation_run(ctx, x, y, anim, buffer, interval_ms)` – Una función con máquina de estados: la primera llamada hace start (frame 0 + init ctx); las siguientes hacen tick. Llamar siempre en el loop con los mismos parámetros.
 - **Varias animaciones:** definir un array de **slots** (`st7920_animation_slot_t`), cada uno con punteros a ctx, anim, buffer y (x, y, interval_ms). En el loop solo **`st7920_animation_run_all(slots, count)`**. Añadir una animación = añadir un slot al array; no hace falta reescribir el loop.
 
-Documentación completa (una vs varias animaciones, ejemplos, delays): [doc/animaciones_no_bloqueantes.md](../../doc/animaciones_no_bloqueantes.md).
+Documentación completa (bitmaps, diffs, una vs varias animaciones): [st7920_pantalla.md](../../doc/st7920_pantalla.md).
 
 ## Texto + animaciones (sin volver a llamar render)
 

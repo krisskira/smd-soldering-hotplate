@@ -2,7 +2,6 @@
 #include "ui_text.h"
 #include "ui_router.h"
 #include "ui_components.h"
-#include "ui_icons.h"
 #include "i18n/i18n_c.h"
 #include "../services/buzzer_seq.h"
 #include "../services/cfg_store.h"
@@ -18,13 +17,11 @@
 #define PANEL_W    96u
 #define BOX_H      32u
 #define TEMP_TOP   3u    /* aire bajo el borde superior */
-#define TEMP_H     14u   /* FONT_5X7_X2 */
-#define TEMP_ADV   12u
+#define TEMP_H     8u    /* FONT_5X7 (sin X2: flash) */
 #define LINE_H     8u    /* 5×7 + 1 */
 #define LINE_GAP   4u    /* entre temp / fase / info */
 #define PCOLS      ((128u - PANEL_TX) / 6u) /* ~15 cols visibles */
-#define ICO_PX     16u /* nativo 16×16; centrado en sidebar 32 */
-#define ICO_SIDE_X ((32u - ICO_PX) / 2u) /* 8 */
+/* Sidebar texto 5×7 (sin FONT_ICONS: presupuesto flash). */
 
 /* 0=heat 1=set 2=usb — wipe del panel solo al cambiar de modo. */
 static uint8_t s_panel_mode;
@@ -82,20 +79,15 @@ static void sel_rot(uint8_t *sel, uint8_t count, int8_t dir)
 
 static void side_box(uint8_t i, uint8_t inv)
 {
-    uint8_t gid = (i == HOME_IDX_HEAT) ? (uint8_t)ICO_HEAT : (uint8_t)ICO_CFG;
-    uint8_t y0 = (uint8_t)(i * BOX_H);
-    uint8_t iy = (uint8_t)(y0 + (BOX_H - ICO_PX) / 2u);
-    uint8_t py;
-    uint16_t row[2], fill = inv ? 0xFFFFu : 0u;
+    st7920_span_t sp;
+    char lab[2];
 
-    for (py = y0; py < (uint8_t)(y0 + BOX_H); py++) {
-        row[0] = fill;
-        row[1] = fill;
-        st7920_glyph_row(row, py, &FONT_ICONS, gid, ICO_SIDE_X, iy, inv);
-        row[1] |= 0x0001u; /* separador x=31 */
-        st7920_write_gdram(0, py, (uint8_t)(row[0] >> 8), (uint8_t)row[0]);
-        st7920_write_gdram(1, py, (uint8_t)(row[1] >> 8), (uint8_t)row[1]);
-    }
+    lab[0] = (i == HOME_IDX_HEAT) ? 'H' : 'S';
+    lab[1] = '\0';
+    sp.f = &FONT_5X7;
+    sp.str = lab;
+    sp.x = 12u;
+    st7920_draw_band(0u, 32u, (uint8_t)(i * BOX_H), BOX_H, &sp, 1u, inv);
 }
 
 static void panel_band(uint8_t y, uint8_t h, const char *s, uint8_t inv)
@@ -121,19 +113,7 @@ static void panel_center(uint8_t y, uint8_t h, const char *str, uint8_t inv)
     panel_band(y, h, line, inv);
 }
 
-/* Texto FONT_5X7_X2 centrado en el panel. */
-static void panel_center_x2(uint8_t y, const char *str)
-{
-    st7920_span_t s;
-    uint8_t tw = (uint8_t)(ui_str_len(str) * TEMP_ADV);
-
-    s.f = &FONT_5X7_X2;
-    s.str = str;
-    s.x = (uint8_t)(PANEL_X + ((PANEL_W > tw) ? (PANEL_W - tw) / 2u : 0u));
-    st7920_draw_band(PANEL_X, PANEL_W, y, TEMP_H, &s, 1u, 0u);
-}
-
-/* "123.4°C" a 2× (7 × 12 px = 84 ≤ PANEL_W); sin sensor "ERR". */
+/* "123.4°C"; sin sensor "ERR". */
 static void draw_centered_temp(const app_state_t *st, uint8_t y)
 {
     char val[10];
@@ -146,7 +126,7 @@ static void draw_centered_temp(const app_state_t *st, uint8_t y)
         val[n++] = 'C';
         val[n] = '\0';
     }
-    panel_center_x2(y, val);
+    panel_center(y, TEMP_H, val, 0u);
 }
 
 /* "R1 150 01:30" — rampa | T objetivo | remain/delay. */
@@ -204,7 +184,7 @@ static void draw_heat_panel(const app_state_t *st, uint8_t dirty)
         return;
 
     if (mode == 2u) {
-        panel_center_x2(y_phase, i18n_tr_hash(I18N_TITLE_USB));
+        panel_center(y_phase, LINE_H, i18n_tr_hash(I18N_TITLE_USB), 0u);
         return;
     }
     panel_center(y_phase, LINE_H, process_phase_name(st->phase), 0u);

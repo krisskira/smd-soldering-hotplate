@@ -3,9 +3,8 @@
 #include <avr/eeprom.h>
 
 /*
- * EEPROM v7: global (PID + atune + safety + preheat_pct)
- * + ee_heat/tune + rampas. Ver distinta → defaults, sin migración.
- * rise/lookahead: compile-time en app_config.h (presupuesto flash).
+ * EEPROM v8: global (+ bandas preheat) + ee_heat/tune + rampas.
+ * Ver distinta → defaults, sin migración.
  */
 
 typedef struct {
@@ -20,6 +19,8 @@ typedef struct {
     int16_t  atune_hyst_c_x10;
     uint8_t  preheat_pct;
     uint16_t atune_max_s;
+    uint8_t  preheat_band_c;
+    uint8_t  preheat_band_exit_c;
     uint8_t  cs;
 } cfg_g_t;
 
@@ -72,6 +73,8 @@ void cfg_store_defaults(app_state_t *st)
     st->buzz_nav_reps = 1;
     st->preheat_en = 1;
     st->preheat_pct = PREHEAT_PCT_DEFAULT;
+    st->preheat_band_c = PREHEAT_BAND_C_DEFAULT;
+    st->preheat_band_exit_c = PREHEAT_BAND_EXIT_C_DEFAULT;
     st->ramps_en = 1;
     st->stabilize_s = PREHEAT_STABLE_S_DEFAULT;
     st->alarm_duration_s = ALARM_DURATION_S_DEFAULT;
@@ -113,6 +116,14 @@ uint8_t cfg_load_global(app_state_t *st)
     st->preheat_pct = (b.preheat_pct >= PREHEAT_PCT_LO
                        && b.preheat_pct <= PREHEAT_PCT_HI)
         ? b.preheat_pct : PREHEAT_PCT_DEFAULT;
+    st->preheat_band_c = PREHEAT_BAND_C_DEFAULT;
+    st->preheat_band_exit_c = PREHEAT_BAND_EXIT_C_DEFAULT;
+    if (b.preheat_band_c >= PREHEAT_BAND_C_LO
+        && b.preheat_band_c <= PREHEAT_BAND_C_HI)
+        st->preheat_band_c = b.preheat_band_c;
+    if (b.preheat_band_exit_c >= st->preheat_band_c
+        && b.preheat_band_exit_c <= PREHEAT_BAND_EXIT_C_HI)
+        st->preheat_band_exit_c = b.preheat_band_exit_c;
     st->ramps_en = 1u;
     st->stabilize_s = b.stabilize_s ? b.stabilize_s : PREHEAT_STABLE_S_DEFAULT;
     st->alarm_duration_s = b.alarm_duration_s
@@ -147,6 +158,8 @@ void cfg_save_global(const app_state_t *st)
     b.buzz_nav_reps = st->buzz_nav_reps;
     b.preheat_en = st->preheat_en;
     b.preheat_pct = st->preheat_pct;
+    b.preheat_band_c = st->preheat_band_c;
+    b.preheat_band_exit_c = st->preheat_band_exit_c;
     b.ramps_en = 1u;
     b.stabilize_s = st->stabilize_s;
     b.alarm_duration_s = st->alarm_duration_s;

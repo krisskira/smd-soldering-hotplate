@@ -18,7 +18,7 @@ uint8_t device_session_enter_usb(app_state_t *st);
 
 /**
  * Sale a DEVICE_MANUAL con parada segura.
- * notify_abort=1 → emite ERROR:ABORTED-BY-DEVICE (aborto local).
+ * notify_abort=1 → emite ERROR:8 (aborto local desde HotPanel).
  */
 void device_session_leave_manual(app_state_t *st, uint8_t notify_abort);
 

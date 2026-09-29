@@ -8,7 +8,7 @@ Documento de referencia de pines del ATmega16 para la placa SMD Hot Plate. **La 
 - **Objetivo:** Pines por función, sin conflictos
 
 **Documentación relacionada:**
-- [doc/optimizacion_temporizados.md](optimizacion_temporizados.md) – Guía oficial de temporización no bloqueante (estilo millis)
+- [doc/temporizacion_no_bloqueante.md](temporizacion_no_bloqueante.md) – Reloj `avr_delay` y delays sin bloquear HotPanel
 - [lib/avr_soft_spi/README.md](../lib/avr_soft_spi/README.md) – SPI por software (MAX31865)
 - [lib/avr_spi/README.md](../lib/avr_spi/README.md) – SPI hardware (LCD)
 
@@ -59,7 +59,7 @@ Documento de referencia de pines del ATmega16 para la placa SMD Hot Plate. **La 
 - **Conexiones:** CS=PB1, MOSI=PA0, MISO=PA1, SCK=PA2.
 - **DRDY:** No conectado; se usa modo polling.
 - Resistencias en serie (p. ej. 330 Ω) entre MCU y MAX31865 según diseño.
-- **Lectura periódica:** temporizada con `delay_ms()` (ver [doc/optimizacion_temporizados.md](optimizacion_temporizados.md)).
+- **Lectura periódica:** temporizada con `delay_ms()` (ver [temporizacion_no_bloqueante.md](temporizacion_no_bloqueante.md)).
 
 ---
 

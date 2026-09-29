@@ -17,7 +17,7 @@ MIN_H = 1024
 class MainWindow(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("SMI Hot Plate — Host UI")
+        self.title("HotPlate Studio")
         self.geometry(f"{MIN_W}x{MIN_H}")
         self.minsize(MIN_W, MIN_H)
 

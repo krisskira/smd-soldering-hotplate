@@ -14,7 +14,7 @@ def planned_heat_target(
     """Devuelve (objetivo_texto, origen_texto) según perfil local."""
     idxs = [i for i, on in enumerate(active) if on]
     if not idxs:
-        return "—", "Sin escalones activos en el perfil"
+        return "—", "Sin escalones activos en el Soldering Profile"
     try:
         r1 = int(temps[idxs[0]])
     except (ValueError, IndexError):
@@ -30,7 +30,7 @@ def planned_heat_target(
             f"Al iniciar: precalentado ({preheat_pct}% de rampa {n}), luego rampa {n}",
         )
     n = idxs[0] + 1
-    return str(r1), f"Al iniciar: rampa {n} del perfil"
+    return str(r1), f"Al iniciar: rampa {n} del Soldering Profile"
 
 
 def live_heat_objetivo(

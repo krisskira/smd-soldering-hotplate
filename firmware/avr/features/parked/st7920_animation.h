@@ -1,7 +1,8 @@
 /*
  * Reproductor de animaciones ST7920. No entra al firmware de producto.
  * Para enlazarlo (p. ej. la vista de gráfico de pid_atune), añadir este
- * .c al Makefile. El icono USB sigue usando st7920_write_frame_pgm.
+ * .c al Makefile. Guía: doc/st7920_pantalla.md.
+ * El icono USB sigue usando st7920_write_frame_pgm.
  */
 #ifndef ST7920_ANIMATION_H
 #define ST7920_ANIMATION_H

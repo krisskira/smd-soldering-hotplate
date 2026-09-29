@@ -2,7 +2,7 @@
 """Simulación offline del PI predictivo sobre la traza de autotune.
 
 Reproduce t_ref + lookahead para estimar el primer corte de duty en una
-subida ~0.7 °C/s. No sustituye el banco real.
+subida (RISE/LOOK = app_config.h). No sustituye el banco real.
 
   python3 docs/heat_predictive_sim.py
 """
@@ -11,8 +11,8 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-RISE = 0.7
-LOOK = 30.0
+RISE = 1.2
+LOOK = 15.0
 KP = 24.6
 KI = 1.0
 SET = 100.0

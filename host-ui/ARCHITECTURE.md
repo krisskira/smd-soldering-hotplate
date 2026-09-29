@@ -1,4 +1,4 @@
-# Host UI — scaffolding
+# HotPlate Studio — estructura
 
 Arranque: `python host-ui/app.py`
 

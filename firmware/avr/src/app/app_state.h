@@ -98,6 +98,8 @@ typedef struct {
     uint8_t         duty_pct;
     uint8_t         preheat_en;    /* 0 = HEAT salta PREHEAT→STABILIZE */
     uint8_t         preheat_pct;   /* 50..100, tope = pct% de T(Ramp1) */
+    uint8_t         preheat_band_c;      /* ±°C entrar STABILIZE/HOLD */
+    uint8_t         preheat_band_exit_c; /* ±°C salir STABILIZE (histéresis) */
     uint8_t         ramps_en;
     uint16_t        stabilize_s;
     uint16_t        stabilize_left;

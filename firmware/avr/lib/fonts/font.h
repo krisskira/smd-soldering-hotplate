@@ -5,10 +5,8 @@
  * Sistema de fuentes (solo datos en flash + búsqueda de glifos).
  * El dibujo en pantalla está en lib/st7920 (st7920_draw_font_gdram).
  *
- *   FONT_5X7     menús / footer
- *   FONT_5X7_X2  misma tabla a 2×: temperatura / título USB
- *   FONT_ICONS   símbolos 16×16 nativos (glifo = ui_icon_id_t)
- * FONT_8X12 opcional (tools/gen_fonts.py); no se enlaza por flash.
+ *   FONT_5X7     menús / temp / footer
+ * FONT_5X7_X2 / FONT_ICONS / FONT_8X12 no se enlazan (flash).
  */
 
 #include <stdint.h>
@@ -37,8 +35,6 @@ typedef struct {
 } font_t;
 
 extern const font_t FONT_5X7;
-extern const font_t FONT_5X7_X2;
-extern const font_t FONT_ICONS;
 
 /** Tabla 5×7 cruda: la usa también el texto 5×7 original de st7920. */
 extern const uint8_t font5x7_data[];

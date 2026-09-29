@@ -299,6 +299,8 @@ static void test_at_catalog_length(void)
         "AT+CFG=S,40,250",
         "AT+CFG=H,1,80,30,0,1,1",
         "AT+CFG=H,1,100,3600,3600,1,1",
+        "AT+CFG=B,4,6",
+        "AT+CFG=B,1,20",
         "AT+CFG=P,120,40,10",
         "AT+CFG=R,0,180,90",
         "AT+CFG=R?",

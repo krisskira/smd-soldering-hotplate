@@ -1,5 +1,5 @@
 <!-- SMI Soldering Hot Plate — keep under ~150 lines -->
-<!-- Last updated: 2026-09-28 -->
+<!-- Last updated: 2026-09-29 -->
 
 # SMI Soldering Hot Plate
 
@@ -12,16 +12,19 @@
 - PCB: KiCad (`hardware/pcb/`)
 - Datasheets: `hardware/datasheets/`
 - Mecánica 3D: `mechanical/`
-- Host UI: `host-ui/`
+- HotPlate Studio: `host-ui/`
 
 ## Docs
 
-- Producto: [firmware/avr/doc/product_features.md](firmware/avr/doc/product_features.md)
+- Producto (+ mapa código): [firmware/avr/doc/product_features.md](firmware/avr/doc/product_features.md)
 - Flujos: [program_flows.md](firmware/avr/doc/program_flows.md)
 - Arquitectura: [architecture.md](firmware/avr/doc/architecture.md)
 - USB: [usb-automation.md](firmware/avr/doc/usb-automation.md)
+- Presupuesto features/flash: [feature_budget.md](firmware/avr/doc/feature_budget.md) (skill **hotplate-feature-budget**)
+- PI / Autotune portable: [pid_control.md](firmware/avr/doc/pid_control.md) (skill **hotplate-pid**)
+- Plan optimización: [optimization_plan.md](firmware/avr/doc/optimization_plan.md)
 
-**Core** manda sobre **shell**. Flash: medir con `make size`.
+**Core** y **UI aprobada** (iconos, temp 2×) mandan sobre AT opcional. Flash: `make size` + actualizar `feature_budget.md`.
 
 ## Programs
 
@@ -33,20 +36,27 @@
 
 ## Skills / agents
 
-| Skill | Uso |
-|-------|-----|
+| Skill / agente | Uso |
+|----------------|-----|
+| hotplate-feature-budget | Guardián `feature_budget.md` · `make size` · UI aprobada |
+| hotplate-pid | PI / autotune · doc `pid_control.md` |
 | hotplate-heating | HEAT + Home delay |
 | hotplate-preheat | Fase PREHEAT de HEAT |
-| hotplate-pid | PID / autotune |
 | hotplate-usb-mode | AT / `$HP` |
-| hotplate-app-state | Menús / EEPROM v7 |
-| hotplate-feature-development | Features generales |
+| hotplate-app-state | Menús / EEPROM v8 |
+| hotplate-feature-development | Features generales (siempre consulta budget) |
+| st7920-animated-icons | Iconos animados LCD (parked; medir flash antes de enlazar) |
+
+Agentes en `.cursor/agents/` delegan al skill homónimo; el de budget es obligatorio tras tocar flash.
 
 ## Critical Rules
 
-- ALWAYS leer product_features + program_flows + architecture antes de feature.
+- ALWAYS leer product_features + program_flows + architecture; si toca flash/UI → skill **hotplate-feature-budget**.
 - ALWAYS salidas OFF al boot / fault / overtemp (`temp_max_c`).
 - ALWAYS dirty rows; textos `i18n_tr_hash`.
+- ALWAYS actualizar `feature_budget.md` (medición) tras cambios de tamaño — nunca dejar el doc desactualizado.
+- ALWAYS en trabajo PID/autotune: leer `pid_control.md` completo.
+- NEVER financiar features quitando UI aprobada (iconos 16×16, FONT_5X7_X2) ni core térmico.
 - NEVER reintroducir START_IN/STOP_IN, PROG_TIMED, RAMPS como programa, PANEL.
 - NEVER PREHEAT en menú Home.
 - NEVER vista USB ni Settings aparte: overlays en Home (`AT+MODE=1` / casilla Ajustes).

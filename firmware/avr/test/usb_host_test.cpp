@@ -73,10 +73,12 @@ int main(void)
     CHECK(std::strstr(tune, "DU=100") != nullptr);
 
     const char *cfg =
-        "$CF,MN=50,MX=250,KP=246,KI=692,KD=216,PH=1,PCT=80,SB=30,DLY=0,AIR=1,SND=1,RN=2,AMS=2000";
+        "$CF,MN=50,MX=250,KP=246,KI=10,PH=1,PCT=80,SB=30,BN=4,BX=6,DLY=0,AIR=1,AMS=2000";
     CHECK(std::strstr(cfg, "$CF,") != nullptr);
     CHECK(std::strstr(cfg, "PCT=80") != nullptr);
-    CHECK(std::strstr(cfg, "RN=2") != nullptr);
+    CHECK(std::strstr(cfg, "BN=4") != nullptr);
+    CHECK(std::strstr(cfg, "BX=6") != nullptr);
+    CHECK(std::strstr(cfg, "AMS=2000") != nullptr);
 
     const char *ramps =
         "$R,N=2,0=180/90,1=220/60,2=100/60,3=125/60";

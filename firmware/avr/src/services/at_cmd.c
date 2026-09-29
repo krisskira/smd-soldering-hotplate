@@ -255,6 +255,24 @@ static uint8_t cfg_heat(app_state_t *st, const char *args)
     return 0u;
 }
 
+/* AT+CFG=B,bn,bx — bandas ±°C (entrada / salida histéresis) */
+static uint8_t cfg_band(app_state_t *st, const char *args)
+{
+    const char *p = args;
+    uint16_t bn, bx;
+
+    if (take_u(&p, &bn, 0u) || take_u(&p, &bx, 1u))
+        return 1u;
+    if (bn < PREHEAT_BAND_C_LO || bn > PREHEAT_BAND_C_HI
+        || bx < bn || bx > PREHEAT_BAND_EXIT_C_HI)
+        return 1u;
+    st->preheat_band_c = (uint8_t)bn;
+    st->preheat_band_exit_c = (uint8_t)bx;
+    cfg_save_global(st);
+    ok_dirty(st);
+    return 0u;
+}
+
 /* AT+CFG=P,kp,ki,kd  (×10, 0..999); kd se guarda, el lazo usa PI+lookahead */
 static uint8_t cfg_pid(app_state_t *st, const char *args)
 {
@@ -375,6 +393,7 @@ static uint8_t handle_cfg(app_state_t *st, const char *args)
     switch (g) {
     case 'S': return cfg_safety(st, args);
     case 'H': return cfg_heat(st, args);
+    case 'B': return cfg_band(st, args);
     case 'P': return cfg_pid(st, args);
     case 'R': return cfg_ramp(st, args);
     case 'T': return cfg_tune(st, args);

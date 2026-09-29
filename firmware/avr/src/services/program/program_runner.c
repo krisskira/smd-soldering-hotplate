@@ -63,13 +63,13 @@ static void preheat_cancel(app_state_t *st)
     preheat_fire(st, PROG_CB_CANCEL);
 }
 
-/* |T−SET| ≤ ±2 °C. */
-static uint8_t in_set_band(const app_state_t *st)
+/* |T−SET| ≤ lim (°C·10). Caller garantiza sensor.valid. */
+static uint8_t in_band_x10(const app_state_t *st, int16_t lim)
 {
     int16_t err = (int16_t)((int16_t)(st->t_set_c * 10) - st->sensor.temp_c_x10);
     if (err < 0)
         err = (int16_t)(-err);
-    return (st->sensor.valid && err <= (int16_t)PREHEAT_BAND_C_X10) ? 1u : 0u;
+    return (err <= lim) ? 1u : 0u;
 }
 
 static void preheat_tick(app_state_t *st)
@@ -81,8 +81,9 @@ static void preheat_tick(app_state_t *st)
         return;
     t = st->sensor.temp_c_x10;
     err = (int16_t)((int16_t)(st->t_set_c * 10) - t);
-    /* Cola: pasó el tope + 2 °C, o el timeout sigue y T aún > tope. */
-    if (err < -(int16_t)PREHEAT_BAND_C_X10 || (s_over_left && err < 0)) {
+    /* Cola: T > tope + banda entrada, o timeout activo con T > tope. */
+    if (err < -(int16_t)((uint16_t)st->preheat_band_c * 10u)
+        || (s_over_left && err < 0)) {
         st->phase = PH_PREHEAT;
         if (s_over_left == 0)
             s_over_left = PREHEAT_OVERHEAT_S;
@@ -96,11 +97,13 @@ static void preheat_tick(app_state_t *st)
     }
     s_over_left = 0;
     if (st->phase == PH_PREHEAT) {
-        if (in_set_band(st)) {
+        if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u))) {
             st->phase = PH_STABILIZE;
             st->stabilize_left = st->stabilize_s;
         }
-    } else if (!in_set_band(st)) {
+    } else if (!in_band_x10(st,
+                            (int16_t)((uint16_t)st->preheat_band_exit_c * 10u))) {
+        /* Solo aborta meseta si se sale de la histéresis ancha. */
         st->phase = PH_PREHEAT;
     } else if (st->stabilize_left > 0) {
         st->stabilize_left--;
@@ -252,6 +255,8 @@ void program_init(app_state_t *st)
     st->t_ref_x10 = 0;
     st->preheat_en = 1;
     st->preheat_pct = PREHEAT_PCT_DEFAULT;
+    st->preheat_band_c = PREHEAT_BAND_C_DEFAULT;
+    st->preheat_band_exit_c = PREHEAT_BAND_EXIT_C_DEFAULT;
     st->ramps_en = 1;
     st->stabilize_s = PREHEAT_STABLE_S_DEFAULT;
     st->stabilize_left = 0;
@@ -483,8 +488,8 @@ static void on_second(app_state_t *st)
     } else if (preheat_active(st)) {
         preheat_tick(st);
     } else if (st->phase == PH_RUN) {
-        /* Approach controlado por PI; meseta al entrar ±banda. */
-        if (in_set_band(st))
+        /* Approach PI; meseta al entrar ±band_c. */
+        if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u)))
             st->phase = PH_HOLD;
     } else if (st->phase == PH_HOLD) {
         if (st->t_remain_s > 0)

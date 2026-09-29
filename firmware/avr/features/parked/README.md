@@ -16,4 +16,4 @@ La vista de gráfico de `pid_atune` puede reutilizar este reproductor. Hasta
 entonces no se enlaza: los frames de un chart en tiempo real ocuparían flash
 y un buffer en RAM por animación activa.
 
-Generador: `tools/gif_to_st7920_anim.py`. Guía: `doc/animaciones_no_bloqueantes.md`.
+Generador: `tools/gif_to_st7920_anim.py`. Guía: `doc/st7920_pantalla.md`.

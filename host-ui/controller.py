@@ -356,7 +356,7 @@ class AppController:
                 self._save_ramps()
                 messagebox.showinfo(
                     "Guardado",
-                    f"Perfil de rampas guardado en el equipo (N={n}).\n"
+                    f"Soldering Profile guardado en HotPlate (N={n}).\n"
                     "Leyendo de vuelta para confirmar…",
                 )
                 self.read_ramps()
@@ -366,7 +366,7 @@ class AppController:
             def _fail(_r=None) -> None:
                 messagebox.showerror(
                     "Rampas",
-                    f"Error al guardar el escalón {idx + 1}. Perfil incompleto.",
+                    f"Error al guardar el escalón {idx + 1}. Soldering Profile incompleto.",
                 )
 
             self.send(
@@ -405,7 +405,7 @@ class AppController:
         )
 
     def write_heat(self) -> None:
-        """Persiste AT+CFG=H (precalentado + arranque/fin juntos)."""
+        """Persiste AT+CFG=H y bandas AT+CFG=B."""
         try:
             vals = [
                 1 if self.settings.var_ph.get() else 0,
@@ -415,6 +415,8 @@ class AppController:
                 1 if self.settings.var_air.get() else 0,
                 1 if self.settings.var_snd.get() else 0,
             ]
+            bn = int(self.settings.var_bn.get())
+            bx = int(self.settings.var_bx.get())
         except ValueError:
             messagebox.showerror("Flujo HEAT", "valores numéricos")
             return
@@ -422,9 +424,21 @@ class AppController:
         if err:
             messagebox.showerror("Flujo HEAT", err)
             return
+        err = proto.validate_band(bn, bx)
+        if err:
+            messagebox.showerror("Flujo HEAT", err)
+            return
+
+        def _after_h_ok() -> None:
+            self.send(
+                proto.cmd_cfg_band(bn, bx),
+                ok_msg="Flujo HEAT y bandas guardados (AT+CFG=H/B).",
+                err_title="Bandas",
+            )
+
         self.send(
             proto.cmd_cfg_heat(*vals),
-            ok_msg="Parámetros de flujo HEAT guardados (AT+CFG=H).",
+            after_ok=_after_h_ok,
             err_title="Flujo HEAT",
         )
 

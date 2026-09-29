@@ -71,13 +71,13 @@
 
 #define USB_SEL_COUNT     2u
 
-#define PID_WINDOW_MS     1000u
+#define PID_WINDOW_MS     1500u
 #define PID_KP_DEFAULT    246  /* ×10 — AT+CFG=P,246,10,0 */
 #define PID_KI_DEFAULT    10
 #define PID_KD_DEFAULT    0    /* autotune PI; D no se usa en el lazo */
 /* Pendiente máx. de t_ref (°C/s ×10) y horizonte de cola (s); compile-time */
-#define RISE_C_X10_DEFAULT    7u   /* 0.7 °C/s */
-#define LOOKAHEAD_S_DEFAULT   30u  /* ~20 °C cola @ 0.7 °C/s */
+#define RISE_C_X10_DEFAULT    12u   /* 1.2 °C/s (muestra 1 s) */
+#define LOOKAHEAD_S_DEFAULT   15  /* ~18 °C cola @ 1.2 °C/s */
 
 /* Autotune (SSR bang-bang); defaults EEPROM v8 */
 #define ATUNE_MIN_CYCLES     3u
@@ -91,7 +91,12 @@
 #define ATUNE_MAX_S       ATUNE_MAX_S_DEFAULT
 
 #define PREHEAT_STABLE_S_DEFAULT  30u
-#define PREHEAT_BAND_C_X10        20
+/* Banda ±°C (EEPROM / AT+CFG=H / $CF BN,BX). Entrada vs salida = histéresis. */
+#define PREHEAT_BAND_C_DEFAULT       4u
+#define PREHEAT_BAND_EXIT_C_DEFAULT  6u
+#define PREHEAT_BAND_C_LO            1u
+#define PREHEAT_BAND_C_HI            15u
+#define PREHEAT_BAND_EXIT_C_HI       20u
 /* Cola por encima del tope: si no vuelve bajo el preheat, seguir a Ramp1. */
 #define PREHEAT_OVERHEAT_S        60u
 /* Tope del PREHEAT/STABILIZE de HEAT, en % de T(Ramp1). No es el setpoint del RUN. */
@@ -109,7 +114,7 @@
 #define AT_LINE_MAX       32u
 
 #define CFG_EEPROM_MAGIC  0xA5u
-/* v7 layout; rise/lookahead son compile-time (flash). Kd default 0. */
-#define CFG_EEPROM_VER    7u
+/* v8: + preheat_band_c / preheat_band_exit_c. Ver distinta → defaults. */
+#define CFG_EEPROM_VER    8u
 
 #endif

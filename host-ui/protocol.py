@@ -103,6 +103,10 @@ def cmd_cfg_heat(
     return _cmd(f"AT+CFG=H,{en},{pct},{stab},{delay},{air},{snd}")
 
 
+def cmd_cfg_band(band: int, band_exit: int) -> str:
+    return _cmd(f"AT+CFG=B,{band},{band_exit}")
+
+
 def cmd_cfg_pid(kp: int, ki: int, kd: int) -> str:
     return _cmd(f"AT+CFG=P,{kp},{ki},{kd}")
 
@@ -143,6 +147,14 @@ def validate_heat(
         return "stab debe estar en 1..3600"
     if not (0 <= delay <= 3600):
         return "delay debe estar en 0..3600"
+    return None
+
+
+def validate_band(band: int, band_exit: int) -> Optional[str]:
+    if not (1 <= band <= 15):
+        return "banda entrada debe estar en 1..15 °C"
+    if not (band <= band_exit <= 20):
+        return "banda salida debe estar en entrada..20 °C"
     return None
 
 

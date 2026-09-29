@@ -51,7 +51,7 @@ STATUS_COLUMNS: list[list[tuple[str, list[tuple[str, str]]]]] = [
             ],
         ),
         (
-            "Perfil de rampas",
+            "Soldering Profile",
             [
                 ("RI", "Rampa activa ahora"),
             ],
@@ -101,7 +101,8 @@ class HeatView:
             figsize=(9, 5.2),
             show_live_info=True,
             x_span_s=CHART_HEAT_X_SPAN_S,
-            x_locked=True,
+            # Techo inicial 1400 s; si el proceso dura más, crece desde t=0.
+            x_locked=False,
         )
         self._sync_chart_ylim()
 
@@ -172,7 +173,7 @@ class HeatView:
                     row += 1
 
     def _build_ramps_panel(self, parent: ttk.Frame) -> None:
-        box = ttk.LabelFrame(parent, text="Perfil de rampas (HEAT)")
+        box = ttk.LabelFrame(parent, text="Soldering Profile (HEAT)")
         box.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 4), pady=0)
         self._ramps_frame = box
         ttk.Label(

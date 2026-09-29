@@ -1,6 +1,6 @@
 /*
  * Reproductor de frames por diff. Documentado en
- * doc/animaciones_no_bloqueantes.md. No forma parte del enlace.
+ * doc/st7920_pantalla.md. No forma parte del enlace.
  */
 #include "st7920_animation.h"
 #include "st7920/st7920.h"

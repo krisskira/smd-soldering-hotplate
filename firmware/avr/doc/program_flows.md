@@ -1,174 +1,205 @@
-# Flujos de programas — HEAT / PREHEAT / PID / PID_ATUNE
+# Flujos de HotPlate — HEAT, PREHEAT, control y autoajuste
 
-Fuente de verdad del orden de fases, actuadores, EEPROM y alarmas.
-Arquitectura: [architecture.md](architecture.md). AT: [usb-automation.md](usb-automation.md).
+Documento **maestro** del orden de fases, actuadores, memoria y alarmas.  
+Si otro archivo discrepa en el comportamiento térmico, **manda este**.
 
-Última actualización: 2026-09-28. EEPROM global **v7**.
+| También ver | Para |
+|-------------|------|
+| [architecture.md](architecture.md) | Cómo está organizado el firmware |
+| [usb-automation.md](usb-automation.md) | Comandos AT y tramas `$HP` / `$CF` / `$R` |
+| [pid_control.md](pid_control.md) | Fórmulas del PI predictivo y del autoajuste |
+| [product_features.md](product_features.md) | Visión de producto (HotPlate, HotPanel, Soldering Profile) y mapa doc↔código |
 
-## Actuadores
-
-| Actuador | Hardware | API | Quién lo manda |
-|----------|----------|-----|----------------|
-| PTC1+PTC2 (banco) | Micro → opto **MOC3021** → triac **BT136** (SSR, no relé mecánico) | `outputs_bank_set` / PID ventana | `pid_tick`, `pid_atune`, preheat |
-| Bomba de aire | Fan | `fan_on` / `fan_off` | FIN de HEAT (`PH_ALARM`/`PH_COOLDOWN` si `cooldown_air_en`); autotune en medio-ciclo OFF |
-| Buzzer | Piezo | `buzzer_seq_beep_cat` | Nav, alarma, confirm |
-
-BOM / datasheets: `hardware/pcb/` (CSV BOM) y `hardware/datasheets/` (BT136, MOC3021, …).
-
-## EEPROM vs estado RAM
-
-| Dato | EEPROM (global v7) | RAM (`app_state_t`) | Notas |
-|------|--------------------|---------------------|-------|
-| Kp/Ki/Kd ×10 | sí | `pid_kp/ki/kd_x10` | Tras autotune o edición |
-| `atune_cycles_target` | sí | igual | Ciclos a completar en autotune; default **5** |
-| `atune_hyst_c_x10` | sí | igual | Histéresis autotune |
-| `atune_max_s` | sí | igual | Timeout global autotune (s), 120..3600; default **2000** |
-| `temp_min_c` | sí | igual | Piso rampas/consignas + OFF aire |
-| `temp_max_c` | sí | igual | Techo + corte safety |
-| `preheat_en` | sí | igual | 0: HEAT salta PREHEAT→STABILIZE |
-| `preheat_pct` | sí | igual | 50..100, default 80. Tope del precalentado de HEAT |
-| Rampas | bloque `ee_ramp` | `ramp_n`, `ramp_step[]` | No es programa |
-| HEAT `delay_s` | `ee_heat` | `delay_s` | 0 = arranque inmediato |
-| PID_TUNE `t_set_c` | `ee_tune` | `t_set_c` | Setpoint de oscilación (`AT+RUN=2`) |
-
-Fase viva (`phase`, `t_remain_s`, `ramp_idx`, `duty_pct`) solo en RAM + trama `$HP`.
-Picos y ganancias resultado del autotune viven en estáticos de `pid_atune` (el algoritmo los usa; la trama los lee). No van en `app_state` ni hay buffer de traza.
-
-## Alarmas y notificaciones
-
-La columna **Beep** no es una frecuencia en Hz ni una duración única. Nombra una **categoría**. La categoría fija el ancho de cada pulso; el número es cuántas veces se repite ese pulso (ON, pausa OFF, ON…).
-
-| Categoría | Pulso | Repeticiones |
-|-----------|-------|----------------|
-| `NAV` | 30 ms ON, 60 ms OFF | `buzz_nav_reps` (1..4). Se puede silenciar |
-| `CONFIRM` | 30 ms ON, 60 ms OFF | las de la llamada (abort y ajustes: **2**) |
-| `READY` | 50 ms ON, 80 ms OFF | las de la llamada, **mínimo 3** |
-| `ALARM` | 50 ms ON, 80 ms OFF | las de la llamada. No se silencia |
-
-| Evento | UART (sesión USB) | Beep | `$HP` ACTION | Notas |
-|--------|-------------------|------|--------------|-------|
-| HEAT fin de rampas | línea `ALARM:2` | `READY`: 3 pulsos de 50 ms ON / 80 ms OFF | `ALARM` | PTC OFF; aire si `cooldown_air_en`. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
-| Sobretemperatura | `ERROR:7` | ninguno | `FAULT` | Corte safety: lectura válida ≥ `temp_max_c`. PTC1 y PTC2 OFF, fase `PH_FAULT`. No es pitido ni código de fase aparte |
-| Cambio de fase | sin línea UART | ver abajo | token de la fase nueva | El token va dentro de `$HP`, no como línea de alarma |
-| Abort USB (PRESS vista) | línea `ERROR:ABORTED-BY-DEVICE` | `CONFIRM`: 2 pulsos de 30 ms ON / 60 ms OFF | — | Todo OFF → HOME |
-
-Beep en un cambio de fase:
-
-- Entrar en `HOLD` o `DONE`: `READY` (3 pulsos de 50 ms ON / 80 ms OFF).
-- Entrar en `ALARM`: el mismo `READY` en el acto (no espera al tick de 1 s) y luego cada `alarm_period_s`.
-- `WAITING`, `PREHEATING`, `STABILIZING`, `RUNNING` y `COOLING` no pitan.
-
-Tokens de `$HP` ACTION: `WAITING`, `PREHEATING`, `STABILIZING`, `RUNNING`, `COOLING`, `DONE`, `TUNING`, `ALARM`, `FAULT`, `IDLE`.
-
-ACK UI/`AT+STOP` en `PH_ALARM`: cierra alarma; HEAT puede pasar a `PH_COOLDOWN`.  
-Cancel UI (Home **Cancelar**) en DELAY/PREHEAT/RUN: abort seco → `PH_IDLE` (no `ALARM:2`).  
-`AT+STOP` USB en esas fases: cierra como fin → `PH_ALARM` + `ALARM:2`.
+Última actualización: **2026-09-29**. Formato EEPROM global **v8**.
 
 ---
 
-## HEAT (`PROG_HEAT`)
+## Qué mueve HotPlate
 
-Lanzable: **UI** (Home → Heat) y **AT** (`AT+RUN=1`).
+| Actuador | Hardware | En código | Quién lo manda |
+|----------|----------|-----------|----------------|
+| Banco calefactor (PTC1+PTC2) | Micro → opto **MOC3021** → triac **BT136** (SSR; no es relé mecánico) | `outputs_bank_set` / ventana PID | Lazo PI, autoajuste, precalentamiento |
+| Aire (ventilador / bomba) | Fan | `fan_on` / `fan_off` | Fin de HEAT (`PH_ALARM` / `PH_COOLDOWN` si el aire asistido está activo); en autoajuste, solo en el medio-ciclo OFF |
+| Avisos | Buzzer piezo | `buzzer_seq_beep_cat` | Navegación, confirmación, listo, alarma |
 
-### Entradas
+BOM y datasheets: `hardware/pcb/` y `hardware/datasheets/`.
 
-- `delay_s` (0..3600): si >0 → `PH_DELAY` sin calor
-- Perfil RAMPS (`ramp_n` ≥ 1): T y `hold_s` por paso
-- `pid_k*`, `temp_min_c` / `temp_max_c`, `cooldown_air_en`
+---
 
-### Flujo
+## Qué se guarda y qué solo vive en marcha
+
+Algunos datos viven en **EEPROM** (sobreviven al apagado). Otros solo existen **mientras corre** el ciclo (RAM + telemetría).
+
+| Dato | En EEPROM (v8) | En RAM (`app_state_t`) | Notas |
+|------|----------------|------------------------|-------|
+| Ganancias Kp / Ki / Kd ×10 | sí | `pid_kp/ki/kd_x10` | Tras autoajuste o edición |
+| Ciclos objetivo del autoajuste | sí | `atune_cycles_target` | Default **5** |
+| Histéresis del autoajuste | sí | `atune_hyst_c_x10` | Ancho del “relé” alrededor del SET |
+| Tiempo máximo del autoajuste | sí | `atune_max_s` | 120…3600 s; default **2000** |
+| Temperatura mínima / máxima | sí | `temp_min_c` / `temp_max_c` | Piso de consignas + corte de seguridad |
+| Precalentamiento on/off | sí | `preheat_en` | Si es 0, HEAT salta PREHEAT y STABILIZE |
+| % de precalentamiento | sí | `preheat_pct` | 50…100; default **80** (% de la rampa 1) |
+| Soldering Profile (rampas) | bloque `ee_ramp` | `ramp_n`, `ramp_step[]` | No es un programa lanzable |
+| Retraso de HEAT | `ee_heat` | `delay_s` | **0** = arranque inmediato |
+| SET del autoajuste | `ee_tune` | `t_set_c` | Centro de oscilación (`AT+RUN=2`) |
+
+La fase viva (`phase`, tiempo restante, índice de rampa, duty…) solo está en RAM y en la trama `$HP`.  
+Los picos y las ganancias resultado del autoajuste viven en estáticos de `pid_atune` (el algoritmo los usa; `$HP` los lee). No van en `app_state` y **no hay** buffer de traza en el equipo.
+
+---
+
+## Alarmas y pitidos
+
+Los pitidos no se definen como “una nota de X Hz”. Cada evento usa una **categoría**: la categoría fija el ancho del pulso; el número indica cuántas veces se repite (ON → pausa OFF → ON…).
+
+| Categoría | Pulso | Repeticiones |
+|-----------|-------|--------------|
+| `NAV` | 30 ms ON / 60 ms OFF | `buzz_nav_reps` (1…4). Se puede silenciar |
+| `CONFIRM` | 30 ms ON / 60 ms OFF | las de la llamada (abort y ajustes: **2**) |
+| `READY` | 50 ms ON / 80 ms OFF | las de la llamada, **mínimo 3** |
+| `ALARM` | 50 ms ON / 80 ms OFF | las de la llamada. No se silencia |
+
+| Qué ocurre | Por USB | Pitido | Campo `$HP` ACTION | Notas |
+|------------|---------|--------|--------------------|-------|
+| HEAT termina las rampas | línea `ALARM:2` | `READY`: 3 pulsos | `ALARM` | Calefactor OFF; aire si está activado. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
+| Sobretemperatura | `ERROR:7` | ninguno | `FAULT` | Lectura válida ≥ `temp_max_c` → PTC OFF, fase `PH_FAULT` |
+| Cambio de fase | sin línea aparte | ver abajo | token de la fase nueva | El token va **dentro** de `$HP` |
+| Abort desde HotPanel en vista USB | `ERROR:8` | `CONFIRM`: 2 pulsos | — | Todo OFF → HOME |
+
+**Cuándo pitan los cambios de fase**
+
+- Entrar en meseta (`HOLD`) o en terminado (`DONE`): `READY` (3 pulsos).
+- Entrar en `ALARM`: el mismo `READY` al instante (no espera al tick de 1 s) y luego cada `alarm_period_s`.
+- Espera, precalentamiento, estabilización, subida y enfriamiento **no** pitan.
+
+Tokens de `$HP` ACTION: `WAITING`, `PREHEATING`, `STABILIZING`, `RUNNING`, `COOLING`, `DONE`, `TUNING`, `ALARM`, `FAULT`, `IDLE`.
+
+**Cancelar vs. reconocer el fin**
+
+| Acción | Efecto |
+|--------|--------|
+| Confirmar en HotPanel / `AT+STOP` durante `PH_ALARM` | Cierra la alarma; HEAT puede pasar a enfriamiento |
+| **Cancelar** en HotPanel durante espera / precalentamiento / rampas | Abort seco → `PH_IDLE` (**sin** `ALARM:2`) |
+| `AT+STOP` por USB en esas mismas fases | Se trata como fin de ciclo → `PH_ALARM` + `ALARM:2` |
+
+---
+
+## HEAT — el ciclo del Soldering Profile
+
+Se lanza desde **HotPanel** (casilla Heat) o por USB (`AT+RUN=1`).
+
+### Qué necesita para arrancar
+
+- `delay_s` (0…3600): si es mayor que 0, primero cuenta atrás **sin calor**
+- Soldering Profile con al menos una rampa (`ramp_n` ≥ 1): temperatura y `hold_s` por escalón
+- Ganancias PI, límites `temp_min_c` / `temp_max_c`, y si el aire asistido está activo
+
+### Camino completo
 
 ```mermaid
 flowchart TD
-  start([HEAT start]) --> dly{"delay_s > 0?"}
-  dly -->|si| wait[PH_DELAY PTC OFF]
+  start([Inicio HEAT]) --> dly{"¿delay_s > 0?"}
+  dly -->|sí| wait[Espera · calefactor OFF]
   dly -->|no| phen
-  wait -->|cuenta 0| phen{"preheat_en?"}
-  phen -->|no| r1["PH_RUN Ramp1 PI a SET"]
-  phen -->|si| pre["PH_PREHEAT t = preheat_pct% de Ramp1"]
-  pre --> hi{"T > tope + 2 C?"}
-  hi -->|no y T <= tope| stab["PH_STABILIZE banda ±2 C en ese t"]
-  hi -->|si| ov["timeout overheat 60 s"]
-  ov -->|T vuelve <= tope| stab
-  ov -->|vence y tope < T < Ramp1| r1["PH_RUN Ramp1 PI a SET"]
+  wait -->|cuenta a 0| phen{"¿precalentamiento?"}
+  phen -->|no| r1["Subida Ramp1 · PI al SET"]
+  phen -->|sí| pre["Precalentamiento · % de Ramp1"]
+  pre --> hi{"¿T > tope + BN?"}
+  hi -->|no y T ≤ tope| stab["Estabilización · bandas BN / BX"]
+  hi -->|sí| ov["Timeout sobrepaso 60 s"]
+  ov -->|T vuelve ≤ tope| stab
+  ov -->|vence y tope < T < Ramp1| r1
   stab --> r1
-  r1 --> band{"T en banda SET ±2 C?"}
+  r1 --> band{"¿T en banda del SET?"}
   band -->|no| r1
-  band -->|si| h1["PH_HOLD hold_s meseta + PI"]
-  h1 --> more{Mas rampas?}
-  more -->|si| rn["PH_RUN Ramp i PI a SET"]
-  rn --> band2{"T en banda?"}
-  band2 -->|si| hn["PH_HOLD hold_s"]
+  band -->|sí| h1["Meseta · hold_s + PI"]
+  h1 --> more{¿Más rampas?}
+  more -->|sí| rn["Subida Ramp i · PI"]
+  rn --> band2{"¿T en banda?"}
+  band2 -->|sí| hn["Meseta · hold_s"]
   hn --> more
-  more -->|no| alrm["PH_ALARM ALARM:DONE"]
-  alrm --> cool{"aire y T > temp_min?"}
-  cool -->|si| cd["PH_COOLDOWN fan ON PTC OFF"]
-  cool -->|no| done(["PH_DONE PTC1+PTC2 OFF"])
-  cd -->|T <= temp_min| done
+  more -->|no| alrm["Aviso de fin · ALARM:2"]
+  alrm --> cool{"¿Aire y T > temp_min?"}
+  cool -->|sí| cd["Enfriamiento · fan ON"]
+  cool -->|no| done(["Listo · todo OFF"])
+  cd -->|T ≤ temp_min| done
 ```
 
-### Actuadores por fase
+### Qué hace cada fase
 
-| Fase | PTC (SSR) | Fan | Condición de avance |
-|------|-----------|-----|---------------------|
-| DELAY | OFF | OFF | `t_remain_s` → 0 |
-| PREHEAT / STABILIZE | PID AUTO al `preheat_pct` % de Ramp1 | OFF | En banda ±2 °C **y T ≤ tope** durante `stabilize_s`. Si T pasa el tope + 2 °C, timeout `PREHEAT_OVERHEAT_S` (60 s): al vencer, si el tope < T < T(Ramp1), sigue a Ramp1 sin estabilizar. Si `preheat_en=0`, estas fases no corren |
-| RUN (rampa i) | PI AUTO a `ramp_step[i].temp_c` (t_ref + lookahead; al entrar se alinea t_ref a T y se anula la tasa) | OFF | Approach controlado: **no** cuenta `hold_s`. Al entrar en banda ±2 °C → `PH_HOLD` |
-| HOLD (rampa i) | PI AUTO mantiene SET | OFF | `hold_s` corre solo aquí (meseta). Al agotarse → `ramp_idx++` o fin. Perfil Ramp1..n **no decreciente** (`ERROR:2` si no) |
-| ALARM (fin) | OFF | ON si aire | timeout/ACK → COOLDOWN o DONE |
-| COOLDOWN | OFF | ON | `temp ≤ temp_min_c` → fan OFF, DONE |
-| DONE | OFF | OFF | — |
+| Fase | Calefactor (SSR) | Aire | Cuándo avanza |
+|------|------------------|------|---------------|
+| Espera (`DELAY`) | OFF | OFF | Cuando el contador llega a 0 |
+| Precalentamiento / estabilización | PI al `preheat_pct` % de Ramp1 | OFF | Entra a estabilizar si \|T−SET\| ≤ `preheat_band_c` (default ±4 °C, `$CF BN`). La meseta `stabilize_s` solo se **aborta** si \|T−SET\| > `preheat_band_exit_c` (default ±6 °C, `$CF BX`). Si T pasa el tope + BN, arranca el timeout de 60 s (`PREHEAT_OVERHEAT_S`). Con `preheat_en=0` estas fases no corren |
+| Subida (`RUN`, rampa i) | PI al SET del escalón (referencia `t_ref` + anticipación; al entrar se alinea `t_ref` a T) | OFF | Approach controlado: **aún no** cuenta `hold_s`. Al entrar en ± BN → meseta |
+| Meseta (`HOLD`, rampa i) | PI mantiene el SET | OFF | Aquí sí corre `hold_s`. Al agotarse → siguiente rampa o fin. El Soldering Profile **no puede bajar** de rampa a rampa (`ERROR:2` si lo intenta) |
+| Aviso de fin (`ALARM`) | OFF | ON si el aire asistido está activo | Timeout o confirmación → enfriamiento o listo |
+| Enfriamiento (`COOLDOWN`) | OFF | ON | Cuando `T ≤ temp_min_c` → fan OFF y listo |
+| Listo (`DONE`) | OFF | OFF | — |
 
-### RAMPS
+### Soldering Profile y precalentamiento
 
-- No se lanzan solos. Si `preheat_en`, primero se sube hasta `preheat_pct` % de T(Ramp1) (default 80). La meseta (`stabilize_s`) solo corre con T ≤ ese tope, dentro de ±2 °C. Si la inercia pasa el tope + 2 °C, esa cola es parte del precalentado: se espera `PREHEAT_OVERHEAT_S` (60 s) a que baje. Si al vencer sigue por encima del tope y por debajo de T(Ramp1), el precalentado vale y entra Ramp1 **en approach** (PI a T plena; `hold_s` aún no corre) sin quedarse en STABILIZE. Si T ≥ T(Ramp1), no avanza hasta bajar de Ramp1 o volver a ≤ tope (ahí sí estabiliza). Cada rampa: **PI controla la subida a SET** → banda ±2 °C → **meseta `hold_s`** → siguiente.
-- `preheat_en=0` (Ajustes → ESTAB, o `AT+CFG=H` con en=0) salta PREHEAT y STABILIZE y entra en Ramp1.
-- `preheat_pct` (Ajustes → P%, 50..100, paso 5) es el tope de ese tramo. No cambia la consigna del `PH_RUN`.
-- Preheat del pipeline **no** sustituye Ramp1.
+- Las rampas **no** se lanzan solas: forman el Soldering Profile que HEAT recorre.
+- Con precalentamiento activo, primero se sube al % de la rampa 1 (default 80 %), se estabiliza con histéresis BN/BX y luego empieza la rampa 1 a temperatura plena.
+- Si la inercia pasa el tope + BN, HotPlate espera hasta 60 s. Si al vencer sigue `tope < T < T(Ramp1)`, entra en la rampa 1 en approach (no se queda colgado).
+- `preheat_en=0` salta precalentamiento y estabilización y entra directo en Ramp1.
+- El % de precalentamiento **no** cambia la consigna de la subida de rampa: el precalentamiento no sustituye a Ramp1.
 
-### UI delay
+### Retraso desde HotPanel
 
-`delay_s` se edita en **Ajustes → DELAY** (±60 s, incluye 0). En casilla Heat, un PRESS arranca HEAT (`program_start`); no hay edición de delay en Heat.
+`delay_s` se edita en **Ajustes → DELAY** (pasos de 1 min, incluyendo 0). En la casilla Heat, un PRESS arranca HEAT; el retraso no se edita ahí.
 
 ---
 
 ## PREHEAT
 
-No es un programa. Es el tramo de HEAT descrito arriba (`preheat_en`, `preheat_pct`, `stabilize_s`, timeout de sobrepaso `PREHEAT_OVERHEAT_S`). No hay `ee_pre` ni `AT+RUN=0`.
+No es un programa ni una casilla de HotPanel.  
+Es el tramo opcional de HEAT descrito arriba (`preheat_en`, `preheat_pct`, `stabilize_s`, timeout de sobrepaso).  
+No hay `ee_pre` ni `AT+RUN=0`.
 
 ---
 
-## PID (lazo)
+## Control de temperatura (lazo PI)
 
-- Ventana time-proportioning (`PID_WINDOW_MS`): duty % → tiempo ON del banco PTC (gate MOC3021/BT136).
-- Activo en `PH_PREHEAT`, `PH_STABILIZE`, `PH_RUN`, `PH_HOLD`.
-- **PI predictivo:** referencia interna `t_ref` sube hacia `t_set` a `RISE_C_X10_DEFAULT` (0,7 °C/s, compile-time) y el error usa \(T + \dot T\cdot\)`LOOKAHEAD_S_DEFAULT` (30 s) para cortar antes por inercia. Sin término D (Kd=0; autotune PI).
-- Anti-windup: no integra si el duty previo está saturado a favor del error. Entre rampas **no** se resetea el integral; al cambiar SET de rampa se llama `pid_on_set_step` (tasa=0, `t_ref←T`) para no heredar cola del PREHEAT y poder subir de forma controlada.
-- Ganancias Kp/Ki: EEPROM / `AT+CFG=P`. Ajustes UI no edita PID. `rise`/`lookahead` no van en EEPROM (presupuesto flash). `$CF` no emite `KD` (siempre 0).
+Guía completa (variables, fórmulas, tuning, portabilidad): **[pid_control.md](pid_control.md)**.
+
+En pocas palabras:
+
+- La potencia se aplica por **ventanas** (`PID_WINDOW_MS`): el % de duty es cuánto tiempo el SSR está ON dentro de cada ventana.
+- Activo en precalentamiento, estabilización, subida y meseta.
+- **PI predictivo:** una referencia interna sube hacia el SET a ritmo limitado (`RISE_C_X10_DEFAULT`, p. ej. 1,2 °C/s) y el error mira un poco al futuro (`LOOKAHEAD_S_DEFAULT`, p. ej. 15 s) para cortar antes por inercia. Sin término D (Kd = 0).
+- Anti-windup: no integra si el duty ya está saturado a favor del error. Entre rampas **no** se borra el integral; al cambiar de SET se llama `pid_on_set_step` (tasa = 0, `t_ref ← T`) para no heredar la “cola” del precalentamiento.
+- Kp/Ki viven en EEPROM (`AT+CFG=P`). HotPanel no edita el PID. `rise` / `lookahead` son de compilación (ahorro de flash). `$CF` no emite `KD` (siempre 0).
 
 ---
 
-## PID_ATUNE (`PROG_PID_TUNE`)
+## Autoajuste (`PID_TUNE`)
 
-Solo AT: `AT+CFG=T,ciclos,hyst,max_s` (persiste sin arrancar) y `AT+RUN=2,temp,ciclos,hyst[,max_s]`. Oscilación bang-bang (relé) con histéresis `atune_hyst_c_x10` alrededor de `t_set_c` hasta `atune_cycles_target` ciclos → identifica \(K_u\approx 4d/(\pi A)\) y \(T_u\) → **Ziegler–Nichols método 2** (ganancia límite, lazo cerrado, regla **PI**: \(K_p=0.45K_u\), \(T_i=T_u/1.2\), \(K_d=0\); la regla PID saturaría \(K_d\times10>999\) con \(T_u\) térmico) → `AT+CFG=A`. \(A=(T_{max}-T_{min})/2\) tras descartar el 1.er ciclo (heat-up).
+Detalle matemático: **[pid_control.md](pid_control.md)** § Autotune.
 
-Timeout: si `atune_elapsed_s > atune_max_s` → `ATUNE_FAIL` (default **2000** s; rango 120..3600; `$CF AMS=`).
+Solo por USB (HotPlate Studio / AT). HotPanel **no** lo lanza.
 
-Enfriamiento asistido: en el medio-ciclo OFF (calentador apagado) el fan queda ON para acortar la bajada y limitar el tiempo de componentes SMD por encima de la consigna. En medio-ciclo ON y al DONE/FAIL/cancel, fan OFF. (Independiente de `cooldown_air_en`, que solo aplica al fin de HEAT.)
+1. Opcional: guardar parámetros sin arrancar → `AT+CFG=T,ciclos,hyst,max_s`.
+2. Arrancar → `AT+RUN=2,temp,ciclos,hyst[,max_s]`.
+3. HotPlate oscila todo/nada alrededor del SET (histéresis `atune_hyst_c_x10`) durante `atune_cycles_target` ciclos.
+4. Mide amplitud y periodo → calcula \(K_u\) y \(T_u\) → regla **Ziegler–Nichols PI** (\(K_p=0.45K_u\), \(T_i=T_u/1.2\), \(K_d=0\)).
+5. Confirmar y guardar → `AT+CFG=A`.
 
-Los picos del medio ciclo no salen de `pid_atune`. `atune_cycles` (en `app_state`) cuenta ciclos ya cerrados. `AK`/`AI` de `$HP` salen de `pid_atune_result` (AD omitido: siempre 0).
+Si se pasa de `atune_max_s` → fallo (default **2000** s; `$CF AMS=`).
+
+Durante el medio-ciclo OFF el ventilador ayuda a bajar más rápido (protege SMD del tiempo encima de consigna). Eso es independiente del aire al final de HEAT.
 
 | Origen | Qué se publica |
 |--------|----------------|
-| USB (`CTRL_USB`) | `atune_stream=1`. `$HP` de proceso a 1 Hz, más `AP,AC,AK,AI`, y una trama al pasar a DONE o FAIL |
-| UI | no lanza autotune ni dibuja la curva |
+| USB | Stream `$HP` a 1 Hz con progreso (`AP`, `AC`) y ganancias (`AK`, `AI`); una trama extra al pasar a DONE o FAIL |
+| HotPanel | No lanza autoajuste ni dibuja la curva |
 
-La banda de oscilación es `t_set ± atune_hyst_c_x10`. No hay trama `$HP,PLOT`.
+No hay trama `$HP,PLOT`. La banda de oscilación es `t_set ± histéresis`.
 
-| Fase atune | PTC | Fan | `$HP` ACTION |
-|------------|-----|-----|--------------|
-| RUN (medio ON) | ON | OFF | `TUNING` |
-| RUN (medio OFF) | OFF | ON | `TUNING` |
+| Momento del autoajuste | Calefactor | Aire | `$HP` ACTION |
+|------------------------|------------|------|--------------|
+| Medio-ciclo ON | ON | OFF | `TUNING` |
+| Medio-ciclo OFF | OFF | ON | `TUNING` |
 | DONE / FAIL | OFF | OFF | — |
 
-Cancel: STOP / fault apaga el stream sin trama extra. El siguiente `RUN=2` pone las ganancias resultado a cero hasta el nuevo DONE.
+Cancelar (STOP / fault) apaga el stream sin trama extra. El siguiente `RUN=2` pone a cero las ganancias resultado hasta el nuevo DONE.

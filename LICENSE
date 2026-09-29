@@ -1,0 +1,184 @@
+SMI Soldering Hot Plate
+Copyright (c) 2026 Crhistian David Vergara Gómez <krisskira@gmail.com>
+
+Este proyecto es software de código abierto y hardware abierto.
+Cualquier persona puede usarlo, estudiarlo, modificarlo y compartirlo
+a su voluntad y bajo su exclusiva responsabilidad, en los términos de
+las licencias que se indican abajo.
+
+El aviso en español de las secciones 1 a 3 complementa esas licencias.
+No las sustituye. Si alguna frase de ese aviso se interpretara como una
+restricción de uso incompatible con MIT, CERN-OHL-P-2.0 o CC BY 4.0,
+prevalece la licencia correspondiente en cuanto a los permisos. La
+limitación de responsabilidad se mantiene en la máxima medida permitida
+por la ley aplicable.
+
+Los textos vinculantes en inglés son:
+
+- Software: licencia MIT, reproducida completa en la sección 4.
+- Diseños de hardware y mecánica: CERN Open Hardware Licence Version 2
+  - Permissive (CERN-OHL-P-2.0),
+  https://ohwr.org/cern_ohl_p_v2.txt
+  https://spdx.org/licenses/CERN-OHL-P-2.0.html
+- Documentación e iconos originales: Creative Commons Attribution 4.0
+  International (CC BY 4.0),
+  https://creativecommons.org/licenses/by/4.0/legalcode
+  https://creativecommons.org/licenses/by/4.0/deed.es
+
+
+1. Qué cubre cada licencia
+--------------------------
+
+Salvo el material de terceros indicado al final, el autor licencia así
+el contenido original de este repositorio:
+
+| Material | Rutas | Licencia |
+| --- | --- | --- |
+| Firmware y aplicación de escritorio (HotPlate Studio) | `firmware/avr/` (código), `host-ui/` | MIT |
+| Diseños de la placa y modelos mecánicos | `hardware/` (excepto `hardware/datasheets/`), `mechanical/` | CERN-OHL-P-2.0 |
+| Documentación, textos e iconos originales | `docs/`, `firmware/avr/doc/`, `icons/`, `README.md`, `AGENTS.md` y demás textos originales | CC BY 4.0 |
+
+MIT, CERN-OHL-P-2.0 y CC BY 4.0 permiten usar la obra con cualquier fin,
+incluido uno distinto del personal, educativo o de aficionado, siempre
+que se conserven los avisos de autoría y de licencia que cada una exige.
+Esa libertad no implica aprobación, garantía ni asunción de riesgo por
+parte del autor.
+
+
+2. Para qué se publica
+----------------------
+
+El autor publica este material para uso personal, educativo y de
+aficionado, y para fines lícitos y de buena fe: construir, entender y
+mejorar una plancha de soldadura SMD.
+
+Quien lo use, lo construya, lo modifique o lo distribuya lo hace a su
+voluntad y bajo su propia responsabilidad. Eso incluye cualquier
+implementación o uso fuera de ese contexto personal, educativo o de
+aficionado, y cualquier uso distinto de hacer el bien.
+
+
+3. Aviso de seguridad y limitación de responsabilidad
+-----------------------------------------------------
+
+ESTE PROYECTO DESCRIBE UN APARATO QUE TRABAJA CON TENSIÓN DE RED Y CON
+UNA SUPERFICIE QUE ALCANZA TEMPERATURAS DE SOLDADURA. UN ERROR DE
+DISEÑO, DE MONTAJE, DE CABLEADO, DE FIRMWARE O DE USO PUEDE CAUSAR
+DESCARGA ELÉCTRICA, QUEMADURAS, INCENDIO, DAÑO A COMPONENTES O LESIONES.
+
+No es un producto certificado. No sustituye el criterio de una persona
+con conocimientos de electricidad y electrónica, ni el cumplimiento de
+la normativa local aplicable a instalaciones y aparatos eléctricos.
+Quien lo fabrique o lo opere debe tratar la etapa de potencia como
+tensión de red peligrosa, no dejar el equipo desatendido mientras
+calienta y asumir que una réplica puede comportarse distinto del
+prototipo del autor.
+
+EL MATERIAL SE OFRECE "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA
+O IMPLÍCITA, INCLUIDAS LAS DE COMERCIABILIDAD, CALIDAD SATISFACTORIA,
+IDONEIDAD PARA UN FIN CONCRETO Y NO INFRACCIÓN.
+
+En la máxima medida permitida por la ley aplicable, el autor y los
+titulares de derechos no se hacen responsables de daño personal,
+material o de cualquier otra clase, directo o indirecto, ni de
+pérdida de datos o de beneficios, que surja de fabricar, modificar,
+programar, alimentar, operar o compartir este proyecto. En particular,
+no se hacen responsables de:
+
+- una implementación, modificación u operación inadecuada;
+- el uso fuera del contexto personal, educativo o de aficionado para
+  el que se publica;
+- un uso distinto de hacer el bien, incluido cualquier fin ilícito o
+  dañino;
+- el mal uso que cualquier persona dé a lo que aquí se entrega o se
+  expone al público.
+
+Cada persona es libre de usarlo a su voluntad y asume, ella sola, el
+riesgo y la responsabilidad de ese uso. Esta limitación se aplica
+aunque se hubiera advertido de la posibilidad del daño, y en cualquier
+teoría de responsabilidad (contrato, garantía, culpa, producto u otra),
+salvo donde la ley no permita excluirla, por ejemplo en caso de dolo o
+de lesiones causadas por negligencia del autor cuando esa exclusión
+esté prohibida.
+
+
+4. Licencia MIT (software)
+--------------------------
+
+Se aplica al código original de `firmware/avr/` y `host-ui/`.
+
+MIT License
+
+Copyright (c) 2026 Crhistian David Vergara Gómez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+5. CERN-OHL-P-2.0 (hardware abierto)
+-----------------------------------
+
+Se aplica a los diseños originales de `hardware/` (excepto las hojas de
+datos de terceros) y de `mechanical/`.
+
+Copyright (c) 2026 Crhistian David Vergara Gómez
+
+This source describes Open Hardware and is licensed under the CERN-OHL-P v2.
+
+You may redistribute and modify this source and make products using it
+under the terms of the CERN-OHL-P v2 (https://ohwr.org/cern_ohl_p_v2.txt).
+
+This source is distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY,
+INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
+PARTICULAR PURPOSE. Please see the CERN-OHL-P v2 for applicable
+conditions.
+
+Source location: https://github.com/krisskira/smd-soldering-hotplate
+
+La variante "P" (permissive) es la permisiva: se puede usar el diseño
+para cualquier fin y relicenciar las modificaciones. Hay que conservar
+este aviso y el de copyright. El texto completo y sus condiciones,
+incluida la exclusión de garantía y de responsabilidad (secciones 6 y 7
+de la licencia), es el publicado por CERN en el enlace de arriba.
+
+
+6. CC BY 4.0 (documentación e iconos)
+-------------------------------------
+
+Se aplica a la documentación original y a los iconos originales de
+`icons/`.
+
+Copyright (c) 2026 Crhistian David Vergara Gómez
+
+This work is licensed under the Creative Commons Attribution 4.0
+International License. To view a copy of this license, visit
+https://creativecommons.org/licenses/by/4.0/ or send a letter to
+Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+Hay que dar crédito al autor, incluir un enlace a la licencia e indicar
+si se hicieron cambios. Se puede hacer con cualquier fin, incluido uno
+comercial.
+
+
+7. Material de terceros
+-----------------------
+
+Las hojas de datos en `hardware/datasheets/` pertenecen a sus
+fabricantes. Se incluyen solo como referencia y no se relicencian con
+este archivo. Lo mismo vale para cualquier componente, fuente o biblioteca
+de terceros que se incorpore más adelante y conserve su propio aviso.

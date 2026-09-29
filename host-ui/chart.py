@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -390,25 +391,39 @@ class LiveChart:
             self._applying_xlim = False
 
     def _apply_x_measures(self) -> None:
-        from matplotlib.ticker import FuncFormatter, MultipleLocator
-
         # Origen fijo en t=0 del proceso; zoom del usuario se respeta en redraw.
         if self._user_xlim is None:
             self._set_xlim_safe(0.0, self._x_span_s)
-        span = self._user_xlim[1] - self._user_xlim[0] if self._user_xlim else self._x_span_s
-        self.ax.xaxis.set_major_locator(MultipleLocator(_x_major_step(max(span, 1.0))))
-        self.ax.xaxis.set_major_formatter(
-            FuncFormatter(lambda v, _pos: f"{int(round(v))}")
-        )
+            span = self._x_span_s
+        else:
+            span = max(self._user_xlim[1] - self._user_xlim[0], 1.0)
+        self._apply_x_locator(span)
         self._sync_phase_xlim()
 
     def set_x_span(self, span_s: float) -> None:
-        """Fija el largo del eje X y sus marcas a `span_s` segundos."""
+        """Fija el tramo base del eje X (y bloquea el techo si se llama desde tune)."""
         self._x_span_s = max(float(span_s), 1.0)
         self._x_locked = True
         self._user_xlim = None
         self._apply_x_measures()
         self.canvas.draw_idle()
+
+    def _auto_x_end(self, t_last: float) -> float:
+        """Techo ≥ span base; si t supera el tramo, crece en pasos redondos (origen 0)."""
+        base = self._x_span_s
+        t = max(float(t_last), 0.0)
+        if t <= base:
+            return base
+        step = max(_x_major_step(base), 50.0)
+        return max(base, math.ceil(t / step) * step)
+
+    def _apply_x_locator(self, span_s: float) -> None:
+        from matplotlib.ticker import FuncFormatter, MultipleLocator
+
+        self.ax.xaxis.set_major_locator(MultipleLocator(_x_major_step(max(span_s, 1.0))))
+        self.ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda v, _pos: f"{int(round(v))}")
+        )
 
     def set_y_max(self, y_max: float) -> None:
         self._y_max = max(float(y_max), 1.0)
@@ -662,15 +677,20 @@ class LiveChart:
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
 
-        # Series siempre en tiempo absoluto desde t=0 del proceso.
-        # Si el usuario hizo zoom/pan, no pisar su ventana; si no, 0..span.
+        # Series en tiempo absoluto desde t=0. Zoom/pan del usuario se respeta;
+        # si no hay zoom: techo fijo (locked) o crece desde 0 sin mover el origen.
         if self._user_xlim is not None:
             self._set_xlim_safe(self._user_xlim[0], self._user_xlim[1])
+            self._apply_x_locator(
+                max(self._user_xlim[1] - self._user_xlim[0], 1.0)
+            )
         elif self._x_locked:
             self._set_xlim_safe(0.0, self._x_span_s)
+            self._apply_x_locator(self._x_span_s)
         else:
-            t_end = max(float(xs[-1]), self._x_span_s)
+            t_end = self._auto_x_end(float(xs[-1]))
             self._set_xlim_safe(0.0, t_end)
+            self._apply_x_locator(t_end)
         self.ax2.set_ylim(0, 110)
 
         self._clear_overlays()

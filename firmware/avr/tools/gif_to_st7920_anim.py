@@ -2,6 +2,8 @@
 """
 GIF (o secuencia de frames) → C PROGMEM para animaciones ST7920 (frame 0 + diffs).
 
+Guía: firmware/avr/doc/st7920_pantalla.md · skill st7920-animated-icons.
+
 Uso:
   python3 tools/gif_to_st7920_anim.py ../../icons/source/icons8-temperature.gif \\
       -o icons/animated/temperature.c --name temperature --size 32
