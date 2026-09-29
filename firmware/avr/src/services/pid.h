@@ -14,6 +14,12 @@ void pid_init(app_state_t *st);
 void pid_reset(app_state_t *st);
 
 /**
+ * Nueva consigna de rampa: anula tasa fantasma y alinea t_ref a T.
+ * Conserva el integral (bumpless entre etapas).
+ */
+void pid_on_set_step(app_state_t *st);
+
+/**
  * Compute PI + lookahead from a new valid temperature sample.
  * Call once per TEMP_PERIOD_MS after sensor_tick when regulating.
  * Updates st->duty_pct and st->t_ref_x10.

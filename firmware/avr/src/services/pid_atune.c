@@ -11,7 +11,7 @@
  * Z–N satura el techo ×10=999. A tras descartar 1.er ciclo. Fan en OFF.
  */
 
-static int16_t  s_peak_hi, s_peak_lo, s_kp, s_ki, s_kd;
+static int16_t  s_peak_hi, s_peak_lo, s_kp, s_ki;
 static uint16_t s_half_sum_s, s_t0_s;
 static uint8_t  s_half_n;
 
@@ -24,7 +24,7 @@ static void heaters_off(app_state_t *st)
 
 void pid_atune_init(app_state_t *st)
 {
-    s_kp = s_ki = s_kd = 0;
+    s_kp = s_ki = 0;
     if (!st)
         return;
     st->atune_phase = ATUNE_IDLE;
@@ -42,7 +42,7 @@ void pid_atune_result(int16_t *kp, int16_t *ki, int16_t *kd)
     if (ki)
         *ki = s_ki;
     if (kd)
-        *kd = s_kd;
+        *kd = 0;
 }
 
 void pid_atune_cancel(app_state_t *st)
@@ -84,7 +84,7 @@ uint8_t pid_atune_start(app_state_t *st)
 
     t = st->sensor.temp_c_x10;
     s_peak_hi = s_peak_lo = t;
-    s_kp = s_ki = s_kd = 0;
+    s_kp = s_ki = 0;
     s_half_sum_s = 0;
     s_half_n = 0;
     s_t0_s = delay_sec();
@@ -122,7 +122,6 @@ static void finish_ok(app_state_t *st, uint16_t tu_s, int16_t amp)
 
     s_kp = (int16_t)kp;
     s_ki = (int16_t)ki;
-    s_kd = 0;
     st->atune_phase = ATUNE_DONE;
     heaters_off(st);
     fan_off();
@@ -208,7 +207,7 @@ void pid_atune_apply(app_state_t *st)
         return;
     st->pid_kp_x10 = s_kp;
     st->pid_ki_x10 = s_ki;
-    st->pid_kd_x10 = s_kd;
+    st->pid_kd_x10 = 0;
     st->pid_loop = PID_AUTO;
     st->atune_phase = ATUNE_IDLE;
     pid_reset(st);

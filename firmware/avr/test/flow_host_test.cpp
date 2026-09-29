@@ -111,7 +111,8 @@ static void flow_event(FlowSim *f, FlowEvt e)
     if (e == EVT_STOP) {
         if (f->program == PROG_HEAT
             && (f->phase == PH_DELAY || f->phase == PH_PREHEAT
-                || f->phase == PH_STABILIZE || f->phase == PH_RUN)) {
+                || f->phase == PH_STABILIZE || f->phase == PH_RUN
+                || f->phase == PH_HOLD)) {
             flow_enter_alarm(f, (uint8_t)PROTO_ALARM_DONE);
             return;
         }
@@ -130,7 +131,9 @@ static void flow_event(FlowSim *f, FlowEvt e)
             f->phase = PH_RUN;
         else if (f->phase == PH_STABILIZE && e == EVT_BAND_OK)
             f->phase = PH_RUN;
-        else if (f->phase == PH_RUN && e == EVT_RAMPS_DONE)
+        else if (f->phase == PH_RUN && e == EVT_BAND_OK)
+            f->phase = PH_HOLD;
+        else if (f->phase == PH_HOLD && e == EVT_RAMPS_DONE)
             flow_enter_alarm(f, (uint8_t)PROTO_ALARM_DONE);
         else if (f->phase == PH_ALARM
                  && (e == EVT_ALARM_TIMEOUT || e == EVT_ACK))
@@ -194,6 +197,8 @@ static void test_heat_with_delay_and_preheat(void)
     flow_event(&f, EVT_BAND_OK);
     CHECK(f.phase == PH_RUN);
 
+    flow_event(&f, EVT_BAND_OK);
+    CHECK(f.phase == PH_HOLD);
     flow_event(&f, EVT_RAMPS_DONE);
     CHECK(f.phase == PH_ALARM);
     CHECK(f.alarm_n == PROTO_ALARM_DONE);

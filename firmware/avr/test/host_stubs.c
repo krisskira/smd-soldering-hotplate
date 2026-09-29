@@ -45,6 +45,11 @@ void pid_reset(app_state_t *st)
 {
     (void)st;
 }
+
+void pid_on_set_step(app_state_t *st)
+{
+    (void)st;
+}
 #endif
 
 void at_cmd_set_stream(app_state_t *st, uint8_t on)

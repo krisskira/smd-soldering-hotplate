@@ -13,8 +13,8 @@ PHASE_NAMES = {
     1: "Espera (retraso)",
     2: "Precalentado",
     3: "Estabilizando",
-    4: "Hold",
-    5: "En rampa",
+    4: "Meseta",
+    5: "Rampa",
     6: "Enfriando",
     7: "Alarma",
     8: "Terminado",
@@ -320,10 +320,11 @@ def chart_phase_label(a: int, ri: Any = None) -> str:
     """Nombre corto para el marcador de fase en la curva."""
     if a == 1:
         return "Espera"
+    n = (ri + 1) if isinstance(ri, int) else None
+    if a == 4:
+        return f"Meseta {n}" if n is not None else "Meseta"
     if a == 5:
-        if isinstance(ri, int):
-            return f"Rampa {ri + 1}"
-        return "Rampa"
+        return f"Rampa {n}" if n is not None else "Rampa"
     return PHASE_NAMES.get(a, str(a))
 
 

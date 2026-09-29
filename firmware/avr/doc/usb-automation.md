@@ -137,8 +137,9 @@ Con stream de autotune se añade:
 Solo `AT+CFG?`. No sale a 1 Hz.
 
 ```
-$CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,KD=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
+$CF,MN=<Tmin>,MX=<Tmax>,KP=,KI=,PH=0|1,PCT=<pct>,SB=<stabilize_s>,
 DLY=<s>,AIR=0|1,SND=0|1,RN=<ramp_n>,AMS=<max_s>
+(Kd siempre 0 / autotune PI; `KD=` puede omitirse en `$CF`)
 ```
 
 `RN` es cuántos escalones cuenta el programa (`ramp_n`, 1..4). No trae °C ni hold; eso sale en `$R`.

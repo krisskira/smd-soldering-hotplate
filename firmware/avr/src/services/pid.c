@@ -32,6 +32,13 @@ void pid_reset(app_state_t *st)
         st->t_ref_x10 = st->sensor.temp_c_x10;
 }
 
+void pid_on_set_step(app_state_t *st)
+{
+    s_rate_x10 = 0;
+    if (st && st->sensor.valid)
+        st->t_ref_x10 = st->sensor.temp_c_x10;
+}
+
 void pid_notify_sample(void)
 {
     s_sample_ready = 1;
@@ -47,7 +54,7 @@ void pid_compute_sample(app_state_t *st)
 
     t = st->sensor.temp_c_x10;
     if (s_have_prev)
-        s_rate_x10 = (int16_t)((s_rate_x10 * 3 + (t - s_prev_t_x10)) / 4);
+        s_rate_x10 = (int16_t)(t - s_prev_t_x10);
     else {
         s_rate_x10 = 0;
         st->t_ref_x10 = t;
@@ -55,18 +62,15 @@ void pid_compute_sample(app_state_t *st)
     }
     s_prev_t_x10 = t;
 
-    /* Gobernador: t_ref → t_set a RISE_C_X10_DEFAULT °C/s·10 */
+    /* Gobernador: t_ref sube a SET (rampas no decrecientes). */
     ref = st->t_ref_x10;
     step = (int16_t)(st->t_set_c * 10);
     if (ref < step) {
         ref = (int16_t)(ref + (int16_t)RISE_C_X10_DEFAULT);
         if (ref > step)
             ref = step;
-    } else if (ref > step) {
-        ref = (int16_t)(ref - (int16_t)RISE_C_X10_DEFAULT);
-        if (ref < step)
-            ref = step;
-    }
+    } else
+        ref = step;
     st->t_ref_x10 = ref;
 
     /* Predicción de cola: err = ref - (T + rate·lookahead) */

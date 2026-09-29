@@ -26,7 +26,7 @@ Firmware `firmware/avr/`, ATmega16 @ 8 MHz. Actualizado: 2026-09-28.
 
 | Nombre | UI | USB | Entradas | Salidas |
 |--------|----|-----|----------|---------|
-| HEAT | Sí | Sí | `delay_s`, rampas no decrecientes, `preheat_en`, `preheat_pct`, PID, temp_min/max | PI predictivo (t_ref + lookahead). ESTAB: % de Ramp1; overshoot → timeout 60 s. `hold_s` = reloj de etapa. `ALARM:2`. Aire solo al final |
+| HEAT | Sí | Sí | `delay_s`, rampas no decrecientes, `preheat_en`, `preheat_pct`, PID, temp_min/max | PI predictivo (t_ref + lookahead). ESTAB: % de Ramp1; overshoot → timeout 60 s. Por rampa: approach PI → banda → meseta `hold_s`. `ALARM:2`. Aire solo al final |
 | PID_TUNE | No | Sí | `AT+RUN=2,temp,ciclos,hyst[,max_s]`; `AT+CFG=T` | `$HP` 1 Hz (`A=10` + `AP/AC/AK/AI`); fan en medio OFF; `AT+CFG=A` → EEPROM (PI, Kd=0) |
 
 Detalle de fases: [program_flows.md](program_flows.md).

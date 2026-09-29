@@ -1,5 +1,5 @@
 {
-  "n": 2,
+  "n": 4,
   "steps": [
     {
       "active": true,
@@ -12,13 +12,13 @@
       "hold": 60
     },
     {
-      "active": false,
-      "temp": 110,
+      "active": true,
+      "temp": 120,
       "hold": 30
     },
     {
-      "active": false,
-      "temp": 175,
+      "active": true,
+      "temp": 130,
       "hold": 30
     }
   ]

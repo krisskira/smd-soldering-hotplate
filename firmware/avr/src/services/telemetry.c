@@ -90,7 +90,7 @@ void telemetry_emit_cfg(const app_state_t *st)
     kv_u(PSTR(",MX="), st->temp_max_c);
     kv_i(PSTR(",KP="), st->pid_kp_x10);
     kv_i(PSTR(",KI="), st->pid_ki_x10);
-    kv_i(PSTR(",KD="), st->pid_kd_x10);
+    /* Kd compile/autotune = 0; no emitir (flash). */
     kv_u(PSTR(",PH="), st->preheat_en);
     kv_u(PSTR(",PCT="), st->preheat_pct);
     kv_u(PSTR(",SB="), st->stabilize_s);

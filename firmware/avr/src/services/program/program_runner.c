@@ -20,7 +20,7 @@ static uint8_t s_over_left;
 
 static void hold_enter(app_state_t *st)
 {
-    /* Bumpless: no pid_reset entre etapas; t_ref e I siguen. */
+    /* PI AUTO: approach y meseta. Sin pid_reset (I bumpless). */
     st->pid_loop = PID_AUTO;
 }
 
@@ -63,6 +63,15 @@ static void preheat_cancel(app_state_t *st)
     preheat_fire(st, PROG_CB_CANCEL);
 }
 
+/* |T−SET| ≤ ±2 °C. */
+static uint8_t in_set_band(const app_state_t *st)
+{
+    int16_t err = (int16_t)((int16_t)(st->t_set_c * 10) - st->sensor.temp_c_x10);
+    if (err < 0)
+        err = (int16_t)(-err);
+    return (st->sensor.valid && err <= (int16_t)PREHEAT_BAND_C_X10) ? 1u : 0u;
+}
+
 static void preheat_tick(app_state_t *st)
 {
     int16_t err;
@@ -86,14 +95,12 @@ static void preheat_tick(app_state_t *st)
         return;
     }
     s_over_left = 0;
-    if (err < 0)
-        err = (int16_t)(-err);
     if (st->phase == PH_PREHEAT) {
-        if (err <= (int16_t)PREHEAT_BAND_C_X10) {
+        if (in_set_band(st)) {
             st->phase = PH_STABILIZE;
             st->stabilize_left = st->stabilize_s;
         }
-    } else if (err > (int16_t)PREHEAT_BAND_C_X10) {
+    } else if (!in_set_band(st)) {
         st->phase = PH_PREHEAT;
     } else if (st->stabilize_left > 0) {
         st->stabilize_left--;
@@ -156,9 +163,10 @@ static void alarm_on_second(app_state_t *st)
 static void enter_run_timed(app_state_t *st, uint16_t sec)
 {
     st->t_remain_s = sec;
+    /* PH_RUN: PI a SET (t_ref+lookahead). hold_s solo en PH_HOLD tras banda. */
     st->phase = PH_RUN;
-    /* hold_s corre desde el instante de entrada (reloj de pared). */
     hold_enter(st);
+    pid_on_set_step(st);
     TELEM_DIRTY(st);
 }
 
@@ -238,7 +246,7 @@ void program_init(app_state_t *st)
     st->phase = PH_IDLE;
     st->t_set_c = 150;
     st->delay_s = 60;
-        st->t_remain_s = 0;
+    st->t_remain_s = 0;
     st->t_elapsed_s = 0;
     st->duty_pct = 0;
     st->t_ref_x10 = 0;
@@ -475,6 +483,10 @@ static void on_second(app_state_t *st)
     } else if (preheat_active(st)) {
         preheat_tick(st);
     } else if (st->phase == PH_RUN) {
+        /* Approach controlado por PI; meseta al entrar ±banda. */
+        if (in_set_band(st))
+            st->phase = PH_HOLD;
+    } else if (st->phase == PH_HOLD) {
         if (st->t_remain_s > 0)
             st->t_remain_s--;
         if (st->t_remain_s == 0) {

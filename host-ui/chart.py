@@ -179,6 +179,8 @@ class LiveChart:
         self._y_max: Optional[float] = None
         self._x_locked = bool(x_locked)
         self._x_span_s = max(float(x_span_s), 1.0)
+        self._user_xlim: Optional[tuple[float, float]] = None
+        self._applying_xlim = False
         self._overlay_artists: list = []
         self._frame = ttk.LabelFrame(parent, text=title)
         self._frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -227,6 +229,7 @@ class LiveChart:
         self.ax.set_ylim(0, 100)
         self.ax.set_xlim(0, self._x_span_s)
         self._apply_x_measures()
+        self.ax.callbacks.connect("xlim_changed", self._on_xlim_changed)
         self.ax.grid(True, which="major", linestyle="-", linewidth=0.6, alpha=0.35)
         self.ax.minorticks_on()
         self.ax.grid(True, which="minor", linestyle=":", linewidth=0.4, alpha=0.2)
@@ -343,6 +346,14 @@ class LiveChart:
         self._reset_phase_axis()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self._frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        try:
+            from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+
+            self._toolbar = NavigationToolbar2Tk(self.canvas, self._frame, pack_toolbar=False)
+            self._toolbar.update()
+            self._toolbar.pack(side=tk.BOTTOM, fill=tk.X, padx=4, pady=(0, 2))
+        except Exception:
+            self._toolbar = None
 
     def set_live_info(self, phase: str, temp_c: str) -> None:
         self.var_phase.set(f"Fase: {phase}")
@@ -363,12 +374,29 @@ class LiveChart:
         self._mark_phase.set_color(cc["phase"])
         self.canvas.draw_idle()
 
+    def _on_xlim_changed(self, _ax) -> None:
+        if self._applying_xlim:
+            return
+        x0, x1 = self.ax.get_xlim()
+        self._user_xlim = (float(x0), float(x1))
+        self._sync_phase_xlim()
+
+    def _set_xlim_safe(self, x0: float, x1: float) -> None:
+        self._applying_xlim = True
+        try:
+            self.ax.set_xlim(x0, x1)
+            self._sync_phase_xlim()
+        finally:
+            self._applying_xlim = False
+
     def _apply_x_measures(self) -> None:
         from matplotlib.ticker import FuncFormatter, MultipleLocator
 
-        # Siempre anclado en t=0; no desplazar el origen.
-        self.ax.set_xlim(0, self._x_span_s)
-        self.ax.xaxis.set_major_locator(MultipleLocator(_x_major_step(self._x_span_s)))
+        # Origen fijo en t=0 del proceso; zoom del usuario se respeta en redraw.
+        if self._user_xlim is None:
+            self._set_xlim_safe(0.0, self._x_span_s)
+        span = self._user_xlim[1] - self._user_xlim[0] if self._user_xlim else self._x_span_s
+        self.ax.xaxis.set_major_locator(MultipleLocator(_x_major_step(max(span, 1.0))))
         self.ax.xaxis.set_major_formatter(
             FuncFormatter(lambda v, _pos: f"{int(round(v))}")
         )
@@ -378,6 +406,7 @@ class LiveChart:
         """Fija el largo del eje X y sus marcas a `span_s` segundos."""
         self._x_span_s = max(float(span_s), 1.0)
         self._x_locked = True
+        self._user_xlim = None
         self._apply_x_measures()
         self.canvas.draw_idle()
 
@@ -588,6 +617,22 @@ class LiveChart:
                     zorder=3,
                 )
                 txt.set_clip_path(rect)
+            # Etiqueta en el eje principal: visible aunque la barra sea corta.
+            if t0 >= x0 and t0 <= x1:
+                tag = self.ax.annotate(
+                    name,
+                    xy=(t0, y_hi),
+                    xytext=(3, -12),
+                    textcoords="offset points",
+                    fontsize=_MARK_FONT,
+                    color=color,
+                    ha="left",
+                    va="top",
+                    zorder=8,
+                    clip_on=True,
+                    fontweight="bold",
+                )
+                self._overlay_artists.append(tag)
         self.axp.set_xlim(x0, x1)
         self.axp.set_ylim(0, 1)
 
@@ -617,12 +662,15 @@ class LiveChart:
             self.ax.relim()
             self.ax.autoscale_view(scalex=False, scaley=True)
 
-        # Origen fijo en 0. Si x_locked, no crecer; si no, crecer el techo sin mover el 0.
-        if self._x_locked:
-            self.ax.set_xlim(0, self._x_span_s)
+        # Series siempre en tiempo absoluto desde t=0 del proceso.
+        # Si el usuario hizo zoom/pan, no pisar su ventana; si no, 0..span.
+        if self._user_xlim is not None:
+            self._set_xlim_safe(self._user_xlim[0], self._user_xlim[1])
+        elif self._x_locked:
+            self._set_xlim_safe(0.0, self._x_span_s)
         else:
             t_end = max(float(xs[-1]), self._x_span_s)
-            self.ax.set_xlim(0, t_end)
+            self._set_xlim_safe(0.0, t_end)
         self.ax2.set_ylim(0, 110)
 
         self._clear_overlays()
@@ -637,6 +685,7 @@ class LiveChart:
         self.line_set.set_data([], [])
         self.line_du.set_data([], [])
         self._clear_overlays()
+        self._user_xlim = None
         if self._y_max is not None:
             self.ax.set_ylim(0, self._y_max)
         self._apply_x_measures()

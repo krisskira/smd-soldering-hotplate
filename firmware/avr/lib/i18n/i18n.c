@@ -5,20 +5,20 @@
 
 static const char S_IDLE[] PROGMEM = "IDLE";
 static const char S_WAIT[] PROGMEM = "WAIT";
-static const char S_PRE[] PROGMEM = "PREHEAT";
-static const char S_STAB[] PROGMEM = "STABLE";
+static const char S_PRE[] PROGMEM = "PRE";
+static const char S_STAB[] PROGMEM = "STAB";
 static const char S_ALM[] PROGMEM = "ALM";
 static const char S_RUN[] PROGMEM = "RUN";
 static const char S_END[] PROGMEM = "END";
 static const char S_FLT[] PROGMEM = "ERR";
 static const char S_SALIR[] PROGMEM = "EXIT";
 static const char S_AIR[] PROGMEM = "AIR";
-static const char S_DLY[] PROGMEM = "DELAY";
+static const char S_DLY[] PROGMEM = "DLY";
 static const char S_OFF[] PROGMEM = "OFF";
 static const char S_PARA[] PROGMEM = "STOP";
 static const char S_UMODE[] PROGMEM = "USB";
-static const char S_CFG[] PROGMEM = "SETTINGS";
-static const char S_NULL[] PROGMEM = "*"; /* sin glifo '?' */
+static const char S_CFG[] PROGMEM = "SETUP";
+static const char S_NULL[] PROGMEM = "*";
 
 static const char *const TABLE[] PROGMEM = {
     S_IDLE, S_WAIT, S_PRE, S_STAB, S_ALM, S_RUN, S_END, S_FLT,
