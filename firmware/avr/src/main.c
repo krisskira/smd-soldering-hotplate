@@ -103,6 +103,9 @@ int main(void)
 
                     if (g_state.phase == PH_DONE && s_prev_phase != PH_DONE)
                         buzzer_seq_beep_cat(BEEP_READY, 2);
+                    /* Al salir de un ciclo (END/ERR/IDLE) el sensor ya no marca fase ni pie. */
+                    if (g_state.phase != s_prev_phase)
+                        g_state.row_dirty = HOME_DIRTY_ALL;
 
                     s_prev_phase = g_state.phase;
                     s_prev_atune = g_state.atune_phase;
