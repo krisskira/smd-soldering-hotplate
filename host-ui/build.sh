@@ -104,7 +104,9 @@ echo "Compilando con $PY (clang $(clang --version | head -1))…"
 
 BIN="dist/HotPlateStudio"
 if [ -f "$BIN" ]; then
-    strip -u -r -x "$BIN" 2>/dev/null || true
+    # Nuitka ya firma el binario; strip invalida la firma y macOS lo mata
+    # al arrancar (SIGKILL, Code Signature Invalid). Se re-firma ad-hoc.
+    codesign --force --sign - "$BIN" >/dev/null 2>&1 || true
     echo ""
     echo "Listo: $BIN ($("$PY" -c "import os; print(f'{os.path.getsize(\"$BIN\")/1048576:.1f} MB')"))"
 fi
