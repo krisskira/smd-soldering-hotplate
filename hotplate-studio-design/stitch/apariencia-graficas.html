@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HotPlate Studio - Apariencia</title>
+<!-- Tailwind CSS CDN with forms and container queries plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter and JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            petrol: {
+              DEFAULT: '#1a5276',
+              dark: '#154360',
+              light: '#2471a3'
+            },
+            surface: '#f4f6f8',
+            cardBorder: '#c5d0dc',
+            subtleBorder: '#e2e8f0',
+            slateText: '#1e293b',
+            mutedText: '#64748b'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+<!-- Custom Core Styles -->
+<style data-purpose="custom-overrides">
+    body {
+      background-color: #f4f6f8;
+      color: #1e293b;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Stepper number input styling */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      opacity: 1;
+    }
+    
+    .technical-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-petrol selection:text-white">
+<!-- BEGIN: TopGlobalChrome -->
+<header class="bg-white border-b border-subtleBorder px-6 py-2.5 flex items-center justify-between" data-purpose="global-header">
+<!-- Brand and Navigation Tabs -->
+<div class="flex items-center space-x-6">
+<!-- Logo Tile + Title -->
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-petrol flex items-center justify-center shadow-xs">
+<!-- 3 Wavy Heat Strokes -->
+<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewbox="0 0 24 24">
+<path d="M8 5c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+<path d="M12 4c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+<path d="M16 5c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+</svg>
+</div>
+<span class="font-bold text-base text-slateText tracking-tight">HotPlate Studio</span>
+</div>
+<!-- Segmented Pill Tabs Container -->
+<nav class="flex items-center bg-[#edf2f7] p-1 rounded-md text-xs font-medium space-x-1" data-purpose="main-navigation">
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Conexión</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">HEAT</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Autotune</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Ajustes</a>
+<a class="px-3.5 py-1.5 rounded bg-petrol text-white shadow-xs font-semibold" href="#">Apariencia</a>
+</nav>
+</div>
+<!-- Header Actions & USB Mode indicator -->
+<div class="flex items-center space-x-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-petrol text-white text-xs font-medium font-mono">
+        Modo USB
+      </span>
+<button class="px-3 py-1 bg-white border border-[#cbd5e1] hover:bg-slate-50 text-[#2c3e50] text-xs font-medium rounded transition-colors shadow-2xs" type="button">
+        Cambiar a modo Manual
+      </button>
+</div>
+</header>
+<!-- END: TopGlobalChrome -->
+<!-- BEGIN: MainContentArea -->
+<main class="flex-1 max-w-[1720px] w-full mx-auto px-6 py-5 flex flex-col space-y-4" data-purpose="appearance-settings-page">
+<!-- Page Header Info -->
+<section class="flex items-start justify-between">
+<div>
+<h1 class="text-xl font-bold text-slateText tracking-tight">Apariencia</h1>
+<p class="text-[13px] text-mutedText mt-0.5">
+          Familia, texto, campos y botones cubren toda la interfaz. El estado del proceso usa sus propias filas de sección, clave y valor.
+        </p>
+</div>
+<div class="flex items-center space-x-2.5 pt-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1]">
+          Solo en este equipo
+        </span>
+<span class="font-mono text-xs text-mutedText">ui_theme.json</span>
+</div>
+</section>
+<!-- Main Configuration Card -->
+<section class="bg-white border border-cardBorder rounded flex-1 flex flex-col" data-purpose="theme-configuration-card">
+<!-- Sub-Tab Header Bar -->
+<div class="border-b border-subtleBorder px-5 pt-3 flex space-x-6"><button class="pb-2.5 text-xs font-medium text-mutedText hover:text-slateText transition-colors flex items-center space-x-1.5" type="button">
+<span>Fuentes</span>
+</button>
+<button class="pb-2.5 text-xs font-semibold text-petrol border-b-2 border-petrol flex items-center space-x-1.5" type="button">
+<span>Gráficas</span>
+</button>
+<button class="pb-2.5 text-xs font-medium text-mutedText hover:text-slateText transition-colors flex items-center space-x-1.5" type="button">
+<span>Consola serie</span>
+</button></div>
+<!-- Settings Layout (Two Columns: Form left, Live Preview right) -->
+<div class="p-6 grid grid-cols-12 gap-8 flex-1"><!-- LEFT COLUMN: Graph Color Controls -->
+<div class="col-span-12 lg:col-span-7 space-y-2.5 pr-0 lg:pr-4" data-purpose="form-controls-column">
+<!-- Row 1: Temperatura medida -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Temperatura medida</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#c0392b"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #c0392b;" title="#c0392b"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 2: SET / objetivo -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">SET / objetivo</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#2980b9"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #2980b9;" title="#2980b9"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 3: Potencia DU -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Potencia DU</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#27ae60"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #27ae60;" title="#27ae60"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 4: Marcador cruce ↑ -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Marcador cruce ↑</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#8e44ad"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #8e44ad;" title="#8e44ad"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 5: Marcador cruce ↓ -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Marcador cruce ↓</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#d35400"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #d35400;" title="#d35400"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 6: Calentador ON -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Calentador ON</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#27ae60"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #27ae60;" title="#27ae60"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 7: Calentador OFF -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Calentador OFF</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#7f8c8d"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #7f8c8d;" title="#7f8c8d"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 8: Cresta -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Cresta</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#6c3483"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #6c3483;" title="#6c3483"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 9: Inicio de fase -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Inicio de fase</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#1a5276"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #1a5276;" title="#1a5276"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 10: Banda histéresis -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Banda histéresis</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#f1c40f"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #f1c40f;" title="#f1c40f"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 11: Fondo de ejes -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-6 text-[#334155] font-medium">Fondo de ejes</label>
+<div class="col-span-6 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase font-mono" type="text" value="#ffffff"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400 shrink-0" style="background-color: #ffffff;" title="#ffffff"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Live Theme Preview Plot -->
+<div class="col-span-12 lg:col-span-5 bg-slate-50 border border-[#e2e8f0] rounded p-5 flex flex-col justify-between" data-purpose="live-preview-box">
+<div class="space-y-3">
+<div class="flex items-center justify-between border-b border-[#cbd5e1] pb-2">
+<span class="text-xs font-semibold text-slateText uppercase tracking-wider">MUESTRA EN VIVO DEL TEMA</span>
+<span class="text-[11px] text-mutedText">Escala 1:1</span>
+</div>
+<!-- Live Graph Card -->
+<div class="bg-white border border-[#c5d0dc] rounded p-3 shadow-2xs space-y-2.5">
+<!-- SVG Plot Area -->
+<div class="w-full h-56 bg-white border border-[#e2e8f0] rounded overflow-hidden relative">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 460 210">
+<!-- Grid Lines -->
+<g stroke="#edf2f7" stroke-width="1">
+<line x1="40" x2="445" y1="20" y2="20"></line>
+<line x1="40" x2="445" y1="55" y2="55"></line>
+<line x1="40" x2="445" y1="90" y2="90"></line>
+<line x1="40" x2="445" y1="125" y2="125"></line>
+<line x1="40" x2="445" y1="160" y2="160"></line>
+<line x1="115" x2="115" y1="20" y2="180"></line>
+<line x1="195" x2="195" y1="20" y2="180"></line>
+<line x1="275" x2="275" y1="20" y2="180"></line>
+<line x1="355" x2="355" y1="20" y2="180"></line>
+<line x1="435" x2="435" y1="20" y2="180"></line>
+</g>
+<!-- Y Axis Labels -->
+<g fill="#94a3b8" font-family="monospace" font-size="9" text-anchor="end">
+<text x="34" y="24">250°</text>
+<text x="34" y="59">200°</text>
+<text x="34" y="94">150°</text>
+<text x="34" y="129">100°</text>
+<text x="34" y="164">50°</text>
+<text x="34" y="183">0°</text>
+</g>
+<!-- Axis base lines -->
+<line stroke="#cbd5e1" stroke-width="1" x1="40" x2="445" y1="180" y2="180"></line>
+<line stroke="#cbd5e1" stroke-width="1" x1="40" x2="40" y1="15" y2="180"></line>
+<!-- Banda histéresis (#f1c40f translucent horizontal band around SET line at y=65) -->
+<rect fill="#f1c40f" fill-opacity="0.22" height="20" width="405" x="40" y="55"></rect>
+<!-- Inicio de fase (#1a5276 dashed vertical line at x=190) -->
+<line stroke="#1a5276" stroke-dasharray="4,3" stroke-width="1.5" x1="190" x2="190" y1="20" y2="180"></line>
+<!-- SET / objetivo line (#2980b9 dashed) -->
+<line stroke="#2980b9" stroke-dasharray="5,3" stroke-width="1.8" x1="40" x2="445" y1="65" y2="65"></line>
+<!-- Potencia DU line (#27ae60 in lower area) -->
+<path d="M 40 135 L 115 135 L 150 145 L 210 160 L 260 152 L 310 162 L 370 156 L 445 158" fill="none" stroke="#27ae60" stroke-width="1.6"></path>
+<!-- Temperatura medida curve (#c0392b rising and reaching plateau) -->
+<path d="M 40 175 Q 85 165 125 120 T 215 62 Q 255 58 310 66 T 445 64" fill="none" stroke="#c0392b" stroke-width="2.2"></path>
+<!-- Markers on Temperature curve -->
+<!-- Marcador cruce ↑ (#8e44ad purple triangle up at x=205, y=65) -->
+<polygon fill="#8e44ad" points="205,58 200,68 210,68"></polygon>
+<!-- Cresta (#6c3483 purple diamond at x=255, y=58) -->
+<polygon fill="#6c3483" points="255,52 260,58 255,64 250,58"></polygon>
+<!-- Marcador cruce ↓ (#d35400 orange triangle down at x=310, y=66) -->
+<polygon fill="#d35400" points="310,73 305,63 315,63"></polygon>
+</svg>
+</div>
+<!-- Graph Legend Grid -->
+<div class="grid grid-cols-2 gap-y-1.5 gap-x-2 pt-1 border-t border-slate-100 text-[11px] font-mono text-[#334155]">
+<div class="flex items-center space-x-1.5">
+<span class="inline-block w-3 h-0.5 bg-[#c0392b]"></span>
+<span>Temperatura medida</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="inline-flex items-center justify-center space-x-0.5 text-[#2980b9] font-bold text-[9px]">- -</span>
+<span>SET / objetivo</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="inline-block w-3 h-0.5 bg-[#27ae60]"></span>
+<span>Potencia DU</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="inline-block w-2.5 h-2 bg-[#f1c40f] opacity-80 border border-[#cbd5e1]"></span>
+<span>Banda histéresis</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="text-[#8e44ad] text-[10px] leading-none">▲</span>
+<span>Cruce ↑</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="text-[#d35400] text-[10px] leading-none">▼</span>
+<span>Cruce ↓</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="text-[#6c3483] text-[10px] leading-none">◆</span>
+<span>Cresta</span>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="text-[#1a5276] font-bold text-[10px] leading-none">┊</span>
+<span>Inicio de fase</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Caption Helper -->
+<p class="text-[11px] text-[#64748b] italic border-t border-slate-200/80 pt-3 mt-4">
+    Previsualización inmediata según los valores configurados a la izquierda.
+  </p>
+</div></div>
+<!-- FOOTER ACTIONS BAR OF MAIN CARD -->
+<div class="bg-[#f8fafc] border-t border-[#e2e8f0] px-6 py-3 flex items-center space-x-3 rounded-b" data-purpose="form-footer-actions">
+<button class="px-4 py-1.5 bg-petrol hover:bg-petrol-dark text-white text-xs font-semibold rounded shadow-xs transition-colors" type="button">
+          Aplicar y guardar tema
+        </button>
+<button class="px-4 py-1.5 bg-white border border-[#cbd5e1] hover:bg-slate-50 text-[#475569] text-xs font-medium rounded transition-colors shadow-2xs" type="button">
+          Restaurar defaults
+        </button>
+</div>
+</section>
+</main>
+<!-- END: MainContentArea -->
+<!-- BEGIN: BottomStatusBar -->
+<footer class="h-7 bg-[#f8fafc] border-t border-subtleBorder px-6 flex items-center text-xs font-mono text-[#334155]" data-purpose="system-status-bar">
+<div class="flex items-center space-x-2">
+<!-- Hardware connection LED indicator -->
+<span class="inline-block w-2 h-2 rounded-full bg-[#27ae60]" title="Dispositivo Conectado"></span>
+<span class="text-[11px] text-slate-700 tracking-tight">/dev/cu.usbserial-A10K @ 19200  ·  En línea  ·  Modo USB</span>
+</div>
+</footer>
+<!-- END: BottomStatusBar -->
+</body></html>

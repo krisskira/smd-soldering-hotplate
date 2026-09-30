@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HotPlate Studio - Autotune PID</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f3f5;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c5d0dc;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#f4f6f8] text-[#2c3e50] font-['Inter'] antialiased select-none min-w-[1100px]">
+<!-- Global Header -->
+<header class="w-full bg-white border-b border-[#c5d0dc] h-14 px-6 flex items-center justify-between shrink-0 shadow-sm z-20">
+<div class="flex items-center gap-6">
+<!-- Logo Tile + Name -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#1a5276] flex items-center justify-center text-white shadow-sm">
+<span class="material-symbols-outlined text-[20px]">heat</span>
+</div>
+<span class="font-bold tracking-tight text-lg text-[#2c3e50]">HotPlate Studio</span>
+</div>
+<!-- Segmented Navigation Tabs -->
+<nav class="bg-[#e4eaef] p-1 rounded-lg flex space-x-1">
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Conexión</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">HEAT</a>
+<a aria-current="page" class="bg-[#1a5276] text-white px-3 py-1 font-medium text-sm rounded-md shadow-sm transition-colors" href="#">Autotune</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Ajustes</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Apariencia</a>
+</nav>
+</div>
+<!-- Right Controls -->
+<div class="flex items-center gap-3">
+<span class="bg-[#1a5276] text-white text-xs font-semibold px-2.5 py-1 rounded-md font-['JetBrains_Mono']">Modo USB</span>
+<button class="border border-[#c5d0dc] bg-white text-[#2c3e50] hover:bg-gray-50 text-xs font-medium px-3 py-1 rounded-md transition-colors shadow-2xs" type="button">
+        Cambiar a modo Manual
+      </button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 p-6 space-y-4">
+<!-- 1. Action Row & Banner -->
+<div class="flex items-center gap-4 w-full">
+<button class="bg-[#1a5276] hover:bg-[#154360] active:bg-[#0e3046] text-white text-sm font-semibold px-5 py-2 rounded-md flex items-center gap-2 shadow-sm transition-colors shrink-0" type="button">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+        Iniciar autoajuste
+      </button>
+<!-- Dismissible green success banner -->
+<div class="flex-1 bg-[#005a2c] text-white px-4 py-2 rounded-md flex items-center justify-between shadow-xs border border-[#00401e]">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-[20px] text-[#7efba4]">verified</span>
+<span class="text-sm font-bold">Autoajuste listo</span>
+<span class="text-sm text-[#7efba4] opacity-95">— Kp y Ki guardados en la EEPROM del equipo</span>
+</div>
+<button class="text-[#7efba4] hover:text-white transition-colors" title="Cerrar aviso" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<!-- 2. HUD Cards Row (7 metrics) -->
+<div class="w-full bg-white rounded-lg px-6 py-3 shadow-xs border border-[#c5d0dc] flex items-center justify-between">
+<div class="flex flex-col pr-8 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Temperatura medida</span>
+<div class="flex items-baseline gap-2">
+<span class="font-['JetBrains_Mono'] text-4xl font-bold text-[#2c3e50] leading-none">148.1</span>
+<span class="font-['JetBrains_Mono'] text-base text-[#5d6d7e]">°C</span>
+<span class="ml-2 text-[11px] text-[#5d6d7e] font-medium bg-[#f4f6f8] px-1.5 py-0.5 rounded border border-[#dce3eb]">Sensor PT100</span>
+</div>
+</div>
+<div class="flex flex-col px-6 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Consigna</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2980b9]">150 °C</span>
+</div>
+<div class="flex flex-col px-6 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Fase</span>
+<div class="flex items-center gap-1.5 pt-0.5">
+<span class="w-2 h-2 rounded-full bg-[#27ae60] inline-block shadow-[0_0_4px_#27ae60]"></span>
+<span class="text-sm font-bold text-[#2c3e50]">Listo</span>
+</div>
+</div>
+<div class="flex flex-col px-6 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Ciclos</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2c3e50]">5 / 5</span>
+</div>
+<div class="flex flex-col px-6 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Calentador</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2c3e50]">0 %</span>
+</div>
+<div class="flex flex-col px-6 border-r border-[#dce3eb]">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Aire</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2c3e50]">Apagado</span>
+</div>
+<div class="flex flex-col pl-6">
+<span class="text-[11px] font-semibold text-[#5d6d7e]">Transcurrido</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2c3e50]">853 s</span>
+</div>
+</div>
+<!-- 3. Work Area: Two Columns (Left: Autoajuste, Right: Estado del proceso) -->
+<div class="grid grid-cols-12 gap-4 w-full">
+<!-- LEFT CARD: Autoajuste -->
+<div class="col-span-6 bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col gap-4">
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">tune</span>
+<span class="text-base font-bold text-[#2c3e50]">Autoajuste</span>
+</div>
+</div>
+<!-- Section: Parámetros del ensayo -->
+<div class="flex flex-col gap-2.5">
+<span class="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Parámetros del ensayo</span>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="text-xs font-semibold text-[#2c3e50]">Temperatura</label>
+<span class="text-[11px] text-[#5d6d7e]">120…150 °C</span>
+</div>
+<div class="relative flex items-center">
+<input class="w-full bg-white text-[#2c3e50] font-['JetBrains_Mono'] text-xs px-2.5 py-1 rounded border border-[#dce3eb] focus:outline-none focus:border-[#1a5276]" max="150" min="120" type="number" value="150"/>
+<span class="absolute right-2.5 font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e] pointer-events-none">°C</span>
+</div>
+</div>
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="text-xs font-semibold text-[#2c3e50]">Ciclos</label>
+<span class="text-[11px] text-[#5d6d7e]">3…10 ciclos</span>
+</div>
+<div class="relative flex items-center">
+<input class="w-full bg-white text-[#2c3e50] font-['JetBrains_Mono'] text-xs px-2.5 py-1 rounded border border-[#dce3eb] focus:outline-none focus:border-[#1a5276]" max="10" min="3" type="number" value="5"/>
+<span class="absolute right-2.5 font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e] pointer-events-none">ciclos</span>
+</div>
+</div>
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="text-xs font-semibold text-[#2c3e50]">Histéresis (×10)</label>
+<span class="text-[11px] text-[#5d6d7e]">1…99 (±1.5 °C)</span>
+</div>
+<div class="relative flex items-center">
+<input class="w-full bg-white text-[#2c3e50] font-['JetBrains_Mono'] text-xs px-2.5 py-1 rounded border border-[#dce3eb] focus:outline-none focus:border-[#1a5276]" max="99" min="1" type="number" value="15"/>
+<span class="absolute right-2.5 font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e] pointer-events-none">±1.5 °C</span>
+</div>
+</div>
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="text-xs font-semibold text-[#2c3e50]">Timeout</label>
+<span class="text-[11px] text-[#5d6d7e]">120…3600 s</span>
+</div>
+<div class="relative flex items-center">
+<input class="w-full bg-white text-[#2c3e50] font-['JetBrains_Mono'] text-xs px-2.5 py-1 rounded border border-[#dce3eb] focus:outline-none focus:border-[#1a5276]" max="3600" min="120" type="number" value="2000"/>
+<span class="absolute right-2.5 font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e] pointer-events-none">s</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between pt-1 gap-2">
+<span class="text-[11px] text-[#5d6d7e] italic leading-tight">La temperatura solo se usa en el próximo inicio; Guardar envía AT+CFG=T,ciclos,hist,timeout</span>
+<button class="bg-[#edf4ff] hover:bg-[#d9eaff] text-[#1a5276] text-xs font-semibold px-3 py-1.5 rounded border border-[#c5d0dc] transition-colors flex items-center gap-1.5 shrink-0" type="button">
+<span class="material-symbols-outlined text-[15px]">save</span>
+              Guardar parámetros
+            </button>
+</div>
+</div>
+<div class="border-t border-[#dce3eb]"></div>
+<!-- Section: Progreso -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Progreso</span>
+<div class="flex items-center gap-3 text-xs">
+<span>Fase: <strong class="text-[#27ae60] font-semibold">Listo</strong></span>
+<span class="font-['JetBrains_Mono'] text-[#5d6d7e]">Ciclos: <strong class="text-[#2c3e50] font-bold">5 / 5</strong></span>
+<span class="font-['JetBrains_Mono'] font-bold text-[#1a5276]">100 %</span>
+</div>
+</div>
+<div class="w-full h-2.5 bg-[#e7eef4] rounded-full overflow-hidden">
+<div class="h-full bg-[#1a5276] rounded-full" style="width: 100%;"></div>
+</div>
+<div class="text-[11px] text-[#72787f] flex items-center justify-end gap-1">
+<span>Inactivo</span> · <span>En curso</span> · <span class="text-[#27ae60] font-semibold">Listo</span> · <span>Fallido</span>
+</div>
+</div>
+<div class="border-t border-[#dce3eb]"></div>
+<!-- Section: Resultado (Ziegler–Nichols PI) -->
+<div class="flex flex-col gap-2.5">
+<span class="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Resultado (Ziegler–Nichols PI)</span>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#f4f6f8] p-3 rounded border border-[#dce3eb] flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-[11px] font-medium text-[#5d6d7e]">Kp ×10</span>
+<span class="font-['JetBrains_Mono'] text-2xl font-bold text-[#1a5276]">246</span>
+<span class="font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e]">Valor real 24.6</span>
+</div>
+<div class="w-9 h-9 rounded bg-[#cce5ff] border border-[#77c2ff] flex items-center justify-center font-['JetBrains_Mono'] font-bold text-[#004f79] text-sm">
+                Kp
+              </div>
+</div>
+<div class="bg-[#f4f6f8] p-3 rounded border border-[#dce3eb] flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-[11px] font-medium text-[#5d6d7e]">Ki ×100</span>
+<span class="font-['JetBrains_Mono'] text-2xl font-bold text-[#1a5276]">10</span>
+<span class="font-['JetBrains_Mono'] text-[11px] text-[#5d6d7e]">Valor real 0.10</span>
+</div>
+<div class="w-9 h-9 rounded bg-[#7efba4] border border-[#58d683] flex items-center justify-center font-['JetBrains_Mono'] font-bold text-[#00401e] text-sm">
+                Ki
+              </div>
+</div>
+</div>
+<div class="flex justify-end pt-0.5">
+<button class="bg-[#edf4ff] hover:bg-[#d9eaff] text-[#1a5276] text-xs font-semibold px-3 py-1.5 rounded border border-[#c5d0dc] transition-colors flex items-center gap-1.5" type="button">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+              Releer ganancias del equipo
+            </button>
+</div>
+</div>
+</div>
+<!-- RIGHT CARD: Estado del proceso -->
+<div class="col-span-6 bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col gap-3">
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">developer_board</span>
+<span class="text-base font-bold text-[#2c3e50]">Estado del proceso</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
+<!-- Col 1 -->
+<div class="flex flex-col gap-2.5">
+<!-- PROGRAMA -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Programa</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Programa</span>
+<span class="font-bold text-[#2c3e50]">Autoajuste PID</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Fase</span>
+<span class="font-bold text-[#1a5276]">Autoajuste</span>
+</div>
+</div>
+<!-- TEMPERATURA -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Temperatura</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Medida</span>
+<span class="font-bold text-[#c0392b]">148.1 °C</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Consigna</span>
+<span class="font-bold text-[#2980b9]">150 °C</span>
+</div>
+</div>
+<!-- TIEMPOS -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Tiempos</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Retraso</span>
+<span class="text-[#2c3e50]">00:00</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Restante</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Transcurrido</span>
+<span class="font-bold text-[#2c3e50]">853 s</span>
+</div>
+</div>
+</div>
+<!-- Col 2 -->
+<div class="flex flex-col gap-2.5">
+<!-- SALIDAS -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Salidas</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Calentador</span>
+<span class="font-bold text-[#2c3e50]">0 %</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Aire</span>
+<span class="font-bold text-[#2c3e50]">Apagado</span>
+</div>
+</div>
+<!-- PERFIL (Split) -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Perfil</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Escalón</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+</div>
+<!-- SEGURIDAD (Split) -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Seguridad</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Falla</span>
+<span class="font-bold text-[#27ae60]">No</span>
+</div>
+</div>
+<!-- SOBRE 183 °C -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Sobre 183 °C</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Segundos</span>
+<span class="text-[#2c3e50]">0 s</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Primer cruce</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Pico</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Subida máx.</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 4. BOTTOM CARD: Curva de autoajuste (matching HEAT) -->
+<div class="w-full bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col gap-3">
+<!-- Toolbar Header -->
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">show_chart</span>
+<span class="text-base font-bold text-[#2c3e50]">Curva de autoajuste</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-[#edf4ff] hover:bg-[#d9eaff] text-[#1a5276] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors" type="button">Exportar muestras</button>
+<button class="bg-[#f4f6f8] hover:bg-[#e7eef4] text-[#2c3e50] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors" type="button">Restablecer zoom</button>
+<button class="bg-[#f4f6f8] hover:bg-[#e7eef4] text-[#2c3e50] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors" type="button">Limpiar</button>
+</div>
+</div>
+<!-- Clean Horizontal Legend Outside Plot -->
+<div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#5d6d7e] py-1 border-b border-[#dce3eb]">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 bg-[#c0392b]"></span>
+<span>Temperatura medida</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 border-b-2 border-dashed border-[#2980b9]"></span>
+<span>SET (150 °C)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 bg-[#27ae60]"></span>
+<span>Potencia (eje der. 0–100 %)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-2 bg-[#f1c40f] opacity-40 rounded-xs border border-[#f1c40f]"></span>
+<span>Banda histéresis (±1.5 °C)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#6c3483] font-bold text-sm leading-none">◆</span>
+<span>Cresta</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#8e44ad] font-bold text-xs leading-none">▲</span>
+<span>Cruce ↑</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#d35400] font-bold text-xs leading-none">▼</span>
+<span>Cruce ↓</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="font-bold text-[#2c3e50]">|</span>
+<span>Calentador ON / OFF</span>
+</div>
+</div>
+<!-- Vector Plot + Event Log (~62% / ~38%) -->
+<div class="grid grid-cols-12 gap-4 w-full items-start">
+<!-- Plot Area (62%) -->
+<div class="col-span-12 lg:col-span-8 bg-white rounded border border-[#c5d0dc] p-2 relative overflow-hidden">
+<!-- SVG Coordinate System:
+               Width: 1000, Height: 350
+               Plot box: x=50 to x=940 (width 890px for 0 to 2000s -> 0.445 px/s). 853s = 50 + 853 * 0.445 = 429.6px
+               Left Y: 0 to 225 °C (y=290 is 0°C, y=30 is 225°C -> 260px / 225°C = 1.1555 px/°C)
+               Right Y: 0 to 100% (y=290 is 0%, y=30 is 100%)
+          -->
+<svg class="w-full h-84 select-none" preserveaspectratio="none" viewbox="0 0 1000 340">
+<defs>
+<lineargradient id="bandGrad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#f1c40f" stop-opacity="0.25"></stop>
+<stop offset="100%" stop-color="#f1c40f" stop-opacity="0.25"></stop>
+</lineargradient>
+</defs>
+<!-- Background subtle horizontal grid lines -->
+<!-- 225 °C (y=30) -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="30" y2="30"></line>
+<!-- 200 °C (y=59) -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="59" y2="59"></line>
+<!-- 150 °C (y=117) -->
+<line stroke="#dce3eb" stroke-width="1" x1="50" x2="940" y1="117" y2="117"></line>
+<!-- 100 °C (y=174) -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="174" y2="174"></line>
+<!-- 50 °C (y=232) -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="232" y2="232"></line>
+<!-- 0 °C (y=290) Baseline -->
+<line stroke="#c5d0dc" stroke-width="1.5" x1="50" x2="940" y1="290" y2="290"></line>
+<!-- Vertical grid lines for X Axis ticks (0, 400, 800, 1200, 1600, 2000 s) -->
+<!-- 400s: 50 + 400*0.445 = 228 -->
+<line stroke="#edf4ff" stroke-width="1" x1="228" x2="228" y1="30" y2="290"></line>
+<!-- 800s: 50 + 800*0.445 = 406 -->
+<line stroke="#edf4ff" stroke-width="1" x1="406" x2="406" y1="30" y2="290"></line>
+<!-- 1200s: 50 + 1200*0.445 = 584 -->
+<line stroke="#edf4ff" stroke-width="1" x1="584" x2="584" y1="30" y2="290"></line>
+<!-- 1600s: 50 + 1600*0.445 = 762 -->
+<line stroke="#edf4ff" stroke-width="1" x1="762" x2="762" y1="30" y2="290"></line>
+<!-- 2000s: 940 -->
+<line stroke="#edf4ff" stroke-width="1" x1="940" x2="940" y1="30" y2="290"></line>
+<!-- Hysteresis Band: ±1.5 °C around 150°C (148.5 °C to 151.5 °C -> y = 115 to y = 119) -->
+<rect fill="url(#bandGrad)" height="7" width="890" x="50" y="113.5"></rect>
+<line stroke="#f1c40f" stroke-dasharray="2,2" stroke-opacity="0.8" stroke-width="1" x1="50" x2="940" y1="113.5" y2="113.5"></line>
+<line stroke="#f1c40f" stroke-dasharray="2,2" stroke-opacity="0.8" stroke-width="1" x1="50" x2="940" y1="120.5" y2="120.5"></line>
+<!-- Dashed Blue SET Line at 150 °C (y=117) -->
+<line stroke="#2980b9" stroke-dasharray="6,4" stroke-width="1.5" x1="50" x2="940" y1="117" y2="117"></line>
+<text fill="#2980b9" font-family="JetBrains Mono" font-size="9" font-weight="bold" x="54" y="112">SET 150 °C (±1.5 °C Banda)</text>
+<!-- Vertical Dashed Line at 853 s ('Fin (Listo)') -->
+<!-- 853s = 50 + 853 * 0.445 = 430 -->
+<line stroke="#27ae60" stroke-dasharray="4,3" stroke-width="1.5" x1="430" x2="430" y1="20" y2="290"></line>
+<rect fill="#edf4ff" height="15" rx="2" stroke="#27ae60" stroke-width="0.75" width="76" x="392" y="6"></rect>
+<text fill="#00401e" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle" x="430" y="17">Fin (Listo) 853s</text>
+<!-- Heater Power Step Line (0 to 100%) inside main plot. Active until 853s then STOPS!
+                 100% power is y=140, 0% power is y=290 (or y=285)
+                 Cycles:
+                 0s to 138s (02:18): ON 100% (y=140) -> 50 to 111.4
+                 138s to 281s (04:41): OFF 0% (y=288) -> 111.4 to 175
+                 281s to 325s (05:25): ON 100% (y=140) -> 175 to 195
+                 325s to 466s (07:46): OFF 0% (y=288) -> 195 to 257
+                 466s to 565s (09:25): ON 100% (y=140) -> 257 to 301
+                 565s to 708s (11:48): OFF 0% (y=288) -> 301 to 365
+                 708s to 853s (14:13): ON 100% then OFF at end (y=288) -> to 430.
+            -->
+<path d="M 50 140
+                     L 111.4 140 L 111.4 288
+                     L 175 288 L 175 140
+                     L 195 140 L 195 288
+                     L 257 288 L 257 140
+                     L 301 140 L 301 288
+                     L 365 288 L 365 140
+                     L 410 140 L 410 288
+                     L 430 288" fill="none" stroke="#27ae60" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"></path>
+<!-- Red Temperature Curve (STOPS AT 853s = x=430) -->
+<!-- Starts at 26 °C (y = 290 - 26*1.155 = 260) at t=0 (x=50)
+                 Rises sharply to 150 °C at x=111.4 (y=117)
+                 Oscillates 5 complete cycles between ~147°C (y=120) and ~154°C (y=112)
+                 Stops cleanly at 853 s (x=430, y=118 for 148.1 °C)
+            -->
+<path d="M 50 260
+                     C 65 250, 85 160, 111.4 117
+                     C 125 106, 140 106, 150 117
+                     C 162 126, 168 126, 175 117
+                     C 183 107, 189 107, 195 117
+                     C 210 126, 220 126, 230 117
+                     C 242 107, 248 107, 257 117
+                     C 270 126, 280 126, 290 117
+                     C 295 107, 298 107, 301 117
+                     C 320 126, 335 126, 350 117
+                     C 358 107, 362 107, 365 117
+                     C 380 126, 395 126, 405 117
+                     C 415 107, 422 108, 430 118" fill="none" stroke="#c0392b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"></path>
+<!-- 5 Crest Markers (◆ #6c3483) -->
+<polygon fill="#6c3483" points="132.5,103 136,107 132.5,111 129,107"></polygon>
+<polygon fill="#6c3483" points="187,103 190.5,107 187,111 183.5,107"></polygon>
+<polygon fill="#6c3483" points="246,103 249.5,107 246,111 242.5,107"></polygon>
+<polygon fill="#6c3483" points="298,103 301.5,107 298,111 294.5,107"></polygon>
+<polygon fill="#6c3483" points="361,103 364.5,107 361,111 357.5,107"></polygon>
+<!-- Cross Markers: Upward ▲ purple #8e44ad -->
+<polygon fill="#8e44ad" points="111.4,113 115,120 107.8,120"></polygon>
+<polygon fill="#8e44ad" points="175,113 178.6,120 171.4,120"></polygon>
+<polygon fill="#8e44ad" points="230,113 233.6,120 226.4,120"></polygon>
+<polygon fill="#8e44ad" points="290,113 293.6,120 286.4,120"></polygon>
+<polygon fill="#8e44ad" points="350,113 353.6,120 346.4,120"></polygon>
+<!-- Cross Markers: Downward ▼ orange #d35400 -->
+<polygon fill="#d35400" points="150,121 153.6,114 146.4,114"></polygon>
+<polygon fill="#d35400" points="195,121 198.6,114 191.4,114"></polygon>
+<polygon fill="#d35400" points="257,121 260.6,114 253.4,114"></polygon>
+<polygon fill="#d35400" points="301,121 304.6,114 297.4,114"></polygon>
+<polygon fill="#d35400" points="365,121 368.6,114 361.4,114"></polygon>
+<!-- LEFT Y-AXIS LABELS (0…225 °C) -->
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="33">225 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="62">200 °C</text>
+<text fill="#2980b9" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="end" x="42" y="120">150 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="177">100 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="235">50 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="293">0 °C</text>
+<text fill="#5d6d7e" font-family="Inter" font-size="9" font-weight="bold" transform="rotate(-90 12 160)" x="12" y="160">Temperatura (°C)</text>
+<!-- RIGHT Y-AXIS LABELS (Potencia 0–100 %) -->
+<text fill="#27ae60" font-family="JetBrains Mono" font-size="9" font-weight="bold" x="948" y="143">100%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="177">75%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="214">50%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="252">25%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="293">0%</text>
+<text fill="#27ae60" font-family="Inter" font-size="9" font-weight="bold" transform="rotate(90 990 200)" x="990" y="200">Potencia (%)</text>
+<!-- X-AXIS LABELS (0 to 2000 s) -->
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="50" y="308">0s</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="228" y="308">400s</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="406" y="308">800s</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="584" y="308">1200s</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="762" y="308">1600s</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="940" y="308">2000s</text>
+<text fill="#5d6d7e" font-family="Inter" font-size="9" font-weight="bold" text-anchor="middle" x="495" y="325">Tiempo (s)</text>
+</svg>
+</div>
+<!-- Right: Registro de eventos (38%) -->
+<div class="col-span-12 lg:col-span-4 bg-[#f4f6f8] rounded border border-[#c5d0dc] p-3 flex flex-col h-84 justify-between">
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<span class="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Registro de eventos</span>
+<button class="bg-white hover:bg-gray-50 text-[#1a5276] px-2 py-0.5 rounded text-[11px] font-semibold border border-[#c5d0dc] transition-colors flex items-center gap-1 shadow-2xs" type="button">
+<span class="material-symbols-outlined text-[13px]">file_download</span>
+              Exportar registro
+            </button>
+</div>
+<!-- Clean Scrolling Table -->
+<div class="flex-1 overflow-y-auto my-1 border border-[#dce3eb] rounded bg-white">
+<table class="w-full font-['JetBrains_Mono'] text-[11px] text-left border-collapse">
+<thead>
+<tr class="text-[#5d6d7e] border-b border-[#dce3eb] bg-[#edf4ff] sticky top-0">
+<th class="py-1 px-2 font-semibold">Tiempo</th>
+<th class="py-1 px-1 font-semibold">Dur.</th>
+<th class="py-1 px-1.5 font-semibold">T °C</th>
+<th class="py-1 px-2 font-semibold">Evento</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#dce3eb] text-[#2c3e50]">
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">00:00</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">26.0</td>
+<td class="py-1 px-2 text-[#27ae60] font-semibold">Calentador ON</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">00:00</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">26.0</td>
+<td class="py-1 px-2 text-[#1a5276] font-semibold">Fase: Autoajuste</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">02:18</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">151.5</td>
+<td class="py-1 px-2 text-[#8e44ad] font-semibold">Cruce ↑ SET</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">02:18</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">151.5</td>
+<td class="py-1 px-2 text-[#7f8c8d] font-semibold">Calentador OFF</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">03:02</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">154.3</td>
+<td class="py-1 px-2 text-[#6c3483] font-semibold">Cresta</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">04:41</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">148.5</td>
+<td class="py-1 px-2 text-[#d35400] font-semibold">Cruce ↓ SET</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">04:41</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">148.5</td>
+<td class="py-1 px-2 text-[#27ae60] font-semibold">Calentador ON</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">05:25</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">151.5</td>
+<td class="py-1 px-2 text-[#8e44ad] font-semibold">Cruce ↑ SET</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">05:25</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">151.5</td>
+<td class="py-1 px-2 text-[#7f8c8d] font-semibold">Calentador OFF</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">06:10</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">154.1</td>
+<td class="py-1 px-2 text-[#6c3483] font-semibold">Cresta</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">07:46</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">148.5</td>
+<td class="py-1 px-2 text-[#d35400] font-semibold">Cruce ↓ SET</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">07:46</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">148.5</td>
+<td class="py-1 px-2 text-[#27ae60] font-semibold">Calentador ON</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">09:25</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">151.5</td>
+<td class="py-1 px-2 text-[#8e44ad] font-semibold">Cruce ↑ SET</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">11:48</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">148.5</td>
+<td class="py-1 px-2 text-[#d35400] font-semibold">Cruce ↓ SET</td>
+</tr>
+<tr class="bg-[#edf4ff] hover:bg-[#d9eaff] border-t-2 border-[#27ae60]">
+<td class="py-1 px-2 font-bold text-[#2c3e50]">14:13</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5 font-bold text-[#c0392b]">148.1</td>
+<td class="py-1 px-2 text-[#27ae60] font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#27ae60]"></span>
+                    Fase: Listo
+                  </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Clean Bottom Status Bar (Sits in regular document flow, after chart card) -->
+<footer class="w-full h-7 bg-[#edf4ff] border-t border-[#c5d0dc] px-4 flex items-center text-xs font-['JetBrains_Mono'] text-[#2c3e50] shrink-0">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#27ae60] inline-block shadow-[0_0_6px_#27ae60]"></span>
+<span>/dev/cu.usbserial-A10K @ 19200 · En línea · Modo USB</span>
+</div>
+</footer>
+</body></html>

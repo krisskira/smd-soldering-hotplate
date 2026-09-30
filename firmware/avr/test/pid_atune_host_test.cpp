@@ -69,6 +69,13 @@ static void test_start_rejects_setpoint(void)
 
     st.t_set_c = (uint16_t)(st.temp_min_c - 1u);
     CHECK(pid_atune_start(&st) != 0);
+
+    st.t_set_c = 100; /* bajo la zona 120…150 */
+    CHECK(pid_atune_start(&st) != 0);
+    st.t_set_c = 160;
+    CHECK(pid_atune_start(&st) != 0);
+    st.t_set_c = 120;
+    CHECK(pid_atune_start(&st) == 0);
 }
 
 static void test_start_ok_and_stream_flag(void)
@@ -139,6 +146,49 @@ static void test_apply_without_done(void)
     CHECK(st.atune_phase == ATUNE_RUN);
 }
 
+static void test_fail_when_on_much_longer(void)
+{
+    app_state_t st;
+    int16_t hi, lo, below;
+    int guard;
+
+    st_init(&st);
+    st.t_set_c = 150;
+    st.atune_cycles_target = 3;
+    host_set_ms(0);
+    CHECK(pid_atune_start(&st) == 0);
+    hi = (int16_t)(st.t_set_c * 10 + st.atune_hyst_c_x10 + 5);
+    lo = (int16_t)(st.t_set_c * 10 - st.atune_hyst_c_x10 - 5);
+    below = (int16_t)(hi - 50);
+
+    for (guard = 0; guard < 40 && st.atune_phase == ATUNE_RUN; guard++) {
+        if (st.atune_relay_on) {
+            int k;
+            for (k = 0; k < 4 && st.atune_relay_on && st.atune_phase == ATUNE_RUN; k++) {
+                host_advance_ms(1000);
+                st.sensor.temp_c_x10 = (int16_t)(below + k * 5);
+                pid_atune_on_sample(&st);
+            }
+            if (st.atune_phase != ATUNE_RUN || !st.atune_relay_on)
+                continue;
+            host_advance_ms(1000);
+            st.sensor.temp_c_x10 = hi;
+            pid_atune_on_sample(&st);
+        } else {
+            host_advance_ms(1000);
+            st.sensor.temp_c_x10 = lo;
+            pid_atune_on_sample(&st);
+        }
+    }
+    CHECK(st.atune_phase == ATUNE_FAIL);
+    {
+        int16_t ak = 1, ai = 1;
+        pid_atune_result(&ak, &ai);
+        CHECK(ak == 0);
+        CHECK(ai == 0);
+    }
+}
+
 int main(void)
 {
     test_start_rejects_bad_sensor();
@@ -147,6 +197,7 @@ int main(void)
     test_cancel();
     test_fail_on_overtemp();
     test_complete_and_apply();
+    test_fail_when_on_much_longer();
     test_apply_without_done();
 
     std::puts("pid_atune_host_test: OK");

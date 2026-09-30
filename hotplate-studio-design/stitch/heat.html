@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HotPlate Studio - HEAT</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f3f5;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c5d0dc;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#f4f6f8] text-[#2c3e50] font-['Inter'] antialiased select-none min-w-[1100px]">
+<!-- 1. GLOBAL HEADER (Matched to Autotune PID SCREEN_2) -->
+<header class="w-full bg-white border-b border-[#c5d0dc] h-14 px-6 flex items-center justify-between shrink-0 shadow-sm z-20">
+<div class="flex items-center gap-6">
+<!-- Logo Tile + Name -->
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-[#1a5276] flex items-center justify-center text-white shadow-sm">
+<span class="material-symbols-outlined text-[20px]">heat</span>
+</div>
+<span class="font-bold tracking-tight text-lg text-[#2c3e50]">HotPlate Studio</span>
+</div>
+<!-- Segmented Navigation Tabs -->
+<nav class="bg-[#e4eaef] p-1 rounded-lg flex space-x-1">
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Conexión</a>
+<a aria-current="page" class="bg-[#1a5276] text-white px-3.5 py-1 font-medium text-sm rounded-md shadow-sm transition-colors" href="#">HEAT</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Autotune</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Ajustes</a>
+<a class="px-3 py-1 font-medium text-sm text-[#5d6d7e] hover:text-[#2c3e50] rounded-md transition-colors" href="#">Apariencia</a>
+</nav>
+</div>
+<!-- Right Controls -->
+<div class="flex items-center gap-3">
+<span class="bg-[#1a5276] text-white text-xs font-semibold px-3 py-1 rounded-md font-['JetBrains_Mono']">Modo USB</span>
+<button class="border border-[#c5d0dc] bg-white text-[#2c3e50] hover:bg-gray-50 text-xs font-medium px-3 py-1.5 rounded-md transition-colors shadow-2xs cursor-pointer" type="button">
+        Cambiar a modo Manual
+      </button>
+</div>
+</header>
+<!-- MAIN WORKSPACE -->
+<main class="flex-1 p-6 space-y-4">
+<!-- 2. ACTION ROW -->
+<div class="flex items-center justify-between w-full">
+<div class="flex items-center gap-3">
+<!-- Red Danger Button -->
+<button class="bg-red-600 hover:bg-red-700 text-white font-medium text-sm px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors cursor-pointer" id="btn-stop-heat" type="button">
+<span class="material-symbols-outlined text-[18px]">stop_circle</span>
+<span>Detener HEAT</span>
+</button>
+<!-- Petrol Status Pill -->
+<div class="bg-sky-50 text-[#1a5276] border border-sky-200 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-2xs">
+<span class="w-2 h-2 rounded-full bg-[#27ae60] inline-block animate-pulse shadow-[0_0_4px_#27ae60]"></span>
+<span>Meseta · Rampa 4</span>
+</div>
+<!-- Telemetry Execution String -->
+<span class="font-['JetBrains_Mono'] text-xs text-slate-500">AT+RUN=1 · en curso 12:49</span>
+</div>
+<!-- Right side: Reserved empty slot for dynamic alarms/faults -->
+<div class="hidden" id="alarm-banner-slot"></div>
+</div>
+<!-- 3. HUD STRIP (Unified wide card with clean vertical dividers, matched to Autotune HUD) -->
+<div class="w-full bg-white rounded-xl px-5 py-3 shadow-xs border border-[#c5d0dc] grid grid-cols-8 divide-x divide-[#dce3eb] items-center">
+<!-- 1. Temperatura medida -->
+<div class="flex flex-col pr-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Temperatura medida</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="font-['JetBrains_Mono'] text-3xl font-bold text-[#c0392b] leading-none">188.1</span>
+<span class="font-['JetBrains_Mono'] text-xs text-[#5d6d7e]">°C</span>
+</div>
+<span class="text-[10px] text-[#5d6d7e] font-medium bg-[#f4f6f8] px-1.5 py-0.2 rounded border border-[#dce3eb] self-start mt-1">Sensor PT100</span>
+</div>
+<!-- 2. Consigna -->
+<div class="flex flex-col px-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Consigna</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2980b9] mt-1">190 °C</span>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Objetivo paso</span>
+</div>
+<!-- 3. Fase -->
+<div class="flex flex-col px-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Fase</span>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="w-2 h-2 rounded-full bg-[#27ae60] inline-block shadow-[0_0_4px_#27ae60]"></span>
+<span class="text-sm font-bold text-[#2c3e50]">Meseta</span>
+</div>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Manteniendo</span>
+</div>
+<!-- 4. Escalón -->
+<div class="flex flex-col px-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Escalón</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#1a5276] mt-1">Rampa 4</span>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Paso 4 de 4</span>
+</div>
+<!-- 5. Calentador -->
+<div class="flex flex-col px-4">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Calentador</span>
+<span class="font-['JetBrains_Mono'] text-xs font-bold text-[#27ae60]">59 %</span>
+</div>
+<div class="w-full bg-[#e7eef4] h-1.5 rounded-full overflow-hidden my-1.5 border border-[#dce3eb]">
+<div class="bg-[#27ae60] h-full rounded-full" style="width: 59%"></div>
+</div>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono']">Potencia DU</span>
+</div>
+<!-- 6. Restante -->
+<div class="flex flex-col px-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Restante</span>
+<span class="font-['JetBrains_Mono'] text-base font-bold text-[#2c3e50] mt-1">51 s</span>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Paso actual</span>
+</div>
+<!-- 7. Transcurrido -->
+<div class="flex flex-col px-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Transcurrido</span>
+<span class="font-['JetBrains_Mono'] text-sm font-bold text-[#2c3e50] mt-1">769 s <span class="text-[11px] font-normal text-slate-500">(12:49)</span></span>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Total ciclo</span>
+</div>
+<!-- 8. Aire -->
+<div class="flex flex-col pl-4">
+<span class="text-[10px] font-semibold text-[#5d6d7e] uppercase tracking-wider">Aire</span>
+<div class="mt-1">
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold text-xs border border-[#dce3eb]">
+            Apagado
+          </span>
+</div>
+<span class="text-[10px] text-[#72787f] font-['JetBrains_Mono'] mt-1">Ventilador (F=0)</span>
+</div>
+</div>
+<!-- 4. TWO CARDS ROW: Soldering Profile (Col 6) & Estado del proceso (Col 6) -->
+<div class="grid grid-cols-12 gap-4 w-full items-stretch">
+<!-- LEFT CARD: Soldering Profile -->
+<div class="col-span-12 lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col justify-between">
+<div>
+<!-- Card Header -->
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">tune</span>
+<span class="text-base font-bold text-[#2c3e50]">Soldering Profile</span>
+</div>
+<span class="bg-slate-100 text-slate-600 border border-slate-200 text-xs px-2.5 py-0.5 rounded-full font-medium">
+              Sincronizado con el equipo
+            </span>
+</div>
+<!-- Subtitle -->
+<p class="text-[11px] text-[#5d6d7e] mt-2 mb-3">
+            Escalones contiguos desde la rampa 1. Guardar envía el perfil; Leer pide $R.
+          </p>
+<!-- Table of Profile Steps -->
+<div class="border border-[#c5d0dc] rounded-md overflow-hidden bg-white">
+<table class="w-full text-left border-collapse text-xs">
+<thead class="bg-[#f4f6f8] text-[11px] text-[#5d6d7e] font-semibold border-b border-[#dce3eb] uppercase tracking-wider">
+<tr>
+<th class="py-2 px-3 text-center w-12">Usar</th>
+<th class="py-2 px-3">Escalón</th>
+<th class="py-2 px-3 w-28">°C</th>
+<th class="py-2 px-3 w-28">s (meseta)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#dce3eb] font-['JetBrains_Mono']">
+<!-- Row 1: Rampa 1 -->
+<tr class="hover:bg-[#f8fafc] transition-colors">
+<td class="py-1.5 px-3 text-center">
+<input checked="" class="rounded border-slate-300 text-[#1a5276] focus:ring-0 cursor-not-allowed" disabled="" type="checkbox"/>
+</td>
+<td class="py-1.5 px-3 font-['Inter'] font-medium text-[#2c3e50]">Rampa 1</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="150"/>
+<span class="text-[#5d6d7e] text-[11px]">°C</span>
+</div>
+</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="120"/>
+<span class="text-[#5d6d7e] text-[11px]">s</span>
+</div>
+</td>
+</tr>
+<!-- Row 2: Rampa 2 -->
+<tr class="hover:bg-[#f8fafc] transition-colors">
+<td class="py-1.5 px-3 text-center">
+<input checked="" class="rounded border-slate-300 text-[#1a5276] focus:ring-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-1.5 px-3 font-['Inter'] font-medium text-[#2c3e50]">Rampa 2</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="165"/>
+<span class="text-[#5d6d7e] text-[11px]">°C</span>
+</div>
+</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="1"/>
+<span class="text-[#5d6d7e] text-[11px]">s</span>
+</div>
+</td>
+</tr>
+<!-- Row 3: Rampa 3 -->
+<tr class="hover:bg-[#f8fafc] transition-colors">
+<td class="py-1.5 px-3 text-center">
+<input checked="" class="rounded border-slate-300 text-[#1a5276] focus:ring-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-1.5 px-3 font-['Inter'] font-medium text-[#2c3e50]">Rampa 3</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="170"/>
+<span class="text-[#5d6d7e] text-[11px]">°C</span>
+</div>
+</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#dce3eb] rounded text-xs font-['JetBrains_Mono'] text-right bg-white focus:outline-none focus:border-[#1a5276]" type="number" value="1"/>
+<span class="text-[#5d6d7e] text-[11px]">s</span>
+</div>
+</td>
+</tr>
+<!-- Row 4: Rampa 4 (ACTIVE ROW) -->
+<tr class="bg-[#e8f1f8] border-l-[3px] border-l-[#1a5276] font-semibold">
+<td class="py-1.5 px-3 text-center">
+<input checked="" class="rounded border-slate-300 text-[#1a5276] focus:ring-0 cursor-pointer" type="checkbox"/>
+</td>
+<td class="py-1.5 px-3 font-['Inter'] text-[#1a5276]">
+                    ► Rampa 4
+                  </td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#c5d0dc] rounded text-xs font-['JetBrains_Mono'] text-right bg-white text-[#2c3e50] focus:outline-none focus:border-[#1a5276]" type="number" value="190"/>
+<span class="text-[#5d6d7e] text-[11px]">°C</span>
+</div>
+</td>
+<td class="py-1.5 px-3">
+<div class="flex items-center gap-1">
+<input class="w-16 py-1 px-2 border border-[#c5d0dc] rounded text-xs font-['JetBrains_Mono'] text-right bg-white text-[#2c3e50] focus:outline-none focus:border-[#1a5276]" type="number" value="90"/>
+<span class="text-[#5d6d7e] text-[11px]">s</span>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Footer Buttons & Helpers -->
+<div class="mt-4 pt-3 border-t border-[#dce3eb] flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<button class="bg-[#f4f6f8] hover:bg-[#e7eef4] text-[#2c3e50] text-xs font-medium px-3 py-1.5 rounded-md border border-[#c5d0dc] transition-colors cursor-pointer" type="button">
+              Leer rampas
+            </button>
+<button class="bg-[#1a5276] hover:bg-[#154360] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-colors cursor-pointer" type="button">
+              Guardar rampas activas
+            </button>
+</div>
+<div class="flex items-center justify-between text-[10px] text-[#72787f]">
+<span>1–4 escalones · °C no decreciente, Tmin…200 °C · meseta 1…3600 s</span>
+<span class="italic text-[#5d6d7e]">El equipo corre el perfil guardado en EEPROM</span>
+</div>
+</div>
+</div>
+<!-- RIGHT CARD: Estado del proceso -->
+<div class="col-span-12 lg:col-span-6 bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col justify-between">
+<div>
+<!-- Card Header -->
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">monitor_heart</span>
+<span class="text-base font-bold text-[#2c3e50]">Estado del proceso</span>
+</div>
+<span class="font-['JetBrains_Mono'] text-xs text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">$HP · 1 Hz</span>
+</div>
+<!-- Grouped Key/Value Grid (Matched to Autotune layout) -->
+<div class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs mt-3">
+<!-- Col 1 -->
+<div class="flex flex-col gap-2.5">
+<!-- PROGRAMA -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Programa</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Programa</span>
+<span class="font-bold text-[#2c3e50]">HEAT</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Fase</span>
+<span class="font-bold text-[#1a5276]">Meseta</span>
+</div>
+</div>
+<!-- TEMPERATURA -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Temperatura</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Medida</span>
+<span class="font-bold text-[#c0392b]">188.1 °C</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Consigna</span>
+<span class="font-bold text-[#2980b9]">190 °C</span>
+</div>
+</div>
+<!-- TIEMPOS -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Tiempos</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Retraso</span>
+<span class="text-[#2c3e50]">00:00</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Restante</span>
+<span class="font-bold text-[#2c3e50]">51 s</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Transcurrido</span>
+<span class="font-bold text-[#2c3e50]">769 s</span>
+</div>
+</div>
+</div>
+<!-- Col 2 -->
+<div class="flex flex-col gap-2.5">
+<!-- SALIDAS -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Salidas</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Calentador</span>
+<span class="font-bold text-[#27ae60]">59 %</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Aire</span>
+<span class="font-bold text-[#2c3e50]">Apagado</span>
+</div>
+</div>
+<!-- PERFIL & SEGURIDAD (Grouped) -->
+<div class="grid grid-cols-2 gap-2">
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Perfil</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Escalón</span>
+<span class="font-bold text-[#1a5276]">Rampa 4</span>
+</div>
+</div>
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Seguridad</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Falla</span>
+<span class="font-bold text-emerald-700">No</span>
+</div>
+</div>
+</div>
+<!-- SOBRE 183 °C -->
+<div class="bg-[#f4f6f8] p-2.5 rounded border border-[#dce3eb] flex flex-col gap-1">
+<span class="text-[10px] font-bold text-[#5d6d7e] uppercase tracking-wider">Sobre 183 °C</span>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Segundos</span>
+<span class="font-bold text-[#2c3e50]">69 s</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Primer cruce</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Pico</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+<div class="flex items-center justify-between font-['JetBrains_Mono']">
+<span class="text-[#5d6d7e]">Subida máx.</span>
+<span class="text-[#2c3e50]">—</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 5. BOTTOM CARD: Curva en vivo (Chart ~62% + Light Event Log ~38%) -->
+<div class="w-full bg-white rounded-lg p-5 shadow-xs border border-[#c5d0dc] flex flex-col gap-3">
+<!-- Toolbar Header -->
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#1a5276] text-[20px]">show_chart</span>
+<span class="text-base font-bold text-[#2c3e50]">Curva en vivo</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-[#edf4ff] hover:bg-[#d9eaff] text-[#1a5276] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors cursor-pointer" type="button">
+            Exportar muestras
+          </button>
+<button class="bg-[#f4f6f8] hover:bg-[#e7eef4] text-[#2c3e50] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors cursor-pointer" type="button">
+            Restablecer zoom
+          </button>
+<button class="bg-[#f4f6f8] hover:bg-[#e7eef4] text-[#2c3e50] px-3 py-1 rounded text-xs font-medium border border-[#c5d0dc] transition-colors cursor-pointer" type="button">
+            Limpiar
+          </button>
+</div>
+</div>
+<!-- Legend Row Outside the Plot -->
+<div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-[#5d6d7e] py-1 border-b border-[#dce3eb]">
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 bg-[#c0392b]"></span>
+<span>Temperatura medida</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 border-b-2 border-dashed border-[#2980b9]"></span>
+<span>SET</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-3.5 h-0.5 bg-[#27ae60]"></span>
+<span>Potencia (eje der. 0–100 %)</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#6c3483] font-bold text-sm leading-none">◆</span>
+<span>Cresta</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#8e44ad] font-bold text-xs leading-none">▲</span>
+<span>Cruce ↑</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#d35400] font-bold text-xs leading-none">▼</span>
+<span>Cruce ↓</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="font-bold text-[#2c3e50]">|</span>
+<span>Calentador ON/OFF</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="text-[#1a5276] font-bold">┊</span>
+<span>Inicio de fase</span>
+</div>
+</div>
+<!-- Workspace Split: Chart (62%) + Light Event Log (38%) -->
+<div class="grid grid-cols-12 gap-4 w-full items-start">
+<!-- 62% Vector Plot Area -->
+<div class="col-span-12 lg:col-span-8 bg-white rounded border border-[#c5d0dc] p-2 relative overflow-hidden">
+<svg class="w-full h-84 select-none" preserveaspectratio="none" viewbox="0 0 1000 340">
+<defs>
+<lineargradient id="tempGradLive" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#c0392b" stop-opacity="0.16"></stop>
+<stop offset="100%" stop-color="#c0392b" stop-opacity="0.01"></stop>
+</lineargradient>
+<lineargradient id="pwmGradLive" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#27ae60" stop-opacity="0.20"></stop>
+<stop offset="100%" stop-color="#27ae60" stop-opacity="0.02"></stop>
+</lineargradient>
+</defs>
+<!-- Horizontal Gridlines: Left Y (0 to 250 °C) & Right Y (0 to 100 %) -->
+<!-- 250 °C / 100% : y=35 -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="35" y2="35"></line>
+<!-- 200 °C / 75% : y=86 -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="86" y2="86"></line>
+<!-- 150 °C / 50% : y=137 -->
+<line stroke="#dce3eb" stroke-width="1" x1="50" x2="940" y1="137" y2="137"></line>
+<!-- 100 °C / 25% : y=188 -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="188" y2="188"></line>
+<!-- 50 °C : y=239 -->
+<line stroke="#edf4ff" stroke-width="1" x1="50" x2="940" y1="239" y2="239"></line>
+<!-- 0 °C / 0% Baseline : y=290 -->
+<line stroke="#c5d0dc" stroke-width="1.5" x1="50" x2="940" y1="290" y2="290"></line>
+<!-- Vertical Transition Dividers & Phase Labels (0 to 850 s -> width 890px, ~1.047 px/s) -->
+<!-- Rampa 1 -> Meseta 1 (~367s, x=434) -->
+<line stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1" x1="434" x2="434" y1="35" y2="290"></line>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="385" y="48">Rampa 1</text>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="438" y="48">Meseta 1</text>
+<!-- Rampa 2 (~487s, x=560) & Meseta 2 (~563s, x=640) -->
+<line stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1" x1="560" x2="560" y1="35" y2="290"></line>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="564" y="48">Rampa 2</text>
+<line stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1" x1="640" x2="640" y1="35" y2="290"></line>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="644" y="48">Meseta 2</text>
+<!-- Rampa 3 (~564s) & Meseta 3 (~620s, x=700) -->
+<line stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1" x1="700" x2="700" y1="35" y2="290"></line>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="704" y="48">Rampa 3</text>
+<line stroke="#cbd5e1" stroke-dasharray="3,3" stroke-width="1" x1="755" x2="755" y1="35" y2="290"></line>
+<text fill="#64748b" font-family="Inter" font-size="8.5" font-weight="600" x="758" y="48">Meseta 3</text>
+<!-- Rampa 4 & Meseta 4 (~730s, x=815 & ~769s, x=855) -->
+<line stroke="#1a5276" stroke-dasharray="3,3" stroke-width="1.2" x1="815" x2="815" y1="35" y2="290"></line>
+<text fill="#1a5276" font-family="Inter" font-size="8.5" font-weight="700" x="818" y="48">Rampa 4</text>
+<line stroke="#1a5276" stroke-dasharray="2,2" stroke-width="1.2" x1="855" x2="855" y1="35" y2="290"></line>
+<text fill="#1a5276" font-family="Inter" font-size="8.5" font-weight="700" x="858" y="60">Meseta 4</text>
+<!-- Heater Power Area & Waveform (Green: 100% ramp, throttles on hold to ~59% at hold) -->
+<path d="M 50 290 
+                     L 50 35 L 434 35 L 434 165 L 560 165 L 560 35 
+                     L 640 35 L 640 170 L 700 170 L 700 35 L 815 35 
+                     L 815 140 L 855 140 L 855 290 Z" fill="url(#pwmGradLive)"></path>
+<polyline fill="none" points="50,35 434,35 434,165 560,165 560,35 640,35 640,170 700,170 700,35 815,35 815,140 855,140" stroke="#27ae60" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></polyline>
+<!-- SET Stepped Blue Dashed (150°C -> 165°C -> 170°C -> 190°C) -->
+<!-- 150°C: y=137, 165°C: y=122, 170°C: y=117, 190°C: y=96 -->
+<polyline fill="none" points="50,137 434,137 434,122 560,122 560,117 700,117 700,96 940,96" stroke="#2980b9" stroke-dasharray="5,4" stroke-width="1.8"></polyline>
+<!-- Temperature Measured (Red Gradient Fill) -->
+<path d="M 50 261 
+                     C 150 250, 300 160, 434 141 
+                     C 490 138, 530 132, 560 125 
+                     C 600 122, 650 120, 700 119 
+                     C 750 110, 800 102, 855 98 
+                     L 855 290 L 50 290 Z" fill="url(#tempGradLive)"></path>
+<!-- Temperature Measured Curve (Red Solid) -->
+<path d="M 50 261 
+                     C 150 250, 300 160, 434 141 
+                     C 490 138, 530 132, 560 125 
+                     C 600 122, 650 120, 700 119 
+                     C 750 110, 800 102, 855 98" fill="none" stroke="#c0392b" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"></path>
+<!-- Current Head Pointer -->
+<circle cx="855" cy="98" fill="#c0392b" r="4.5" stroke="#ffffff" stroke-width="1.5"></circle>
+<!-- Crest Marker ◆ and Value Label at current reading -->
+<polygon fill="#6c3483" points="855,83 859,87 855,91 851,87"></polygon>
+<text fill="#6c3483" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="middle" x="855" y="79">188.1°C</text>
+<!-- LEFT Y-AXIS LABELS (0 to 250 °C) -->
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="38">250 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="89">200 °C</text>
+<text fill="#2980b9" font-family="JetBrains Mono" font-size="9" font-weight="bold" text-anchor="end" x="42" y="140">150 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="191">100 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="242">50 °C</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="end" x="42" y="293">0 °C</text>
+<text fill="#5d6d7e" font-family="Inter" font-size="9" font-weight="bold" transform="rotate(-90 12 165)" x="12" y="165">Temperatura (°C)</text>
+<!-- RIGHT Y-AXIS LABELS (Potencia 0–100 %) -->
+<text fill="#27ae60" font-family="JetBrains Mono" font-size="9" font-weight="bold" x="948" y="38">100%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="89">75%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="140">50%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="191">25%</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" x="948" y="293">0%</text>
+<text fill="#27ae60" font-family="Inter" font-size="9" font-weight="bold" transform="rotate(90 990 165)" x="990" y="165">Potencia (%)</text>
+<!-- X-AXIS LABELS (0 to 850 s) -->
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="50" y="308">0</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="155" y="308">100</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="259" y="308">200</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="364" y="308">300</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="469" y="308">400</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="573" y="308">500</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="678" y="308">600</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="783" y="308">700</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="887" y="308">800</text>
+<text fill="#72787f" font-family="JetBrains Mono" font-size="9" text-anchor="middle" x="940" y="308">850 s</text>
+<text fill="#5d6d7e" font-family="Inter" font-size="9" font-weight="bold" text-anchor="middle" x="495" y="325">Tiempo (s)</text>
+</svg>
+</div>
+<!-- 38% LIGHT Event Log Card (Matched to SCREEN_2 style) -->
+<div class="col-span-12 lg:col-span-4 bg-[#f4f6f8] rounded border border-[#c5d0dc] p-3 flex flex-col h-84 justify-between">
+<div class="flex items-center justify-between pb-2 border-b border-[#dce3eb]">
+<span class="text-xs font-bold text-[#2c3e50] uppercase tracking-wide">Registro de eventos</span>
+<button class="bg-white hover:bg-gray-50 text-[#1a5276] px-2 py-0.5 rounded text-[11px] font-semibold border border-[#c5d0dc] transition-colors flex items-center gap-1 shadow-2xs cursor-pointer" type="button">
+<span class="material-symbols-outlined text-[13px]">file_download</span>
+              Exportar registro
+            </button>
+</div>
+<!-- Clean Scrolling Table -->
+<div class="flex-1 overflow-y-auto my-1 border border-[#dce3eb] rounded bg-white">
+<table class="w-full font-['JetBrains_Mono'] text-[11px] text-left border-collapse">
+<thead>
+<tr class="text-[#5d6d7e] border-b border-[#dce3eb] bg-[#edf4ff] sticky top-0">
+<th class="py-1 px-2 font-semibold">Tiempo</th>
+<th class="py-1 px-1 font-semibold">Dur.</th>
+<th class="py-1 px-1.5 font-semibold">T °C</th>
+<th class="py-1 px-2 font-semibold">Evento</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#dce3eb] text-[#2c3e50]">
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">00:00</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5">28.0</td>
+<td class="py-1 px-2 text-[#27ae60] font-semibold">Calentador ON</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">00:00</td>
+<td class="py-1 px-1 text-[#5d6d7e]">06:07</td>
+<td class="py-1 px-1.5">28.0</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Rampa 1</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">06:07</td>
+<td class="py-1 px-1 text-[#5d6d7e]">02:00</td>
+<td class="py-1 px-1.5">146.0</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Meseta 1</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">08:07</td>
+<td class="py-1 px-1 text-[#5d6d7e]">01:16</td>
+<td class="py-1 px-1.5">149.5</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Rampa 2</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">09:23</td>
+<td class="py-1 px-1 text-[#5d6d7e]">00:01</td>
+<td class="py-1 px-1.5">161.0</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Meseta 2</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">09:24</td>
+<td class="py-1 px-1 text-[#5d6d7e]">00:56</td>
+<td class="py-1 px-1.5">161.1</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Rampa 3</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">10:20</td>
+<td class="py-1 px-1 text-[#5d6d7e]">00:01</td>
+<td class="py-1 px-1.5">166.1</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Meseta 3</td>
+</tr>
+<tr class="hover:bg-gray-50">
+<td class="py-1 px-2 text-[#5d6d7e]">10:21</td>
+<td class="py-1 px-1 text-[#5d6d7e]">01:49</td>
+<td class="py-1 px-1.5">166.3</td>
+<td class="py-1 px-2 text-[#1a5276] font-medium">Fase: Rampa 4</td>
+</tr>
+<tr class="bg-[#edf4ff] hover:bg-[#d9eaff] border-l-2 border-[#1a5276] font-semibold">
+<td class="py-1 px-2 text-[#1a5276]">12:10</td>
+<td class="py-1 px-1 text-[#5d6d7e]">—</td>
+<td class="py-1 px-1.5 text-[#c0392b]">186.0</td>
+<td class="py-1 px-2 text-[#1a5276] flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#1a5276] animate-pulse"></span>
+                    Fase: Meseta 4
+                  </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- 6. GLOBAL STATUS BAR (Fixed in natural document flow, matched to Autotune PID) -->
+<footer class="w-full h-7 bg-[#f8fafc] border-t border-[#c5d0dc] px-4 flex items-center text-xs font-['JetBrains_Mono'] text-[#2c3e50] shrink-0">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#27ae60] inline-block shadow-[0_0_6px_#27ae60]"></span>
+<span>/dev/cu.usbserial-A10K @ 19200 · En línea · Modo USB</span>
+</div>
+</footer>
+<script>
+    // Micro-interaction for Stop HEAT action
+    (function() {
+      const stopBtn = document.getElementById('btn-stop-heat');
+      if (stopBtn) {
+        stopBtn.addEventListener('click', function() {
+          if (confirm('¿Desea detener el proceso HEAT activo? (AT+STOP)')) {
+            alert('Comando enviado: AT+STOP');
+          }
+        });
+      }
+    })();
+  </script>
+</body></html>

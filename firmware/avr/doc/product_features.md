@@ -103,7 +103,7 @@ Durante el precalentamiento, la estabilización y las rampas, la potencia del ca
 
 - **Referencia progresiva.** En lugar de pedir la temperatura final de golpe, el control persigue una referencia interna (`t_ref`) que sube a un ritmo limitado hacia la consigna (1,2 °C/s, constante `RISE_C_X10_DEFAULT`). Así la subida es suave y controlada.
 - **Anticipación de la inercia.** El error se calcula con la temperatura que *habrá* dentro de unos segundos (temperatura actual + velocidad de subida × 15 s, constante `LOOKAHEAD_S_DEFAULT`). Esto permite cortar potencia antes de llegar a la consigna y evitar el sobrepaso típico de HotPlate por su masa térmica.
-- **Sin término derivativo.** Solo se usan Kp y Ki (Kd = 0). Valores por defecto: Kp = 24,6 y Ki = 1,0 (guardados ×10: 246 y 10).
+- **Sin término derivativo.** Solo se usan Kp y Ki (Kd = 0). Valores por defecto: Kp = 24,6 y Ki = 0,10/s (Kp ×10 = 246; Ki ×100 = 10).
 - **Aplicación al SSR.** La salida del PI es un porcentaje que se aplica como tiempo de encendido dentro de una ventana de 1,5 s (control por proporción de tiempo).
 - **Anti-windup.** Si la salida ya está saturada (0 % o 100 %) en la dirección del error, el integrador deja de acumular.
 - **Cambio de escalón.** Al pasar a una nueva rampa, la referencia se alinea con la temperatura actual para que la subida arranque limpia, sin arrastrar el estado del tramo anterior.
@@ -121,7 +121,7 @@ Las constantes de subida y anticipación están fijadas en compilación (`app_co
 | Parámetro | Función | Rango | Por defecto |
 |-----------|---------|-------|-------------|
 | `temp_min_c` | Temperatura mínima de cualquier consigna, y temperatura a la que se detiene el aire de enfriamiento | 50–100 °C | 50 °C |
-| `temp_max_c` | Temperatura máxima permitida; por encima se corta la calefacción | 40–250 °C | 250 °C |
+| `temp_max_c` | Corte de seguridad; por encima se apaga la calefacción. No es el techo de las consignas (ese es 250 °C) | 40–260 °C | 210 °C |
 
 Se ajustan por USB con `AT+CFG=S`.
 
@@ -151,7 +151,7 @@ Cuando el PC toma el control (`AT+MODE=1`), la casilla Heat muestra la temperatu
 
 | Fila | Qué se ajusta |
 |------|---------------|
-| R1…R4 | Temperatura (pasos de 5 °C, entre `temp_min_c` y `temp_max_c`) y meseta (pasos de 30 s, de 30 s a 60 min). R2…R4 se apagan bajando de `temp_min_c` y confirmando con otra pulsación; R1 no se puede apagar |
+| R1…R4 | Temperatura (pasos de 5 °C, entre `temp_min_c` y el techo de consigna, 250 °C o `temp_max_c` si es menor) y meseta (pasos de 30 s, de 30 s a 60 min). R2…R4 se apagan bajando de `temp_min_c` y confirmando con otra pulsación; R1 no se puede apagar |
 | `DLY` | Retraso antes de empezar el ciclo, en `hh:mm`, desde `00:00` (inmediato) hasta `12:00`. Pulsar alterna horas y minutos |
 
 ### Etiquetas en HotPanel
@@ -197,6 +197,7 @@ La lista completa, con el comportamiento de cada modo, está en [ui_style_guide.
 |--------|---------|--------|------------------------|
 | Fin del ciclo HEAT | `ALARM:2` | 3 pulsos (50 ms ON / 80 ms OFF), repetidos cada 5 s mientras dura el aviso | `ALARM` |
 | Sobretemperatura | `ERROR:7` | Ninguno | `FAULT` |
+| Consigna inalcanzable | `ERROR:9` | Ninguno | `FAULT` |
 | Llegada a una meseta o fin | — | 3 pulsos cortos | Fase nueva |
 | Cambio de fase | No hay línea propia | Según la fase | Nombre de la fase nueva |
 
@@ -210,8 +211,8 @@ La configuración se guarda en EEPROM (versión de formato **v8**). Si al arranc
 
 | Dato | Por defecto | Notas |
 |------|-------------|-------|
-| Ganancias Kp / Ki (×10) | 246 / 10 | Tras autotune (`AT+CFG=A`) o `AT+CFG=P` |
-| `temp_min_c` / `temp_max_c` | 50 / 250 °C | Límites de seguridad |
+| Ganancias Kp ×10 / Ki ×100 | 246 / 10 | El autotune las escribe al terminar, o `AT+CFG=P` |
+| `temp_min_c` / `temp_max_c` | 50 / 210 °C | Corte de seguridad. Las consignas no pasan de 250 °C |
 | `preheat_en` / `preheat_pct` | activado / 80 % | Rango del % : 50–100, pasos de 5 |
 | `preheat_band_c` / `preheat_band_exit_c` | ±4 / ±6 °C | Bandas de entrada y salida de la estabilización |
 | `atune_cycles_target` | 5 | Ciclos del autotune |

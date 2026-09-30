@@ -259,7 +259,7 @@ static void ensure_ramp(app_state_t *st, uint8_t idx)
         return;
     for (i = st->ramp_n; i <= idx; i++) {
         if (st->ramp_step[i].temp_c < st->temp_min_c
-            || st->ramp_step[i].temp_c > st->temp_max_c
+            || st->ramp_step[i].temp_c > temp_cmd_hi_c(st->temp_max_c)
             || st->ramp_step[i].temp_c == 0u)
             st->ramp_step[i].temp_c = st->temp_min_c;
         if (st->ramp_step[i].hold_s == 0u)
@@ -393,8 +393,8 @@ static void enc_edit(app_state_t *st, int8_t dir)
     if (st->edit_armed == SET_EDIT_TEMP) {
         v = (int16_t)st->ramp_step[sel].temp_c
             + dir * (int16_t)RAMP_TEMP_STEP_C;
-        if (v > (int16_t)st->temp_max_c)
-            v = (int16_t)st->temp_max_c;
+        if (v > (int16_t)temp_cmd_hi_c(st->temp_max_c))
+            v = (int16_t)temp_cmd_hi_c(st->temp_max_c);
         if (v < (int16_t)st->temp_min_c) {
             /* R1: clamp. R2+: pending OFF (confirmar con PRESS). */
             if (sel == 0u)
@@ -584,7 +584,11 @@ void home_view_on_event(app_state_t *st, app_event_t evt)
 
     if (is_run(st)) {
         if (evt == EVT_PRESS) {
-            device_session_safe_stop(st, CTRL_UI);
+            /* ALM confirma y sigue a AIR; el resto del ciclo se aborta. */
+            if (st->phase == PH_ALARM)
+                program_user_ack(st);
+            else
+                device_session_safe_stop(st, CTRL_UI);
             dirty_all(st);
         }
         return;

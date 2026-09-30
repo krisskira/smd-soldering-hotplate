@@ -263,7 +263,7 @@ static uint8_t cfg_band(app_state_t *st, const char *args)
     return 0u;
 }
 
-/* AT+CFG=P,kp,ki  (×10, 0..999); el lazo es PI + lookahead (sin D) */
+/* AT+CFG=P,kp,ki  (Kp ×10, Ki ×100; 0..999); PI + lookahead, sin D. */
 static uint8_t cfg_pid(app_state_t *st, const char *args)
 {
     const char *p = args;
@@ -334,7 +334,7 @@ static uint8_t cfg_ramp(app_state_t *st, const char *args)
         reply_ok(st);
         return 0u;
     }
-    if (temp < st->temp_min_c || temp > st->temp_max_c)
+    if (temp < st->temp_min_c || temp > temp_cmd_hi_c(st->temp_max_c))
         return 1u;
     if (hold < 1u || hold > 3600u)
         return 1u;
@@ -431,8 +431,8 @@ static void handle_run(app_state_t *st, const char *args)
         reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
         return;
     }
-    if (temp < st->temp_min_c || temp > (uint16_t)(st->temp_max_c - 10u)
-        || cycles < ATUNE_MIN_CYCLES || cycles > ATUNE_MAX_CYCLES
+    /* La consigna la valida pid_atune_start tras cargar ee_tune. */
+    if (cycles < ATUNE_MIN_CYCLES || cycles > ATUNE_MAX_CYCLES
         || hyst < 1 || hyst > 99
         || max_s < ATUNE_MAX_S_LO || max_s > ATUNE_MAX_S_HI) {
         reply_err(st, (uint8_t)PROTO_ERR_INVALID_PARAMETER);
@@ -535,7 +535,11 @@ static void handle_line(app_state_t *st, char *line, uint8_t n)
         break;
 
     case CMD_STOP:
-        process_stop(st, CTRL_USB);
+        /* En ALM cierra el aviso y pasa a AIR; en marcha cierra como fin. */
+        if (st->phase == PH_ALARM)
+            program_user_ack(st);
+        else
+            process_stop(st, CTRL_USB);
         st->row_dirty = ROW_ALL;
         reply_ok(st);
         break;

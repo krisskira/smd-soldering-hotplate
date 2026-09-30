@@ -131,7 +131,7 @@ program: all flash size
 clean:
 	rm -rf build
 
-.PHONY: all flash size program clean test usb-host-test flow-host-test pid-atune-host-test pid-host-test
+.PHONY: all flash size program clean test usb-host-test flow-host-test pid-atune-host-test pid-host-test real-trace-test
 
 # Contrato UART + catálogo AT
 usb-host-test:
@@ -181,7 +181,11 @@ pid-host-test:
 		build/test/pid_host_test.o
 	./build/pid_host_test
 
-test: usb-host-test flow-host-test pid-atune-host-test pid-host-test
+# CSV medidos en la placa: evita validar el algoritmo solo con datos sintéticos.
+real-trace-test:
+	python3 test/real_trace_regression.py
+
+test: usb-host-test flow-host-test pid-atune-host-test pid-host-test real-trace-test
 	@echo "all host tests: OK"
 
 # Capturas de HotPanel con el home_view.c real → doc/img/hotpanel/*.png

@@ -136,7 +136,8 @@ El nombre sale de `program_phase_name()`. La meseta (`PH_HOLD`) comparte la etiq
 | Estado | Girar | Pulsar | Pie |
 |--------|-------|--------|-----|
 | Reposo, foco en Heat | Pasa a la casilla Settings | Arranca HEAT con el reloj `hh:mm` ya guardado. Si no hay rampas o el arranque falla, pitido de alarma | `RUN` |
-| Ciclo en marcha (espera, precalentamiento, rampas, enfriamiento o aviso) | No hace nada | Cancela el ciclo (`device_session_safe_stop`) | `STOP` |
+| Ciclo en marcha (espera, rampas o enfriamiento) | No hace nada | Cancela el ciclo (`device_session_safe_stop`). El ventilador no arranca | `STOP` |
+| Aviso de fin (`ALM`) | No hace nada | Cierra el aviso (`program_user_ack`) y pasa a `AIR` o a `END` | `STOP` |
 | Terminado (`END`) o fallo (`ERR`) | No hace nada | Vuelve a reposo (`IDLE`) | `EXIT` |
 
 Mientras hay un ciclo o la sesión USB está activa, el foco queda forzado en Heat: no se puede abrir ajustes.

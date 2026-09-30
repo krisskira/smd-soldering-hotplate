@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from views.connection_view import ConnectionView
     from views.heat_view import HeatView
     from views.settings_view import SettingsView
-    from views.status_bar import StatusBar
+    from views.status_bar import HeaderBar, StatusBar
     from views.tune_view import TuneView
 
 
@@ -37,12 +37,13 @@ class AppController:
         self.link = SerialLink(self._rx)
         self._stat_job: Optional[str] = None
 
-        # Vistas (inyectadas tras construir el notebook)
+        # Vistas (inyectadas tras construir la ventana)
         self.conn: ConnectionView
         self.heat: HeatView
         self.settings: SettingsView
         self.tune: TuneView
         self.status_bar: StatusBar
+        self.header: HeaderBar
         self.appearance: AppearanceView
 
     def bind_views(
@@ -53,12 +54,14 @@ class AppController:
         tune: "TuneView",
         status_bar: "StatusBar",
         appearance: "AppearanceView",
+        header: "HeaderBar",
     ) -> None:
         self.conn = conn
         self.heat = heat
         self.settings = settings
         self.tune = tune
         self.status_bar = status_bar
+        self.header = header
         self.appearance = appearance
         ramps_store.load_ramps(
             lambda i, v: self.heat.ramp_active[i].set(v),
@@ -102,6 +105,9 @@ class AppController:
         self.status_bar.update(
             connected, st.device_online, st.conn_port, st.usb_mode
         )
+        self.header.update(st.device_online, st.usb_mode)
+        self.heat.status.set_stream_mode(st.usb_mode)
+        self.tune.status.set_stream_mode(st.usb_mode)
         self.conn.refresh_session_ui(connected, st.device_online, st.usb_mode)
 
     def toggle_conn(self) -> None:
@@ -666,8 +672,40 @@ class AppController:
                 self._set_usb_mode(False)
             self.on_device_online()
 
+    def _annotate_plate(self, fields: dict) -> None:
+        """TL, cruce, pico y pendiente derivados de la curva medida."""
+        cross = None
+        peak = None
+        slope = 0.0
+        above_s = 0.0
+        prev_t = None
+        prev_c = None
+        for row in self.state.trace:
+            t_s, t_c = row[0], row[1]
+            if isinstance(t_c, float) and t_c != t_c:
+                continue
+            if peak is None or t_c > peak:
+                peak = t_c
+            if prev_t is not None and t_s > prev_t:
+                if prev_c >= 183.0:
+                    above_s += t_s - prev_t
+                rate = (t_c - prev_c) / (t_s - prev_t)
+                if rate > slope:
+                    slope = rate
+            if t_c >= 183.0 and cross is None:
+                cross = t_s
+            prev_t, prev_c = t_s, t_c
+        if cross is not None:
+            fields["TC"] = int(round(cross))
+        fields["TL"] = int(round(above_s))
+        if peak is not None:
+            fields["PK"] = round(float(peak), 1)
+        if prev_t is not None:
+            fields["MS"] = int(round(slope * 10))
+
     def _apply_hp(self, fields: dict) -> None:
         self.state.last_hp = fields
+        self._annotate_plate(fields)
         delay_cfg = self.settings.delay_clock()
         self.heat.apply_hp(fields, delay_cfg=delay_cfg)
         self.tune.apply_status(fields, delay_cfg)

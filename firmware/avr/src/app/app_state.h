@@ -114,13 +114,13 @@ typedef struct {
     uint16_t        alarm_beep_left_s;
     uint8_t         cooldown_air_en;
     uint16_t        temp_min_c;    /* piso consignas + OFF aire */
-    uint16_t        temp_max_c;    /* techo + safety */
+    uint16_t        temp_max_c;    /* corte de seguridad; no es el techo de consigna */
 
     device_mode_t   device_mode;
     uint8_t         telem_dirty;
 
     int16_t    pid_kp_x10;
-    int16_t    pid_ki_x10;
+    int16_t    pid_ki_x10; /* nombre EEPROM heredado; unidad real Ki ×100 */
     pid_loop_t pid_loop;
 
     atune_phase_t atune_phase;

@@ -107,7 +107,8 @@ Detalle de fases: [program_flows.md](program_flows.md).
 ## Seguridad
 
 - Boot, fault y sobretemperatura: PTC y fan OFF.
-- `temp ≥ temp_max_c` (lectura válida) → UART **`ERROR:7`**, fase `PH_FAULT`, `$HP` `A=FAULT`.
+- `temp ≥ temp_max_c` (lectura válida) → UART **`ERROR:7`**, fase `PH_FAULT`, `$HP` `A=FAULT`. El corte (defecto 210 °C, rango 40…260) no es el techo de consigna (250 °C).
+- Subida imposible: 180 s con duty ≥ 95 %, pendiente ≤ 0,2 °C/s y T bajo la banda → **`ERROR:9`**, calor OFF, `PH_FAULT`.
 - Sensor inválido con programa activo (salvo DELAY/ALARM) → fault.
 
 ## Flash

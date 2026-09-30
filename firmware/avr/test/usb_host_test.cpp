@@ -50,6 +50,7 @@ int main(void)
     CHECK(std::strstr("ERROR:6", "ERROR:6") != nullptr);
     CHECK(std::strstr("ERROR:7", "ERROR:7") != nullptr);
     CHECK(std::strstr("ERROR:8", "ERROR:8") != nullptr);
+    CHECK(std::strstr("ERROR:9", "ERROR:9") != nullptr);
 
     /* ALARM:2 es el fin de HEAT. No hay ALARM:1. */
     CHECK(std::strstr("ALARM:2", "ALARM:2") != nullptr);

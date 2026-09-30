@@ -18,7 +18,7 @@
 | [feature_budget.md](../firmware/avr/doc/feature_budget.md) | **Presupuesto flash** · core vs minify · UI aprobada (skill `hotplate-feature-budget`) |
 | [pid_control.md](../firmware/avr/doc/pid_control.md) | **PI predictivo + Autotune** portable (variables, fórmulas, tuning) |
 | [optimization_plan.md](../firmware/avr/doc/optimization_plan.md) | Plan de optimización sin romper cores/UI |
-| [mejoras_futuras.md](../firmware/avr/doc/mejoras_futuras.md) | Erratas térmicas y mejoras de algoritmo aún no implementadas |
+| [mejoras_futuras.md](../firmware/avr/doc/mejoras_futuras.md) | Resultados térmicos, límites medidos y mejoras de algoritmo |
 | [program_flows.md](../firmware/avr/doc/program_flows.md) | **Maestro** fases, alarmas, EEPROM |
 | [architecture.md](../firmware/avr/doc/architecture.md) | Capas y super-loop |
 | [temporizacion_no_bloqueante.md](../firmware/avr/doc/temporizacion_no_bloqueante.md) | Reloj `avr_delay` · delays sin bloquear HotPanel |

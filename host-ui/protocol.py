@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from constants import ATUNE_SET_HI_C, ATUNE_SET_LO_C, TEMP_MAX_C_HI, TEMP_SET_CEILING_C
+
 AT_LINE_MAX = 32  # incluye NUL; payload útil = 31
 PAYLOAD_MAX = AT_LINE_MAX - 1
 
@@ -33,6 +35,7 @@ ERROR_NAMES = {
     6: "sensor inválido",
     7: "sobretemperatura",
     8: "abortado en el equipo",
+    9: "consigna inalcanzable",
 }
 
 ALARM_NAMES = {2: "HEAT terminado"}
@@ -145,8 +148,8 @@ def cmd_cfg_tune(cycles: int, hyst: int, max_s: int) -> str:
 def validate_safety(mn: int, mx: int) -> Optional[str]:
     if not (30 <= mn <= 100):
         return "min debe estar en 30..100"
-    if not (40 <= mx <= 250):
-        return "max debe estar en 40..250"
+    if not (40 <= mx <= TEMP_MAX_C_HI):
+        return f"max debe estar en 40..{TEMP_MAX_C_HI}"
     if mn > mx:
         return "min no puede ser mayor que max"
     return None
@@ -192,8 +195,12 @@ def validate_ramp(
         if not (1 <= hold <= 3600):
             return "hold debe estar en 1..3600"
         return None
-    if not (tmin <= temp <= tmax):
-        return f"temp debe estar en {tmin}..{tmax}"
+    hi = min(tmax, TEMP_SET_CEILING_C)
+    if not (tmin <= temp <= hi):
+        return (
+            f"temp debe estar en {tmin}..{hi} °C "
+            f"(techo de consigna {TEMP_SET_CEILING_C}, corte {tmax})"
+        )
     if not (1 <= hold <= 3600):
         return "hold debe estar en 1..3600"
     if prev_temp is not None and temp < prev_temp:
@@ -223,8 +230,12 @@ def validate_tune(
     tmax: int,
     max_s: int | None = None,
 ) -> Optional[str]:
-    if not (tmin <= temp <= tmax - 10):
-        return f"temp debe estar en {tmin}..{tmax - 10}"
+    lo = max(tmin, ATUNE_SET_LO_C)
+    hi = min(tmax - 10, ATUNE_SET_HI_C)
+    if hi < lo or not (lo <= temp <= hi):
+        shown_lo = ATUNE_SET_LO_C if hi < lo else lo
+        shown_hi = ATUNE_SET_HI_C if hi < lo else hi
+        return f"temp de autoajuste debe estar en {shown_lo}..{shown_hi} °C"
     if not (3 <= cycles <= 10):
         return "ciclos debe estar en 3..10"
     if not (1 <= hyst <= 99):

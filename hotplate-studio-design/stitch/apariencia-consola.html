@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HotPlate Studio - Apariencia</title>
+<!-- Tailwind CSS CDN with forms and container queries plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter and JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            petrol: {
+              DEFAULT: '#1a5276',
+              dark: '#154360',
+              light: '#2471a3'
+            },
+            surface: '#f4f6f8',
+            cardBorder: '#c5d0dc',
+            subtleBorder: '#e2e8f0',
+            slateText: '#1e293b',
+            mutedText: '#64748b'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+<!-- Custom Core Styles -->
+<style data-purpose="custom-overrides">
+    body {
+      background-color: #f4f6f8;
+      color: #1e293b;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Stepper number input styling */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      opacity: 1;
+    }
+    
+    .technical-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-petrol selection:text-white">
+<!-- BEGIN: TopGlobalChrome -->
+<header class="bg-white border-b border-subtleBorder px-6 py-2.5 flex items-center justify-between" data-purpose="global-header">
+<!-- Brand and Navigation Tabs -->
+<div class="flex items-center space-x-6">
+<!-- Logo Tile + Title -->
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-petrol flex items-center justify-center shadow-xs">
+<!-- 3 Wavy Heat Strokes -->
+<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewbox="0 0 24 24">
+<path d="M8 5c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+<path d="M12 4c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+<path d="M16 5c-1.5 2-1.5 4 0 6s1.5 4 0 6"></path>
+</svg>
+</div>
+<span class="font-bold text-base text-slateText tracking-tight">HotPlate Studio</span>
+</div>
+<!-- Segmented Pill Tabs Container -->
+<nav class="flex items-center bg-[#edf2f7] p-1 rounded-md text-xs font-medium space-x-1" data-purpose="main-navigation">
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Conexión</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">HEAT</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Autotune</a>
+<a class="px-3.5 py-1.5 rounded text-[#4a5568] hover:text-slateText transition-colors" href="#">Ajustes</a>
+<a class="px-3.5 py-1.5 rounded bg-petrol text-white shadow-xs font-semibold" href="#">Apariencia</a>
+</nav>
+</div>
+<!-- Header Actions & USB Mode indicator -->
+<div class="flex items-center space-x-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded bg-petrol text-white text-xs font-medium font-mono">
+        Modo USB
+      </span>
+<button class="px-3 py-1 bg-white border border-[#cbd5e1] hover:bg-slate-50 text-[#2c3e50] text-xs font-medium rounded transition-colors shadow-2xs" type="button">
+        Cambiar a modo Manual
+      </button>
+</div>
+</header>
+<!-- END: TopGlobalChrome -->
+<!-- BEGIN: MainContentArea -->
+<main class="flex-1 max-w-[1720px] w-full mx-auto px-6 py-5 flex flex-col space-y-4" data-purpose="appearance-settings-page">
+<!-- Page Header Info -->
+<section class="flex items-start justify-between">
+<div>
+<h1 class="text-xl font-bold text-slateText tracking-tight">Apariencia</h1>
+<p class="text-[13px] text-mutedText mt-0.5">
+          Familia, texto, campos y botones cubren toda la interfaz. El estado del proceso usa sus propias filas de sección, clave y valor.
+        </p>
+</div>
+<div class="flex items-center space-x-2.5 pt-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1]">
+          Solo en este equipo
+        </span>
+<span class="font-mono text-xs text-mutedText">ui_theme.json</span>
+</div>
+</section>
+<!-- Main Configuration Card -->
+<section class="bg-white border border-cardBorder rounded flex-1 flex flex-col" data-purpose="theme-configuration-card">
+<!-- Sub-Tab Header Bar -->
+<div class="border-b border-subtleBorder px-5 pt-3 flex space-x-6"><button class="pb-2.5 text-xs font-medium text-mutedText hover:text-slateText transition-colors flex items-center space-x-1.5" type="button">
+<span>Fuentes</span>
+</button>
+<button class="pb-2.5 text-xs font-medium text-mutedText hover:text-slateText transition-colors flex items-center space-x-1.5" type="button">
+<span>Gráficas</span>
+</button>
+<button class="pb-2.5 text-xs font-semibold text-petrol border-b-2 border-petrol flex items-center space-x-1.5" type="button">
+<span>Consola serie</span>
+</button></div>
+<!-- Settings Layout (Two Columns: Form left, Live Preview right) -->
+<div class="p-6 grid grid-cols-12 gap-8 flex-1">
+<!-- LEFT COLUMN: Appearance Controls (58% width approx ~ 7 cols) -->
+<div class="col-span-12 lg:col-span-7 space-y-3.5 pr-0 lg:pr-4" data-purpose="form-controls-column"><!-- Row 1: Familia (consola) -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-5 text-[#334155] font-medium" for="console-font-family">Familia (consola)</label>
+<div class="col-span-7">
+<select class="w-full text-xs py-1 px-2.5 bg-white border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol" id="console-font-family">
+<option selected="" value="Menlo">Menlo</option>
+<option value="Courier">Courier</option>
+<option value="Monaco">Monaco</option>
+<option value="Consolas">Consolas</option>
+<option value="Helvetica">Helvetica</option>
+</select>
+</div>
+</div>
+<!-- Row 2: Tamaño -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-5 text-[#334155] font-medium" for="console-size">Tamaño</label>
+<div class="col-span-7 flex items-center space-x-2">
+<input class="technical-input w-24 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol" id="console-size" max="22" min="8" type="number" value="11"/>
+<span class="text-xs text-mutedText">pt</span>
+</div>
+</div>
+<!-- Row 3: Fondo -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-5 text-[#334155] font-medium" for="console-bg-color">Fondo</label>
+<div class="col-span-7 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase" id="console-bg-color" type="text" value="#1e1e1e"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400" style="background-color: #1e1e1e;" title="Muestra: #1e1e1e"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 4: Texto -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-5 text-[#334155] font-medium" for="console-text-color">Texto</label>
+<div class="col-span-7 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase" id="console-text-color" type="text" value="#d4d4d4"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400" style="background-color: #d4d4d4;" title="Muestra: #d4d4d4"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div>
+<!-- Row 5: Borde -->
+<div class="grid grid-cols-12 items-center text-xs">
+<label class="col-span-5 text-[#334155] font-medium" for="console-border-color">Borde</label>
+<div class="col-span-7 flex items-center space-x-2">
+<input class="technical-input w-28 py-1 px-2 border border-[#cbd5e1] rounded text-slateText focus:border-petrol focus:ring-1 focus:ring-petrol uppercase" id="console-border-color" type="text" value="#34495e"/>
+<div class="w-5 h-5 rounded-xs border border-gray-400" style="background-color: #34495e;" title="Muestra: #34495e"></div>
+<button class="px-2 py-0.5 border border-[#cbd5e1] hover:bg-slate-100 rounded text-slateText font-mono text-xs" type="button">…</button>
+</div>
+</div></div>
+<!-- RIGHT COLUMN: Live Theme Preview (42% width approx ~ 5 cols) -->
+<div class="col-span-12 lg:col-span-5 bg-slate-50 border border-[#e2e8f0] rounded p-5 flex flex-col justify-between" data-purpose="live-preview-box"><div class="space-y-4">
+<div class="flex items-center justify-between border-b border-[#cbd5e1] pb-2">
+<span class="text-xs font-semibold text-slateText uppercase tracking-wider">MUESTRA EN VIVO DEL TEMA</span>
+<span class="text-[11px] text-mutedText">Escala 1:1</span>
+</div>
+<!-- Simulated Console Window / Terminal Box -->
+<div class="rounded p-4 shadow-2xs font-mono text-[11px] space-y-1.5 leading-relaxed overflow-x-auto" style="background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #34495e; font-family: 'JetBrains Mono', 'Menlo', monospace;">
+<div>18:02:11.440  TX  AT</div>
+<div>18:02:11.477  RX  OK</div>
+<div>18:02:11.553  RX  $HP,T=31.6,P=0,A=0,SET=0,DLY=0,RUN=0,EL=0,DU=0,F=0,RI=0,FL=0,TL=0</div>
+</div>
+</div>
+<!-- Bottom Caption Helper -->
+<p class="text-[11px] text-[#64748b] italic border-t border-slate-200/80 pt-3 mt-4">
+La consola usa esta familia, tamaño y colores. El tráfico no cambia.
+</p></div>
+</div>
+<!-- FOOTER ACTIONS BAR OF MAIN CARD -->
+<div class="bg-[#f8fafc] border-t border-[#e2e8f0] px-6 py-3 flex items-center space-x-3 rounded-b" data-purpose="form-footer-actions">
+<button class="px-4 py-1.5 bg-petrol hover:bg-petrol-dark text-white text-xs font-semibold rounded shadow-xs transition-colors" type="button">
+          Aplicar y guardar tema
+        </button>
+<button class="px-4 py-1.5 bg-white border border-[#cbd5e1] hover:bg-slate-50 text-[#475569] text-xs font-medium rounded transition-colors shadow-2xs" type="button">
+          Restaurar defaults
+        </button>
+</div>
+</section>
+</main>
+<!-- END: MainContentArea -->
+<!-- BEGIN: BottomStatusBar -->
+<footer class="h-7 bg-[#f8fafc] border-t border-subtleBorder px-6 flex items-center text-xs font-mono text-[#334155]" data-purpose="system-status-bar">
+<div class="flex items-center space-x-2">
+<!-- Hardware connection LED indicator -->
+<span class="inline-block w-2 h-2 rounded-full bg-[#27ae60]" title="Dispositivo Conectado"></span>
+<span class="text-[11px] text-slate-700 tracking-tight">/dev/cu.usbserial-A10K @ 19200  ·  En línea  ·  Modo USB</span>
+</div>
+</footer>
+<!-- END: BottomStatusBar -->
+</body></html>

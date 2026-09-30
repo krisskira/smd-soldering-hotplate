@@ -63,6 +63,7 @@ Formato: `ERROR:<n>\r\n`
 | 6 | SENSOR_INVALID | `RUN` sin sensor válido |
 | 7 | OVER_TEMPERATURE | Corte de seguridad (`temp_max_c`) |
 | 8 | ABORTED_BY_DEVICE | Pulsar **EXIT** en el overlay USB de HotPanel |
+| 9 | UNREACHABLE_SETPOINT | `PH_RUN`: 3 min con duty ≥ 95 %, pendiente ≤ 0,2 °C/s y T por debajo de la banda. Calor OFF, fase `FAULT`. No es el corte de `temp_max_c` |
 
 ---
 
@@ -120,7 +121,7 @@ No existe `ALARM:1`. El precalentamiento no emite alarma: al estabilizar (o al v
 | `AT+CFG=S,<min>,<max>` | sí | Límites de temperatura | global | `OK` |
 | `AT+CFG=H,<delay>,<air>` | sí | Retraso (`00:00`…`12:00`, en segundos) y aire de HEAT | global + `ee_heat` | `OK` |
 | `AT+CFG=B,<bn>,<bx>` | sí | Bandas ±°C (entrada / salida) | global | `OK` |
-| `AT+CFG=P,<kp>,<ki>` | sí | Ganancias PI ×10 (0…999) | global | `OK` |
+| `AT+CFG=P,<kp>,<ki>` | sí | Ganancias PI: Kp ×10, Ki ×100 (0…999) | global | `OK` |
 | `AT+CFG=T,<ciclos>,<hyst>,<max_s>` | sí | Params autoajuste **sin** arrancar | global | `OK` |
 | `AT+CFG=R,<i>,<°C>,<s>` | sí | Escalón 0…3 del Soldering Profile | `ee_ramp` | `OK` |
 | `AT+CFG=R?` | sí | Lee escalones | — | `$R` + `OK` |
@@ -132,23 +133,23 @@ No existe `ALARM:1`. El precalentamiento no emite alarma: al estabilizar (o al v
 `air` = 0 o 1 · `delay` 0…43200 s (`0` = inmediato, tope 12 h). Dos argumentos. El equipo guarda solo horas y minutos (el resto menor de 60 s se descarta). El antiguo `en,pct,stab` (precalentado al % de la rampa 1) ya no existe: la rampa 1 es el primer escalón, a su propia temperatura. Un argumento de más da `ERROR:2`.
 
 **`CFG=P`** — ganancias PI  
-`kp` / `ki` ×10 (0…999). Dos argumentos: el lazo no tiene término D, y un tercer valor (antiguo `kd`) da `ERROR:2`.
+`kp` ×10 / `ki` ×100 (0…999). Dos argumentos: el lazo no tiene término D, y un tercer valor (antiguo `kd`) da `ERROR:2`.
 
 **`CFG=B`** — histéresis de bandas  
 `bn` entrada ±°C (1…15): al entrar en esa banda, la subida de cualquier rampa pasa a meseta. `bx` se guarda (`bn`…20) y ya no aborta la meseta.
 
 **`CFG=S`** — límites  
-min 30…100 · max 40…250 · min ≤ max.
+min 30…100 · max 40…260 · min ≤ max.
 
-**`CFG=R`** — Soldering Profile  
-°C dentro de min…max · hold 1…3600. Escribir el escalón `i` **fija** `ramp_n = i+1` y limpia los huecos altos (así se puede achicar N).  
+**`CFG=R`** — Soldering Profile
+°C dentro de min…**techo de consigna**. El techo es `min(temp_max_c, 250)`. `temp_max_c` (defecto **210**, rango 40…260) es solo el corte de seguridad. Un escalón por encima del techo da `ERROR:2`. Hold 1…3600. Escribir el escalón `i` **fija** `ramp_n = i+1` y limpia los huecos altos (así se puede achicar N).
 `temp=0` con `i≥1` deshabilita desde ese índice.  
-Al `AT+RUN=1` el perfil debe ser **no decreciente** → si no, `ERROR:2`.  
+Al `AT+RUN=1` el perfil debe ser **no decreciente** y cada escalón ≤ techo → si no, `ERROR:2`.
 Lectura: `CFG=R?` → `$R`.
 
-**`CFG=T` / `RUN=2`** — autoajuste  
-Consigna en `[Tmin .. Tmax−10]` · ciclos 3…10 · histéresis ×10 de 1…99 · `max_s` opcional 120…3600 (default EEPROM `AMS`, 2000 s).  
-`CFG=T` solo guarda; `RUN=2` arranca.
+**`CFG=T` / `RUN=2`** — autoajuste
+Consigna en **120…150 °C** y además dentro de `[Tmin .. Tmax−10]` · ciclos 3…10 · histéresis ×10 de 1…99 · `max_s` opcional 120…3600 (default EEPROM `AMS`, 2000 s).
+`CFG=T` solo guarda; `RUN=2` arranca. Si un semiperiodo ON es ≥ 3× el OFF anterior, o la subida se aplana 180 s sin cruzar el umbral alto, termina en fallo y no escribe Kp/Ki.
 
 ---
 
@@ -181,7 +182,7 @@ Con stream de autoajuste se añade:
 | `FL` | Fault 0/1 |
 | `AP` | Fase del autoajuste: 0 IDLE, 1 RUN, 2 DONE, 3 FAIL |
 | `AC` | Ciclos ya cerrados |
-| `AK` `AI` | Kp / Ki resultado ×10 (cero hasta DONE) |
+| `AK` `AI` | Kp ×10 / Ki ×100 del autoajuste (cero hasta DONE) |
 
 `AK` / `AI` viven en el autoajuste, no en `app_state`. HotPlate Studio los grafica desde la trama.  
 **Nota:** `AD` (Kd) **ya no se emite** (siempre 0; ahorro de Flash).

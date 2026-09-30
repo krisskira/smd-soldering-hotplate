@@ -245,9 +245,12 @@ static void test_pid_tune_at_sequence(void)
     /* Regla consigna PID_TUNE: [TMIN .. TMAX-10] */
     uint16_t tmin = 40, tmax = 200, tset;
     tset = 150;
+    CHECK(tset >= 120u && tset <= 150u);
     CHECK(tset >= tmin && tset <= (uint16_t)(tmax - 10u));
+    tset = 100;
+    CHECK(tset < 120u);
     tset = 195;
-    CHECK(tset > (uint16_t)(tmax - 10u)); /* debe rechazarse → ERROR:2 */
+    CHECK(tset > 150u);
 
     FlowSim f;
     flow_reset(&f, PROG_PID_TUNE);

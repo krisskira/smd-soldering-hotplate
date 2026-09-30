@@ -1,6 +1,8 @@
 # Erratas y mejoras futuras
 
-Trabajo **no implementado**. El contrato vigente sigue en [program_flows.md](program_flows.md) y [pid_control.md](pid_control.md). Este archivo no cambia HEAT, el PI ni el autotune.
+Registro térmico y decisiones de banco. Los cambios de la sección 4 ya están
+implementados; el contrato vigente sigue en [program_flows.md](program_flows.md)
+y [pid_control.md](pid_control.md).
 
 Fecha: 2026-09-29.  
 Aleación de referencia: **Sn63/Pb37** (eutéctico **183 °C**).  
@@ -12,9 +14,20 @@ Perfil de horno usado solo como forma de referencia (es de soldadura sin plomo; 
 
 ## 1. Qué dicen las trazas reales
 
-Las capturas y CSV están en `docs/heat-results/` y `docs/atune-results/`. Las de HEAT son del 2026-09-28 y todavía nombran `Precalentado` / `Estabilizando`. El firmware actual ya no tiene esa fase: la rampa 1 es el primer escalón. Sirven para la **planta** (inercia, pendiente, cola, enfriamiento), no para copiar aquella máquina de estados.
+Las capturas y CSV están en `docs/heat-results/`, `docs/atune-results/` y
+`firmware/avr/doc/ultimo-heat/`. Las primeras trazas HEAT todavía nombran
+`Precalentado` / `Estabilizando`; sirven para la **planta** (inercia, pendiente,
+cola, enfriamiento), no para copiar aquella máquina de estados.
 
-No hay muestras por encima de **130 °C**. Todo lo que sigue a partir de ahí es extrapolación y hay que medirlo.
+La última traza llega a **171,7 °C** con SET 175 °C. No hay muestras a 183 °C
+ni cerca del techo de 190 °C; el pico y el TAL del perfil final siguen sin
+validación real.
+
+La regresión reproducible es `make real-trace-test`: consume los cinco CSV HEAT
+y los dos de autotune. Verifica que el PI anterior reproduce el duty del atasco
+(32 %), que la escala corregida recupera autoridad (~59 % en ese estado), que
+ninguna corrida real daría un falso `ERROR:9` y que las oscilaciones reales no
+disparan el rechazo ON ≥ 3× OFF.
 
 ### Subida a plena potencia (autotune, SET 100 °C)
 
@@ -86,7 +99,7 @@ La bajada empinada del perfil de horno **no se puede dibujar**. El ventilador so
 
 ## 3. Perfil experimental de cuatro escalones
 
-Valores elegidos para HotPanel: temperatura en pasos de 5 °C y meseta en pasos de 30 s. Rampas solo ascendentes. `DLY` `00:00`. Banda `BN` = 4 °C. Dejar `temp_max_c` en **210 °C** en el ensayo: si se pone en 190 °C, una lectura de 190,0 °C dispara `ERROR:7` y corta el calor.
+Valores elegidos para HotPanel: temperatura en pasos de 5 °C y meseta en pasos de 30 s. Rampas solo ascendentes. `DLY` `00:00`. Banda `BN` = 4 °C. Dejar `temp_max_c` en **210 °C** en el ensayo: si se pone en el techo de consigna (200 °C), una lectura de 200,0 °C dispara `ERROR:7` y corta el calor.
 
 | Escalón | °C | `hold_s` | Por qué este valor |
 |---------|----|----------|--------------------|
@@ -120,46 +133,43 @@ Primer ciclo **sin pasta**, sensor de la placa. Segundo ciclo con termopar en un
 1. Cresta de R1 ≤ 160 °C y de R2 ≤ 175 °C. Si no, usar el perfil de respaldo.
 2. Cresta de R3 ≤ 183 °C. Si la pasta funde en R3, bajar R3 a 170 °C.
 3. La unión debe pasar de 183 °C. Si no ocurre con R4 a 190 °C, el techo físico no alcanza para esa PCB.
-4. Tiempo de la **unión** sobre 183 °C: 30–90 s. Si el enfriamiento lo alarga por encima de 90 s, bajar el `hold_s` de R4 a 60 s. Si no llega a 30 s, subirlo a 120 s. No subir el SET por encima de 190 °C.
+4. Tiempo de la **unión** sobre 183 °C: 30–90 s. Si el enfriamiento lo alarga por encima de 90 s, bajar el `hold_s` de R4 a 60 s. Si no llega a 30 s, subirlo a 120 s. No subir el SET por encima de 200 °C.
 5. Si un escalón se queda más de 3 min con duty ≥ 95 % y la temperatura no entra en SET − 4 °C, ese SET es inalcanzable. Hoy `PH_RUN` no tiene timeout: parar a mano.
 
 ---
 
-## 4. Cambios de algoritmo pendientes
+## 4. Cambios de algoritmo
 
-Ninguno está en el firmware. El orden es el de impacto sobre un perfil con techo en 190 °C.
+Están en el firmware. El techo de consigna es 250 °C (antes 200; en banco la placa pasa de 200 °C) y el corte de seguridad por defecto es 210 °C.
 
 ### 4.1 Consigna de proceso distinta del corte de seguridad
 
-`temp_max_c` (defecto 250 °C) es el corte de `safety_apply_limit`: al llegar, calefactor OFF y `ERROR:7`. No sabe que la planta se equilibra a 190 °C.
+`temp_max_c` (defecto **210 °C**, rango 40…260) sigue siendo el corte de `safety_apply_limit`: al llegar, calefactor OFF y `ERROR:7`.
 
-Hace falta un techo de consigna, por debajo del corte. Con banda de 4 °C, un SET ≥ 195 °C nunca entra en meseta si el equilibrio es 190 °C: `PH_RUN` sigue con el SSR al 100 % y no hay fin de ciclo. Rechazar en `AT+CFG=R` y en el editor de HotPanel cualquier escalón por encima del techo medido.
-
-El corte de seguridad del ensayo debe quedar **por encima** del pico (210 °C mientras el pico sea 190 °C), no clavado en 190 °C.
+El techo de consigna es `TEMP_SET_CEILING_C` (**250 °C**), o `temp_max_c` si ese corte es más bajo. Para usar escalones de más de 200 °C hay que subir `temp_max_c` unos °C por encima del escalón más alto. `AT+CFG=R`, el editor de HotPanel y `AT+RUN=1` rechazan un escalón por encima. Una placa ya grabada con un escalón más alto no arranca (`ERROR:2`) hasta que se baje.
 
 ### 4.2 Consigna inalcanzable y timeout de `PH_RUN`
 
-`program_runner.c` pasa a `PH_HOLD` solo con `|T − SET| ≤ preheat_band_c`. No hay tiempo máximo de approach.
-
-Si durante un tiempo acotado el duty es ≥ 95 %, la pendiente es casi 0 y `T < SET − BN`, cerrar con un error propio (no `ERROR:7`): cortar el calor. Es el caso de un pico de datasheet a 210–220 °C pedido en esta placa.
+Si durante **180 s** el duty es ≥ 95 %, la pendiente es ≤ 0,2 °C/s y `T` sigue por debajo de la banda de entrada, el ciclo corta el calor, pasa a `FAULT` y emite `ERROR:9`. No es el corte de `temp_max_c`.
 
 ### 4.3 El `hold_s` no mide el TAL
 
-La meseta empieza en SET − 4 °C. En trace-3 el minuto de meseta se cumplió **4 °C por debajo** del SET. En trace-4, parte del `hold_s` se gastó todavía subiendo.
-
-Para Sn63/Pb37 el tiempo que importa es el de la unión por encima de **183 °C**, no el del cruce de la banda. Hace falta contarlo en la telemetría (`$HP` o el CSV de HotPlate Studio): instante en que se cruza 183 °C, tiempo por encima, pico y pendiente máxima. Un segundo sensor en la PCB es la medida válida; el PT100 de la placa solo vigila el ciclo.
+HotPlate Studio calcula con las muestras `T` los segundos de la **placa** ≥
+183 °C (`TL` en su panel), también en la bajada, además del primer cruce, pico y
+pendiente máxima. No se añade otro campo a `$HP` por el límite de flash. El
+tiempo válido de la unión sigue siendo un termopar en la PCB.
 
 ### 4.4 Autotune lejos del techo
 
-`pid_atune_start` admite el SET hasta `temp_max_c − 10`. Con techo físico 190 °C y `temp_max_c` 250, un autotune a 190 °C exige cruzar 191,5 °C. Si no llega, el SSR queda al 100 % hasta `atune_max_s` (2000 s).
+`AT+RUN=2` y `pid_atune_start` solo aceptan **120…150 °C** (y dentro de Tmin…Tmax−10). Si un semiperiodo ON es ≥ 3× el OFF anterior, o la subida se queda plana 180 s sin cruzar el umbral alto, termina en `FAIL` y no escribe Kp/Ki.
 
-Las trazas útiles están a **100 °C**, con cola de +16 °C. Repetir el autotune en zona con autoridad, del orden de **120–150 °C**, no contra 190 °C. Si el semiperiodo de ON es mucho más largo que el de OFF, o el pico se aplasta con pendiente nula, terminar en `FAIL` sin escribir Kp/Ki en EEPROM.
-
-No hace falta subir `LOOKAHEAD_S_DEFAULT` (15 s). A 0,7 °C/s ya anticipa ~10 °C, y entre 183 y 190 °C solo hay 7 °C. Más horizonte corta antes y aleja la meseta.
+`LOOKAHEAD_S_DEFAULT` sigue en 15 s.
 
 ### 4.5 Enfriamiento
 
-El aire solo existe al final del ciclo. No hay rampa descendente (el perfil descendente se rechaza con `ERROR:2`) y las trazas muestran 0,04–0,19 °C/s. No planificar una pendiente de 2–4 °C/s. El TAL hay que cerrarlo contando también la bajada libre después del corte.
+No hay rampa de bajada ni una pendiente objetivo de 2–4 °C/s. El aire solo
+actúa al final. Studio sigue contando mientras la placa permanece sobre 183 °C
+después del corte.
 
 ### 4.6 Fuera de este documento
 

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_standard" name="shell-type"/>
+<title>HotPlate Studio - Ajustes del equipo</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    @layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-subtle": "#e7eef4",
+            "surface-dim": "#c9dcf3",
+            "status-online": "#27ae60",
+            "surface-terminal": "#1e1e1e",
+            "surface-base": "#f4f6f8",
+            "background": "#f7f9ff",
+            "text-primary": "#2c3e50",
+            "text-muted": "#5d6d7e",
+            "primary": "#003b5a",
+            "primary-container": "#1a5276",
+            "action-hover": "#154360",
+            "action-active": "#0e3046",
+            "on-primary": "#ffffff",
+            "surface-container": "#ffffff",
+            "surface-container-high": "#d9eaff",
+            "surface-container-low": "#edf4ff",
+            "border-structural": "#c5d0dc",
+            "border-subtle": "#dce3eb",
+            "curve-temperature": "#c0392b",
+            "curve-setpoint": "#2980b9",
+            "error": "#ba1a1a",
+            "error-container": "#ffdad6"
+          },
+          fontFamily: {
+            "mono-tabular": ["JetBrains Mono", "monospace"],
+            "mono-data": ["JetBrains Mono", "monospace"],
+            "headline-lg": ["Inter", "sans-serif"],
+            "headline-md": ["Inter", "sans-serif"],
+            "headline-sm": ["Inter", "sans-serif"],
+            "body-md": ["Inter", "sans-serif"],
+            "body-sm": ["Inter", "sans-serif"],
+            "label-md": ["Inter", "sans-serif"],
+            "label-sm": ["Inter", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-surface-base font-body-md text-text-primary min-w-[1100px] select-none flex flex-col min-h-screen">
+<!-- TOP HEADER -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface-container border-b border-border-subtle shadow-sm">
+<div class="h-14 px-4 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<!-- Logo / Title -->
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[19px]">heat</span>
+</div>
+<span class="font-headline-md text-base font-bold text-text-primary tracking-tight">HotPlate Studio</span>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex items-center gap-1 p-1 bg-surface-base rounded-lg border border-border-subtle/60">
+<a class="px-3 py-1.5 font-label-md text-xs font-medium text-text-muted hover:text-text-primary hover:bg-surface-container transition-colors rounded-md" href="#">Conexión</a>
+<a class="px-3 py-1.5 font-label-md text-xs font-medium text-text-muted hover:text-text-primary hover:bg-surface-container transition-colors rounded-md" href="#">HEAT</a>
+<a class="px-3 py-1.5 font-label-md text-xs font-medium text-text-muted hover:text-text-primary hover:bg-surface-container transition-colors rounded-md" href="#">Autotune</a>
+<a aria-current="page" class="px-3 py-1.5 font-label-md text-xs font-bold text-white bg-primary-container shadow-sm rounded-md" href="#">Ajustes</a>
+<a class="px-3 py-1.5 font-label-md text-xs font-medium text-text-muted hover:text-text-primary hover:bg-surface-container transition-colors rounded-md" href="#">Apariencia</a>
+</nav>
+</div>
+<!-- Right Mode Badge & Action -->
+<div class="flex items-center gap-3">
+<span class="px-2.5 py-1 text-xs font-semibold bg-primary-container text-white rounded-md">Modo USB</span>
+<button class="text-xs font-medium text-text-muted hover:text-primary transition-colors border border-border-structural hover:border-primary px-2.5 py-1 rounded-md bg-surface-base hover:bg-surface-container" type="button">
+          Cambiar a modo Manual
+        </button>
+</div>
+</div>
+</header>
+<!-- MAIN CONTENT -->
+<main class="w-full flex-1 pt-[72px] pb-10 px-6 max-w-7xl mx-auto flex flex-col gap-5">
+<!-- PAGE HEADER AREA -->
+<div class="w-full bg-surface-container rounded-xl border border-border-subtle p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+<div>
+<h1 class="font-headline-lg text-lg font-bold text-text-primary">Ajustes del equipo</h1>
+<p class="font-body-sm text-xs text-text-muted mt-0.5">
+          Límites, bandas de meseta, arranque de HEAT y ganancias PI. Se guardan en la EEPROM del equipo.
+        </p>
+</div>
+<div class="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+<span class="font-mono-tabular text-xs text-text-muted">Leído del equipo ($CF) · <span id="lbl-read-time">18:02</span></span>
+<button class="inline-flex items-center gap-1.5 bg-surface-subtle hover:bg-surface-container-high border border-border-subtle text-text-primary px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-sm" id="btn-read-settings" type="button">
+<span class="material-symbols-outlined text-[15px] text-primary">sync</span>
+<span>Leer ajustes del equipo</span>
+</button>
+</div>
+</div>
+<!-- 2x2 GRID OF NUMBERED CARDS -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+<!-- CARD 1: Límites de temperatura (Red accent) -->
+<div class="bg-surface-container rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 bottom-0 w-1.5 bg-curve-temperature"></div>
+<div class="p-5 pl-6 flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-sm font-bold text-text-primary">1. Límites de temperatura</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Temperatura mínima -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-tmin">Temperatura mínima</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-9 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-tmin" max="100" min="30" type="number" value="50"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">°C</span>
+</div>
+<span class="font-mono-tabular text-[11px] text-text-muted">Rango: 30 … 100 °C</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight">Fin del enfriamiento de HEAT</span>
+</div>
+<!-- Temperatura máxima -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-tmax">Temperatura máxima</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-9 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-tmax" max="250" min="40" type="number" value="210"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">°C</span>
+</div>
+<span class="font-mono-tabular text-[11px] text-text-muted">Rango: 40 … 250 °C (≥ mínima)</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight">Corte de seguridad: salidas OFF</span>
+</div>
+</div>
+<!-- Info callout box -->
+<div class="bg-surface-container-low border border-surface-container-high rounded-lg p-2.5 flex items-start gap-2 mt-1">
+<span class="material-symbols-outlined text-curve-setpoint text-[16px] shrink-0 mt-0.5">info</span>
+<p class="font-body-sm text-xs text-text-primary">
+              La consigna nunca pasa de 200 °C aunque la máxima sea mayor.
+            </p>
+</div>
+</div>
+<!-- Footer Card 1 -->
+<div class="bg-surface-base border-t border-border-subtle px-5 py-3 pl-6 flex items-center justify-between gap-3">
+<span class="font-mono-tabular text-xs bg-surface-terminal text-[#27ae60] px-2 py-0.5 rounded" id="badge-limits">TX: AT+CFG=S,50,210</span>
+<button class="bg-primary-container hover:bg-action-hover active:bg-action-active text-white text-xs font-semibold px-4 py-1.5 rounded-lg shadow-sm transition-colors" id="btn-save-limits" type="button">
+            Guardar límites
+          </button>
+</div>
+</div>
+<!-- CARD 2: Meseta de las rampas (Blue accent) -->
+<div class="bg-surface-container rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 bottom-0 w-1.5 bg-curve-setpoint"></div>
+<div class="p-5 pl-6 flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-sm font-bold text-text-primary">2. Meseta de las rampas</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Banda de entrada -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-bn">Banda de entrada</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-10 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-bn" max="15" min="1" type="number" value="4"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">±°C</span>
+</div>
+<span class="font-mono-tabular text-[11px] text-text-muted">Rango: 1 … 15 °C</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight">Con |T−SET| ≤ banda empieza a contar la meseta</span>
+</div>
+<!-- Banda de salida -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-bx">Banda de salida</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-10 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-bx" max="20" min="4" type="number" value="6"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">±°C</span>
+</div>
+<span class="font-mono-tabular text-[11px] text-text-muted">Rango: entrada … 20 °C</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight">La meseta ya no se aborta por salirse de la banda</span>
+</div>
+</div>
+<!-- Context hint spacer -->
+<div class="bg-surface-base/60 border border-border-subtle/60 rounded-lg p-2.5 flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-text-muted text-[16px] shrink-0">tune</span>
+<span class="font-body-sm text-xs text-text-muted">
+              Define el rango de tolerancia para dar por alcanzada y sostenida la temperatura objetivo.
+            </span>
+</div>
+</div>
+<!-- Footer Card 2 -->
+<div class="bg-surface-base border-t border-border-subtle px-5 py-3 pl-6 flex items-center justify-between gap-3">
+<span class="font-mono-tabular text-xs bg-surface-terminal text-[#27ae60] px-2 py-0.5 rounded" id="badge-bands">TX: AT+CFG=B,4,6</span>
+<button class="bg-primary-container hover:bg-action-hover active:bg-action-active text-white text-xs font-semibold px-4 py-1.5 rounded-lg shadow-sm transition-colors" id="btn-save-bands" type="button">
+            Guardar bandas
+          </button>
+</div>
+</div>
+<!-- CARD 3: Arranque y fin de HEAT (Green accent) -->
+<div class="bg-surface-container rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 bottom-0 w-1.5 bg-status-online"></div>
+<div class="p-5 pl-6 flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-sm font-bold text-text-primary">3. Arranque y fin de HEAT</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Retraso de arranque -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary">Retraso de arranque</label>
+<div class="flex items-center gap-1.5 bg-surface-base border border-border-subtle rounded-lg px-2 py-1">
+<input class="w-12 bg-surface-container text-center font-mono-data text-xs text-text-primary py-0.5 rounded border border-border-subtle focus:outline-none focus:border-primary" id="input-delay-hh" max="12" min="0" type="number" value="0"/>
+<span class="font-mono-tabular text-xs font-bold text-text-muted">:</span>
+<input class="w-12 bg-surface-container text-center font-mono-data text-xs text-text-primary py-0.5 rounded border border-border-subtle focus:outline-none focus:border-primary" id="input-delay-mm" max="59" min="0" type="number" value="0"/>
+<span class="font-mono-tabular text-xs text-text-muted ml-1">hh:mm</span>
+</div>
+<span class="font-mono-tabular text-[11px] text-text-muted">Rango: 00:00 … 12:00</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight">00:00 = inmediato; a las 12 h los minutos quedan en 00</span>
+</div>
+<!-- Checkbox toggle: Aire al enfriar -->
+<div class="flex flex-col gap-1">
+<span class="font-label-md text-xs font-semibold text-text-primary">Ventilación asistida</span>
+<label class="flex items-start gap-2.5 bg-surface-base border border-border-subtle rounded-lg p-2.5 cursor-pointer hover:bg-surface-subtle transition-colors">
+<input checked="" class="mt-0.5 h-4 w-4 rounded text-primary-container focus:ring-0 cursor-pointer" id="chk-blower" type="checkbox"/>
+<div class="flex flex-col">
+<span class="font-label-md text-xs font-semibold text-text-primary">Aire al enfriar</span>
+<span class="font-body-sm text-[11px] text-text-muted leading-tight mt-0.5">Ventilador encendido en Alarma y Enfriando hasta Tmin</span>
+</div>
+</label>
+</div>
+</div>
+<!-- Context note for height balance -->
+<div class="bg-surface-base/60 border border-border-subtle/60 rounded-lg p-2.5 flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-text-muted text-[16px] shrink-0">timer</span>
+<span class="font-body-sm text-xs text-text-muted">
+              El retraso programa una cuenta atrás antes de ejecutar el ciclo térmico seleccionado.
+            </span>
+</div>
+</div>
+<!-- Footer Card 3 -->
+<div class="bg-surface-base border-t border-border-subtle px-5 py-3 pl-6 flex items-center justify-between gap-3">
+<span class="font-mono-tabular text-xs bg-surface-terminal text-[#27ae60] px-2 py-0.5 rounded" id="badge-heat">TX: AT+CFG=H,0,1</span>
+<button class="bg-primary-container hover:bg-action-hover active:bg-action-active text-white text-xs font-semibold px-4 py-1.5 rounded-lg shadow-sm transition-colors" id="btn-save-heat" type="button">
+            Guardar arranque / fin
+          </button>
+</div>
+</div>
+<!-- CARD 4: Ganancias PI (Teal / Amber accent) -->
+<div class="bg-surface-container rounded-xl border border-border-subtle shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 left-0 bottom-0 w-1.5 bg-[#006497]"></div>
+<div class="p-5 pl-6 flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-sm font-bold text-text-primary">4. Ganancias PI</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Proporcional Kp (×10) -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-kp">Proporcional Kp (×10)</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-10 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-kp" max="999" min="0" type="number" value="246"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">/ 10</span>
+</div>
+<div class="flex items-center justify-between font-mono-tabular text-[11px]">
+<span class="text-text-muted">Rango: 0 … 999</span>
+<span class="text-text-primary font-medium">Valor real: <span class="font-bold text-primary" id="lbl-kp-real">24.6</span></span>
+</div>
+</div>
+<!-- Integral Ki (×100) -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-xs font-semibold text-text-primary" for="input-ki">Integral Ki (×100)</label>
+<div class="relative flex items-center">
+<input class="w-full bg-surface-base font-mono-data text-xs text-text-primary px-3 py-1.5 rounded-lg border border-border-subtle pr-12 focus:bg-surface-container focus:outline-none focus:border-primary transition-colors" id="input-ki" max="999" min="0" type="number" value="10"/>
+<span class="absolute right-2.5 font-mono-tabular text-xs text-text-muted pointer-events-none">/ 100</span>
+</div>
+<div class="flex items-center justify-between font-mono-tabular text-[11px]">
+<span class="text-text-muted">Rango: 0 … 999</span>
+<span class="text-text-primary font-medium">Valor real: <span class="font-bold text-primary" id="lbl-ki-real">0.10</span></span>
+</div>
+</div>
+</div>
+<!-- Info note box -->
+<div class="bg-surface-base border border-border-subtle rounded-lg p-2.5 flex items-start gap-2 mt-1">
+<span class="material-symbols-outlined text-text-muted text-[16px] shrink-0 mt-0.5">info</span>
+<p class="font-body-sm text-xs text-text-muted">
+              El autoajuste las escribe al terminar. El lazo no usa Kd.
+            </p>
+</div>
+</div>
+<!-- Footer Card 4 -->
+<div class="bg-surface-base border-t border-border-subtle px-5 py-3 pl-6 flex items-center justify-between gap-3">
+<span class="font-mono-tabular text-xs bg-surface-terminal text-[#27ae60] px-2 py-0.5 rounded" id="badge-pid">TX: AT+CFG=P,246,10</span>
+<button class="border border-error text-error hover:bg-error-container hover:border-error text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors shadow-sm" id="btn-save-pid" type="button">
+            Sobrescribir valores PID
+          </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BOTTOM STATUS BAR (Exact 28px height) -->
+<footer class="fixed bottom-0 left-0 w-full h-[28px] bg-surface-base border-t border-border-subtle px-4 flex items-center text-xs font-mono-tabular text-text-muted z-50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-status-online inline-block"></span>
+<span class="text-text-primary">/dev/cu.usbserial-A10K @ 19200 · En línea · Modo USB</span>
+</div>
+</footer>
+<!-- SCRIPT FOR DYNAMIC PREVIEWS -->
+<script>
+    (function() {
+      const tmin = document.getElementById('input-tmin');
+      const tmax = document.getElementById('input-tmax');
+      const bn = document.getElementById('input-bn');
+      const bx = document.getElementById('input-bx');
+      const hh = document.getElementById('input-delay-hh');
+      const mm = document.getElementById('input-delay-mm');
+      const blower = document.getElementById('chk-blower');
+      const kp = document.getElementById('input-kp');
+      const ki = document.getElementById('input-ki');
+
+      const badgeLimits = document.getElementById('badge-limits');
+      const badgeBands = document.getElementById('badge-bands');
+      const badgeHeat = document.getElementById('badge-heat');
+      const badgePid = document.getElementById('badge-pid');
+
+      const lblKpReal = document.getElementById('lbl-kp-real');
+      const lblKiReal = document.getElementById('lbl-ki-real');
+      const lblReadTime = document.getElementById('lbl-read-time');
+      const btnRead = document.getElementById('btn-read-settings');
+
+      function updateLimits() {
+        const minVal = parseInt(tmin.value) || 50;
+        const maxVal = parseInt(tmax.value) || 210;
+        badgeLimits.textContent = `TX: AT+CFG=S,${minVal},${maxVal}`;
+      }
+
+      function updateBands() {
+        const bnVal = parseInt(bn.value) || 4;
+        const bxVal = parseInt(bx.value) || 6;
+        badgeBands.textContent = `TX: AT+CFG=B,${bnVal},${bxVal}`;
+      }
+
+      function updateHeat() {
+        const hhVal = parseInt(hh.value) || 0;
+        const mmVal = parseInt(mm.value) || 0;
+        const air = blower.checked ? 1 : 0;
+        // Total minutes or zero flag matching AT+CFG=H
+        const totalMinutes = (hhVal * 60) + mmVal;
+        badgeHeat.textContent = `TX: AT+CFG=H,${totalMinutes},${air}`;
+      }
+
+      function updatePid() {
+        const kpVal = parseInt(kp.value) || 0;
+        const kiVal = parseInt(ki.value) || 0;
+        lblKpReal.textContent = (kpVal / 10).toFixed(1);
+        lblKiReal.textContent = (kiVal / 100).toFixed(2);
+        badgePid.textContent = `TX: AT+CFG=P,${kpVal},${kiVal}`;
+      }
+
+      tmin.addEventListener('input', updateLimits);
+      tmax.addEventListener('input', updateLimits);
+      bn.addEventListener('input', updateBands);
+      bx.addEventListener('input', updateBands);
+      hh.addEventListener('input', updateHeat);
+      mm.addEventListener('input', updateHeat);
+      blower.addEventListener('change', updateHeat);
+      kp.addEventListener('input', updatePid);
+      ki.addEventListener('input', updatePid);
+
+      btnRead.addEventListener('click', function() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        lblReadTime.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      });
+    })();
+  </script>
+</body></html>

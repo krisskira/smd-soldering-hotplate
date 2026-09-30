@@ -32,7 +32,7 @@ Algunos datos viven en **EEPROM** (sobreviven al apagado). Otros solo existen **
 
 | Dato | En EEPROM (v8) | En RAM (`app_state_t`) | Notas |
 |------|----------------|------------------------|-------|
-| Ganancias Kp / Ki ×10 | sí | `pid_kp/ki_x10` | Tras autoajuste o edición (sin Kd) |
+| Ganancias Kp ×10 / Ki ×100 | sí | `pid_kp/ki_x10` (nombre de Ki heredado) | Tras autoajuste o edición (sin Kd) |
 | Ciclos objetivo del autoajuste | sí | `atune_cycles_target` | Default **5** |
 | Histéresis del autoajuste | sí | `atune_hyst_c_x10` | Ancho del “relé” alrededor del SET |
 | Tiempo máximo del autoajuste | sí | `atune_max_s` | 120…3600 s; default **2000** |
@@ -64,6 +64,7 @@ No hay pitido de navegación, ni al arrancar, parar o salir de USB.
 |------------|---------|--------|--------------------|-------|
 | HEAT termina las rampas | línea `ALARM:2` | `READY`: 3 pulsos | `ALARM` | Calefactor OFF; aire si está activado. Mientras dura `PH_ALARM`, el mismo `READY` se repite cada `alarm_period_s` |
 | Sobretemperatura | `ERROR:7` | ninguno | `FAULT` | Lectura válida ≥ `temp_max_c` → PTC OFF, fase `PH_FAULT` |
+| Consigna inalcanzable | `ERROR:9` | ninguno | `FAULT` | 180 s en `PH_RUN` con duty ≥ 95 %, pendiente ≤ 0,2 °C/s y T bajo la banda |
 | Cambio de fase | sin línea aparte | ver abajo | token de la fase nueva | El token va **dentro** de `$HP` |
 | Abort desde HotPanel en vista USB | `ERROR:8` | ninguno | — | Todo OFF → HOME |
 
@@ -125,7 +126,7 @@ flowchart TD
 | Fase | Calefactor (SSR) | Aire | Cuándo avanza |
 |------|------------------|------|---------------|
 | Espera (`DELAY`) | OFF | OFF | Cuando el contador llega a 0 |
-| Subida (`RUN`, rampa i) | PI al SET del escalón (referencia `t_ref` + anticipación; al entrar se alinea `t_ref` a T) | OFF | Approach controlado: **aún no** cuenta `hold_s`. Al entrar en ± BN → meseta. La rampa 1 es el primer escalón |
+| Subida (`RUN`, rampa i) | PI al SET del escalón (referencia `t_ref` + anticipación; al entrar se alinea `t_ref` a T) | OFF | Approach controlado: **aún no** cuenta `hold_s`. Al entrar en ± BN → meseta. Si durante 180 s el duty es ≥ 95 %, la pendiente es ≤ 0,2 °C/s y T sigue bajo la banda, `ERROR:9` y `FAULT` (el SET no se alcanza). La rampa 1 es el primer escalón |
 | Meseta (`HOLD`, rampa i) | PI mantiene el SET | OFF | Aquí sí corre `hold_s`. Al agotarse → siguiente rampa o fin. El Soldering Profile **no puede bajar** de rampa a rampa (`ERROR:2` si lo intenta) |
 | Aviso de fin (`ALARM`) | OFF | ON si el aire asistido está activo | Timeout o confirmación → enfriamiento o listo |
 | Enfriamiento (`COOLDOWN`) | OFF | ON | Cuando `T ≤ temp_min_c` → fan OFF y listo |

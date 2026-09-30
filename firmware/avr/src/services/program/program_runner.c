@@ -10,10 +10,40 @@
 #include "i18n/i18n_c.h"
 #include "lib/avr_delay/avr_delay.h"
 #include "lib/ports/ports.h"
-#include "lib/avr_uart/avr_uart.h"
 #include <avr/pgmspace.h>
 
 static uint16_t s_last_sec;
+static int16_t s_stall_t_x10;
+static uint16_t s_stall_s;
+
+static void plate_reset(app_state_t *st)
+{
+    s_stall_t_x10 = st->sensor.temp_c_x10;
+    s_stall_s = 0;
+}
+
+/* Duty alto y fuera de banda durante 3 min: comprueba la pendiente media. */
+static uint8_t run_stalled(const app_state_t *st)
+{
+    int16_t gap;
+
+    if (!st->sensor.valid || st->duty_pct < RUN_STALL_DUTY_PCT)
+        goto reset;
+    gap = (int16_t)((int16_t)(st->t_set_c * 10) - st->sensor.temp_c_x10);
+    if (gap <= (int16_t)((uint16_t)st->preheat_band_c * 10u))
+        goto reset;
+    if (s_stall_s++ == 0u)
+        s_stall_t_x10 = st->sensor.temp_c_x10;
+    if (s_stall_s < RUN_STALL_S)
+        return 0u;
+    s_stall_s = 0;
+    return ((int16_t)(st->sensor.temp_c_x10 - s_stall_t_x10)
+            <= (int16_t)(RUN_STALL_SLOPE_X10 * RUN_STALL_S)) ? 1u : 0u;
+
+reset:
+    s_stall_s = 0;
+    return 0u;
+}
 
 static void hold_enter(app_state_t *st)
 {
@@ -95,13 +125,22 @@ static void enter_run_timed(app_state_t *st, uint16_t sec)
     st->phase = PH_RUN;
     hold_enter(st);
     pid_on_set_step(st);
+    s_stall_s = 0;
     TELEM_DIRTY(st);
 }
 
 /* Ramp1..n no decrecientes (fan solo en cooldown). */
 static uint8_t ramps_ok(const app_state_t *st)
 {
+    uint16_t hi;
     uint8_t i;
+
+    hi = temp_cmd_hi_c(st->temp_max_c);
+    for (i = 0u; i < st->ramp_n && i < RAMP_STEPS_MAX; i++) {
+        if (st->ramp_step[i].temp_c < st->temp_min_c
+            || st->ramp_step[i].temp_c > hi)
+            return 0u;
+    }
     for (i = 1u; i < st->ramp_n && i < RAMP_STEPS_MAX; i++) {
         if (st->ramp_step[i].temp_c < st->ramp_step[i - 1u].temp_c)
             return 0u;
@@ -160,6 +199,7 @@ void program_init(app_state_t *st)
     st->cooldown_air_en = 1;
     st->temp_min_c = TEMP_MIN_C_DEFAULT;
     st->temp_max_c = TEMP_MAX_C_DEFAULT;
+    plate_reset(st);
     st->atune_cycles_target = ATUNE_CYCLES_DEFAULT;
     st->atune_hyst_c_x10 = ATUNE_HYST_C_X10;
     st->atune_max_s = ATUNE_MAX_S_DEFAULT;
@@ -286,6 +326,7 @@ uint8_t program_start(app_state_t *st, ctrl_src_t src)
 
     st->ctrl_src = src;
     st->t_elapsed_s = 0;
+    plate_reset(st);
     s_last_sec = delay_ms();
 
     switch (st->program) {
@@ -377,8 +418,13 @@ static void on_second(app_state_t *st)
             begin_pipeline(st);
     } else if (st->phase == PH_RUN) {
         /* Approach PI; meseta al entrar ±band_c. */
-        if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u)))
+        if (in_band_x10(st, (int16_t)((uint16_t)st->preheat_band_c * 10u))) {
+            s_stall_s = 0;
             st->phase = PH_HOLD;
+        } else if (run_stalled(st)) {
+            proto_emit_error((uint8_t)PROTO_ERR_UNREACHABLE);
+            program_fault(st);
+        }
     } else if (st->phase == PH_HOLD) {
         if (st->t_remain_s > 0)
             st->t_remain_s--;

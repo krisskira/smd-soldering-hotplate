@@ -9,6 +9,7 @@ static uint16_t s_win_start_ms;
 static uint8_t s_bank_on;
 static uint8_t s_sample_ready;
 static uint8_t s_have_prev;
+static uint8_t s_i_decim;
 
 void pid_init(app_state_t *st)
 {
@@ -28,6 +29,7 @@ void pid_reset(app_state_t *st)
     s_win_start_ms = delay_ms();
     s_bank_on = 0;
     s_sample_ready = 0;
+    s_i_decim = 0;
     if (st && st->sensor.valid)
         st->t_ref_x10 = st->sensor.temp_c_x10;
 }
@@ -83,15 +85,21 @@ void pid_compute_sample(app_state_t *st)
 
     /* Anti-windup con duty previo */
     if (!((st->duty_pct >= 100 && err > 0) || (st->duty_pct == 0 && err < 0))) {
-        s_integral_x10 += err;
-        if (s_integral_x10 > 10000)
-            s_integral_x10 = 10000;
-        if (s_integral_x10 < -10000)
-            s_integral_x10 = -10000;
+        /* Ki está ×100: integrar cada 10 muestras evita una división signed
+         * de 32 bits. La planta térmica cambia mucho más lento que esos 10 s. */
+        if (++s_i_decim >= 10u) {
+            s_i_decim = 0;
+            s_integral_x10 += err;
+            if (s_integral_x10 > 1000)
+                s_integral_x10 = 1000;
+            if (s_integral_x10 < -1000)
+                s_integral_x10 = -1000;
+        }
     }
 
+    /* I decimado representa sum(err)/10: equivale a Ki_x100*sum(err)/10. */
     out = ((int32_t)st->pid_kp_x10 * err
-           + ((int32_t)st->pid_ki_x10 * s_integral_x10) / 100) / 10;
+           + (int32_t)st->pid_ki_x10 * s_integral_x10) / 10;
     if (out < 0)
         out = 0;
     if (out > 1000)

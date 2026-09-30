@@ -19,10 +19,11 @@ def add_panel(row: ttk.Frame, panel: tk.Misc, *, gap: int = 8) -> None:
     """Coloca el panel a su ancho natural y lo estira a la altura de la fila."""
     col = int(getattr(row, "_hp_col", 0))
     setattr(row, "_hp_col", col + 1)
+    row.columnconfigure(col, weight=1, uniform="hp-panels")
     panel.grid(
         row=0,
         column=col,
-        sticky=tk.NS,
+        sticky=tk.NSEW,
         padx=(0 if col == 0 else gap, 0),
         pady=0,
     )

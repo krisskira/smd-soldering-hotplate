@@ -115,12 +115,31 @@ static void test_ref_ramps_toward_set(void)
     CHECK(st.t_ref_x10 <= 1500);
 }
 
+static void test_integral_matches_zn_scale(void)
+{
+    app_state_t st;
+    st_init(&st);
+    host_set_ms(0);
+    pid_init(&st);
+    st.pid_loop = PID_AUTO;
+    st.t_set_c = 175;
+    st.pid_kp_x10 = 64;
+    st.pid_ki_x10 = 3;
+    pid_reset(&st);
+    /* Ki=3 significa 0,03/s (×100). Con la escala vieja quedaba ~32 %. */
+    for (int i = 0; i < 240; i++)
+        sample(&st, 1704);
+    CHECK(st.duty_pct >= 55);
+    CHECK(st.duty_pct <= 65);
+}
+
 int main(void)
 {
     test_no_kick_on_reset();
     test_cuts_before_setpoint();
     test_integral_bounded();
     test_ref_ramps_toward_set();
+    test_integral_matches_zn_scale();
     std::printf("pid_host_test: OK\n");
     return 0;
 }

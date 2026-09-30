@@ -16,8 +16,8 @@ void cfg_save_global(const app_state_t *st);
  * Z–N satura el techo ×10=999. A tras descartar 1.er ciclo. Fan en OFF.
  */
 
-static int16_t  s_peak_hi, s_peak_lo, s_kp, s_ki;
-static uint16_t s_half_sum_s, s_t0_s;
+static int16_t  s_peak_hi, s_peak_lo, s_kp, s_ki, s_prev_t;
+static uint16_t s_half_sum_s, s_t0_s, s_last_off_s;
 static uint8_t  s_half_n;
 
 static void heaters_off(app_state_t *st)
@@ -70,7 +70,7 @@ uint8_t pid_atune_start(app_state_t *st)
         return 1u;
     if (st->sensor.temp_c_x10 >= (int16_t)(st->temp_max_c * 10))
         return 1u;
-    if (st->t_set_c < st->temp_min_c
+    if (st->t_set_c < ATUNE_SET_LO_C || st->t_set_c > ATUNE_SET_HI_C
         || st->t_set_c > (uint16_t)(st->temp_max_c - 10u))
         return 1u;
 
@@ -88,6 +88,8 @@ uint8_t pid_atune_start(app_state_t *st)
     s_kp = s_ki = 0;
     s_half_sum_s = 0;
     s_half_n = 0;
+    s_last_off_s = 0;
+    s_prev_t = t;
     s_t0_s = delay_sec();
     return 0u;
 }
@@ -174,12 +176,30 @@ void pid_atune_on_sample(app_state_t *st)
     dt_s = (uint16_t)(now_s - s_t0_s);
 
     if (st->atune_relay_on) {
-        if (t < hi)
+        if (t < hi) {
+            /* Pico aplastado: sigue en ON y la pendiente es ~0. */
+            if (dt_s >= ATUNE_FLAT_S) {
+                int16_t rate = (int16_t)(t - s_prev_t);
+                /* Una pendiente negativa con calor ON también es inalcanzable. */
+                if (rate <= ATUNE_FLAT_SLOPE_X10) {
+                    fail(st);
+                    return;
+                }
+            }
+            s_prev_t = t;
             return;
+        }
         heaters_off(st);
         fan_on();
-        if (s_half_n > 0)
+        if (s_half_n > 0) {
+            /* ON mucho más largo que el OFF anterior: no hay oscilación útil. */
+            if (s_last_off_s != 0u
+                && dt_s >= (uint16_t)(s_last_off_s * ATUNE_ON_OFF_RATIO)) {
+                fail(st);
+                return;
+            }
             s_half_sum_s = (uint16_t)(s_half_sum_s + dt_s);
+        }
         s_half_n++;
         s_t0_s = now_s;
         if ((s_half_n / 2u) >= st->atune_cycles_target && s_half_n >= 4u) {
@@ -196,8 +216,10 @@ void pid_atune_on_sample(app_state_t *st)
     outputs_bank_set(st->out_state, 1);
     st->duty_pct = 100;
     st->atune_relay_on = 1;
-    if (s_half_n > 0)
+    if (s_half_n > 0) {
         s_half_sum_s = (uint16_t)(s_half_sum_s + dt_s);
+        s_last_off_s = dt_s;
+    }
     s_half_n++;
     s_t0_s = now_s;
     st->atune_cycles = (uint8_t)(s_half_n / 2u);

@@ -27,7 +27,8 @@ En el micro casi todo va en enteros. Las temperaturas se guardan **×10** (una d
 | `t_set` | °C enteros | Consigna de la etapa (Soldering Profile) |
 | `t_ref` | °C × 10 | Referencia interna que el lazo persigue (no es el SET de golpe) |
 | `rate` | (°C × 10) / muestra | Cuánto subió o bajó T desde la muestra anterior (~°C×10 por segundo si la muestra es 1 s) |
-| `Kp`, `Ki` | enteros × 10 | Ganancias (`pid_kp_x10`, `pid_ki_x10`) |
+| `Kp` | entero × 10 | Ganancia proporcional (`pid_kp_x10`) |
+| `Ki` | entero × 100 | Ganancia integral por segundo (`pid_ki_x10`; nombre interno heredado) |
 | `duty` | 0…100 % | Parte de cada ventana en la que el calefactor está ON |
 | `I` | acumulador × 10 | Integral del error (con anti-windup) |
 
@@ -120,31 +121,46 @@ El clip ±5000 (= ±50 °C en la predicción) evita overflow en enteros.
 
 ### 2.4 PI y anti-windup
 
-Si el duty **no** está saturado a favor del error, se actualiza el integral:
+Si el duty **no** está saturado a favor del error, el modelo ideal actualiza:
 
 $$
 I \leftarrow \mathrm{clip}(I + e,\ ±10000)
 $$
 
+En el ATmega16 se usa la forma equivalente cuantizada: cada 10 muestras se
+acumula el error actual en `I10`, con tope ±1000. Así `I10 ≈ I/10` y se evita
+enlazar una división signed de 32 bits que no cabe en el flash:
+
+$$
+I_{10} \leftarrow \mathrm{clip}(I_{10} + e,\ ±1000)
+\quad\text{cada 10 muestras}
+$$
+
 Salida interna (0…1000) y duty en %:
 
 $$
-u = \mathrm{clip}\left(\frac{K_{p,x10} · e + (K_{i,x10} · I) / 100}{10},\ 0,\ 1000\right)
+u = \mathrm{clip}\left(\frac{K_{p,x10} · e + K_{i,x100} · I_{10}}{10},\ 0,\ 1000\right)
 $$
 
 $$
 \mathrm{duty\%} = u / 10
 $$
 
+$K_p$ se guarda ×10 y $K_i$ ×100. El nombre interno `pid_ki_x10` se
+conserva por compatibilidad, pero su unidad real es ×100. El firmware anterior
+dividía el término integral por 100; debía dividirlo por 10. Eso lo dejaba diez
+veces corto y el lazo se equilibraba varios grados bajo el SET.
+
 **No integrar** cuando ya no sirve: `(duty ≥ 100 y e > 0)` o `(duty = 0 y e < 0)`.
 
 | Variable | Origen | Qué hace |
 |----------|--------|----------|
 | `pid_kp_x10` | EEPROM / `AT+CFG=P` / autoajuste | Respuesta al error predicho |
-| `pid_ki_x10` | igual | Quita el error residual en meseta; demasiado alto → oscilación lenta |
+| `pid_ki_x10` | igual; unidad real ×100 | Quita el error residual en meseta; demasiado alto → oscilación lenta |
 No hay Kd: ni en `app_state_t`, ni en EEPROM, ni en `AT+CFG=P` (en térmicas lentas el Td de Z–N satura).
 
-Valores de fábrica de referencia: Kp_x10 = **246**, Ki_x10 = **10**.
+Valores de fábrica de referencia: Kp_x10 = **246** (24,6),
+Ki_x100 = **10** (0,10/s).
 
 ### 2.5 Ventana time-proportioning (SSR)
 
@@ -200,7 +216,7 @@ Forzar una oscilación alrededor de `t_set` encendiendo y apagando al 100 % (ban
 
 | Variable | Rango típico | Default | Rol |
 |----------|--------------|---------|-----|
-| `t_set_c` | [Tmin .. Tmax−10] | — | Centro de oscilación |
+| `t_set_c` | **120…150** °C, y dentro de [Tmin .. Tmax−10] | — | Centro de oscilación. Fuera de 120–150 el relé no tiene autoridad y `RUN=2` responde `ERROR:2` |
 | `atune_hyst_c_x10` | 1…99 | **15** (±1,5 °C) | Ancho del relé: ON hasta SET+hyst, OFF hasta SET−hyst |
 | `atune_cycles_target` | 3…10 | **5** | Ciclos a acumular (tras descartar el heat-up) |
 | `atune_max_s` | 120…3600 | **2000** | Tiempo máximo → FAIL |
@@ -210,7 +226,8 @@ Forzar una oscilación alrededor de `t_set` encendiendo y apagando al 100 % (ban
 1. **ON:** calefactor 100 %, fan OFF. Sigue mientras $T < SET + hyst$. Al cruzar el umbral alto → OFF, fan ON (acelera la bajada), acumula semiperiodo.
 2. **OFF:** calefactor 0 %, fan ON. Sigue mientras $T > SET - hyst$. Al cruzar el umbral bajo → ON, fan OFF, acumula semiperiodo.
 3. Tras el **2.º** flanco (fin del primer medio ciclo de calentamiento), **reinicia** los picos $T_{\max}$ / $T_{\min}$ para no contar el transient inicial.
-4. Cuando hay suficientes ciclos cerrados y semiperiodos → termina OK.
+4. Cuando hay suficientes ciclos cerrados y semiperiodos → termina OK, salvo que un semiperiodo ON sea ≥ 3× el OFF anterior: en ese caso `FAIL` y no se escribe EEPROM.
+5. Si el calefactor lleva **180 s** en ON, la temperatura sigue bajo el umbral alto y la pendiente es ≤ 0,2 °C/s, el pico está aplastado: `FAIL` sin escribir Kp/Ki.
 
 ### 4.4 Fórmulas (como en el firmware)
 
@@ -290,17 +307,18 @@ T_i = \frac{T_u}{1{,}2},\qquad
 K_d = 0
 $$
 
-En enteros ×10 (lo que realmente guarda HotPlate):
+En enteros, Kp ×10 y Ki ×100 (lo que realmente guarda HotPlate):
 
 $$
 K_{p,x10} = \mathrm{clip}\big(\lfloor K_{u,x10} · 45 / 100 \rfloor,\ 1,\ 999\big)
 $$
 
 $$
-K_{i,x10} = \mathrm{clip}\big(\lfloor K_{p,x10} · 120 / (T_u · 10) \rfloor,\ 0,\ 999\big)
+K_{i,x100} = \mathrm{clip}\big(\lfloor K_{p,x10} · 120 / (T_u · 10) \rfloor,\ 0,\ 999\big)
 $$
 
-porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$, y `tu10 = T_u · 10` evita divisiones con decimales.
+porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$. El factor ×100 de Ki
+compensa el ×10 de Kp y `tu10 = T_u · 10`.
 
 ```111:124:firmware/avr/src/services/pid_atune.c
     /* Z–N PI (método 2): Kp=0.45 Ku, Ti=Tu/1.2, Kd=0 */
@@ -335,7 +353,7 @@ porque $K_i = K_p / T_i = K_p · 1{,}2 / T_u$, y `tu10 = T_u · 10` evita divisi
 |-------|-----|
 | Fase | IDLE / RUN / DONE / FAIL |
 | Ciclos cerrados | Progreso |
-| AK / AI | Kp / Ki resultado (×10) |
+| AK / AI | Kp ×10 / Ki ×100 resultado |
 
 En este producto esos campos van en el mismo `$HP` (`AP`, `AC`, `AK`, `AI`), no en una trama aparte. El `$HP` sale a 1 Hz durante toda la sesión USB y lleva esos campos mientras `ATUNE_RUN` (más la trama de DONE/FAIL). Baud y activación: [usb-automation.md](usb-automation.md).
 
@@ -360,8 +378,9 @@ each sample:
   else: t_ref = SET*10
   Tpred = T + clamp(rate * LOOKAHEAD, ±5000)
   e = t_ref - Tpred
-  if not saturated_favor(duty, e): I = clamp(I + e, ±10000)
-  u = clamp((Kp*e + Ki*I/100)/10, 0, 1000)
+  if sample_count % 10 == 0 and not saturated_favor(duty, e):
+      I10 = clamp(I10 + e, ±1000)
+  u = clamp((Kp_x10*e + Ki_x100*I10)/10, 0, 1000)
   duty = u / 10
 each loop:
   apply time_proportioning(duty, WINDOW_MS) to heater
