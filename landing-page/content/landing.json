@@ -1,0 +1,537 @@
+{
+  "sections": [
+    {
+      "type": "hero",
+      "badge": "Hardware y software abiertos · ATmega16",
+      "title": "Soldadura SMD por reflow,",
+      "highlight": "con perfil y no a ojo",
+      "lead": "HotPlate ejecuta un **Soldering Profile**: sube con control, sostiene cada meseta el tiempo justo, avisa al terminar y se enfría sola. Se maneja con una perilla o desde el computador.",
+      "actions": [
+        {
+          "label": "Ver un ciclo real",
+          "href": "#demo",
+          "icon": "play"
+        },
+        {
+          "label": "Código y planos",
+          "href": "https://github.com/krisskira/smd-soldering-hotplate",
+          "variant": "secondary",
+          "icon": "github"
+        }
+      ],
+      "stats": [
+        {
+          "value": "4",
+          "label": "escalones por perfil"
+        },
+        {
+          "value": "±4 °C",
+          "label": "banda para entrar en meseta"
+        },
+        {
+          "value": "1 Hz",
+          "label": "telemetría por USB"
+        },
+        {
+          "value": "16 KB",
+          "label": "de flash, medidos byte a byte"
+        }
+      ],
+      "media": {
+        "src": "media/hotpanel-ramp.png",
+        "alt": "HotPanel en la rampa 2: 163,2 °C, fase RUN, consigna 180 °C, 5 minutos 12 segundos transcurridos",
+        "frame": "lcd",
+        "width": 664,
+        "height": 344
+      },
+      "next": {
+        "label": "Qué hace",
+        "href": "#caracteristicas"
+      }
+    },
+    {
+      "type": "features",
+      "id": "caracteristicas",
+      "nav": "Producto",
+      "kicker": "Qué hace",
+      "title": "Un ciclo completo con un solo gesto",
+      "lead": "Pulsas **RUN** y HotPlate recorre el perfil entero: espera si la programaste, sube escalón por escalón, sostiene cada meseta, avisa y se enfría. Tú solo miras.",
+      "columns": 3,
+      "items": [
+        {
+          "icon": "flame",
+          "title": "Ciclo HEAT",
+          "text": "Espera, rampas, mesetas, aviso de fin y enfriamiento en orden. Cancelas cuando quieras con **STOP**."
+        },
+        {
+          "icon": "chart",
+          "title": "Soldering Profile de 4 escalones",
+          "text": "Cada escalón tiene temperatura y tiempo de meseta. Solo suben o se mantienen: un perfil que baja se rechaza antes de arrancar."
+        },
+        {
+          "icon": "gauge",
+          "title": "Control PI predictivo",
+          "text": "Mira 15 s hacia adelante y corta potencia antes de llegar a la consigna. La masa térmica de la placa deja de pasarse."
+        },
+        {
+          "icon": "sparkles",
+          "title": "Autoajuste",
+          "text": "HotPlate oscila alrededor de una consigna, mide la respuesta y calcula Kp y Ki por Ziegler–Nichols. Las guarda solo al terminar."
+        },
+        {
+          "icon": "shield",
+          "title": "Seguridad primero",
+          "text": "Arranca siempre apagado. Si el sensor falla o se alcanza la temperatura máxima, corta el calor al instante. Una consigna inalcanzable también se detiene."
+        },
+        {
+          "icon": "timer",
+          "title": "Inicio programado",
+          "text": "Deja la placa lista y que arranque sola, de `00:00` (inmediato) hasta `12:00`. Al final, pitidos y aire para bajar más rápido."
+        }
+      ]
+    },
+    {
+      "type": "video",
+      "id": "demo",
+      "nav": "Demo",
+      "tone": "alt",
+      "kicker": "Demo",
+      "title": "Un ciclo real, con la pantalla real",
+      "lead": "La curva, la potencia y las fases salen de una traza del banco exportada por HotPlate Studio: cuatro escalones de 100 a 130 °C, aviso de fin y enfriamiento con aire. HotPanel lo dibuja el mismo `home_view.c` que corre en el ATmega16, compilado en el computador.",
+      "video": {
+        "src": "media/hotplate-demo.mp4",
+        "poster": "media/hotplate-demo-poster.jpg",
+        "alt": "Reproducción acelerada de un ciclo HEAT real: HotPanel a la izquierda, curva de temperatura, consigna y potencia a la derecha",
+        "width": 1280,
+        "height": 720,
+        "caption": "Traza `hotplate_heat_trace-4.csv` (28-09-2026), acelerada ×16 al calentar y ×120 al enfriar. Se omite el precalentado del firmware de esa fecha: el actual entra directo en la rampa 1."
+      }
+    },
+    {
+      "type": "split",
+      "id": "hotpanel",
+      "nav": "HotPanel",
+      "kicker": "HotPanel",
+      "title": "Temperatura en grande, dos casillas y una perilla",
+      "body": [
+        "**HotPanel** es la cara de HotPlate: una pantalla de 128×64 con la temperatura en grande, la fase, el escalón en curso con su consigna y el tiempo transcurrido.",
+        "Gira para elegir, pulsa para confirmar. En **Ajustes** editas las cuatro rampas y el reloj de espera sin conectar nada."
+      ],
+      "bullets": [
+        "Rampas en pasos de 5 °C y mesetas en pasos de 30 s, de 30 s a 60 min",
+        "Espera en `hh:mm`, hasta 12 horas",
+        "Cuando el computador toma el mando, HotPanel muestra **USB** y bloquea el control local: nunca hay dos mandos a la vez"
+      ],
+      "media": {
+        "src": "media/hotpanel-settings.png",
+        "alt": "HotPanel en Ajustes: lista SETUP con las rampas R1 a R4 y la temperatura de R1 en edición",
+        "frame": "lcd",
+        "width": 664,
+        "height": 344,
+        "caption": "Ajustes: editando la temperatura de la rampa 1."
+      }
+    },
+    {
+      "type": "gallery",
+      "id": "estados",
+      "kicker": "Estados",
+      "title": "Cada fase se ve de un vistazo",
+      "columns": 3,
+      "items": [
+        {
+          "src": "media/hotpanel-idle.png",
+          "alt": "HotPanel en reposo",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**IDLE** — en reposo, listo para RUN."
+        },
+        {
+          "src": "media/hotpanel-wait.png",
+          "alt": "HotPanel en espera programada",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**WAIT** — cuenta atrás del inicio programado."
+        },
+        {
+          "src": "media/hotpanel-hold.png",
+          "alt": "HotPanel en meseta",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**RUN** en meseta — el reloj de la etapa corre."
+        },
+        {
+          "src": "media/hotpanel-alarm.png",
+          "alt": "HotPanel con el aviso de fin",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**ALM** — perfil terminado, calor apagado y pitidos."
+        },
+        {
+          "src": "media/hotpanel-usb.png",
+          "alt": "HotPanel controlado por USB",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**USB** — HotPlate Studio tiene el mando."
+        },
+        {
+          "src": "media/hotpanel-delay.png",
+          "alt": "HotPanel editando la hora de inicio",
+          "frame": "lcd",
+          "width": 664,
+          "height": 344,
+          "caption": "**DLY** — editando las horas de la espera."
+        }
+      ]
+    },
+    {
+      "type": "showcase",
+      "id": "studio",
+      "nav": "Studio",
+      "tone": "alt",
+      "kicker": "HotPlate Studio",
+      "title": "El computador como panel de control",
+      "lead": "Aplicación de escritorio en Python que habla con HotPlate por USB. Todo lo que HotPanel no expone se define aquí, y todo se guarda en la memoria del equipo.",
+      "items": [
+        {
+          "label": "Proceso HEAT",
+          "media": {
+            "src": "media/studio-heat.webp",
+            "alt": "HotPlate Studio en la pestaña HEAT con el perfil, el estado y la curva en vivo",
+            "frame": "plain",
+            "width": 1920,
+            "height": 1350
+          },
+          "text": "Inicia o detiene el ciclo, edita el Soldering Profile y mira en vivo la temperatura contra la consigna, la potencia y cada cambio de fase. El registro se exporta a CSV."
+        },
+        {
+          "label": "Autoajuste",
+          "media": {
+            "src": "media/studio-autotune.webp",
+            "alt": "HotPlate Studio con el autoajuste terminado: 5 de 5 ciclos, Kp y Ki calculados",
+            "frame": "plain",
+            "width": 1920,
+            "height": 1350
+          },
+          "text": "Lanza el aprendizaje, sigue los ciclos de oscilación y lee las ganancias que HotPlate calculó y guardó."
+        },
+        {
+          "label": "Ajustes",
+          "media": {
+            "src": "media/studio-settings.webp",
+            "alt": "HotPlate Studio en Ajustes: límites de temperatura, bandas de meseta, arranque y ganancias PI",
+            "frame": "plain",
+            "width": 1920,
+            "height": 1350
+          },
+          "text": "Límites mínimo y máximo, bandas de entrada a meseta, espera de arranque, aire al enfriar y ganancias del PI."
+        },
+        {
+          "label": "Conexión",
+          "media": {
+            "src": "media/studio-connection.webp",
+            "alt": "HotPlate Studio en Conexión: puerto serie y consola",
+            "frame": "plain",
+            "width": 1920,
+            "height": 1350
+          },
+          "text": "Elige el puerto, enlaza con HotPlate a 19200 baudios y pásalo a modo USB. Incluye una consola para ver cada trama."
+        }
+      ]
+    },
+    {
+      "type": "split",
+      "id": "control",
+      "nav": "Control",
+      "kicker": "Control térmico",
+      "title": "Frenar antes de llegar",
+      "body": [
+        "Una placa calefactora tiene inercia: si cortas el calor al llegar a la consigna, sigue subiendo. HotPlate lo resuelve con un **PI predictivo**.",
+        "El control persigue una referencia que sube a **1,2 °C/s** y calcula el error con la temperatura que habrá dentro de **15 s**. La salida se aplica al relé de estado sólido como tiempo de encendido en una ventana de **1,5 s**, con anti-windup."
+      ],
+      "bullets": [
+        "Sin término derivativo: solo Kp y Ki",
+        "Al cambiar de escalón, la referencia arranca desde la temperatura actual",
+        "Si durante 3 min la potencia va al 95 % y no llega, corta y avisa con `ERROR:9`"
+      ],
+      "reverse": true,
+      "media": {
+        "src": "media/trace-heat-4.webp",
+        "alt": "Captura de HotPlate Studio con un ciclo HEAT completo: rampas de 100 a 130 °C, alarma y enfriamiento",
+        "width": 2560,
+        "height": 1080,
+        "caption": "Ciclo completo registrado en HotPlate Studio: cuatro escalones, aviso y enfriamiento."
+      },
+      "actions": [
+        {
+          "label": "Leer el detalle del PI",
+          "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/pid_control.md",
+          "variant": "link"
+        }
+      ]
+    },
+    {
+      "type": "stats",
+      "id": "resultados",
+      "tone": "alt",
+      "kicker": "Banco de pruebas",
+      "title": "Lo que midieron las trazas reales",
+      "lead": "Cinco corridas HEAT y dos de autoajuste alimentan un test de regresión (`make real-trace-test`). Todavía no hay una traza a 183 °C, el punto de fusión del Sn63/Pb37: ese ensayo es el siguiente.",
+      "items": [
+        {
+          "value": "+3,4",
+          "unit": "°C",
+          "label": "Sobrepaso máximo del PI",
+          "note": "En escalones de 10 °C. En el resto quedó por debajo de la consigna."
+        },
+        {
+          "value": "0,75",
+          "unit": "°C/s",
+          "label": "Subida a plena potencia",
+          "note": "Medida cerca de 100 °C. De 30 a 100 °C tarda unos 3 min."
+        },
+        {
+          "value": "171,7",
+          "unit": "°C",
+          "label": "Máximo registrado",
+          "note": "Última traza, con consigna de 175 °C."
+        },
+        {
+          "value": "0,19",
+          "unit": "°C/s",
+          "label": "Enfriamiento con aire",
+          "note": "Entre 130 y 120 °C. De 130 a 50 °C, entre 12 y 17 min."
+        }
+      ],
+      "media": {
+        "src": "media/trace-latest.webp",
+        "alt": "Última traza HEAT: escalones de 150, 165 y 175 °C con la potencia del calentador",
+        "width": 1652,
+        "height": 358,
+        "caption": "Última traza: 150 → 165 → 175 °C con el firmware actual."
+      }
+    },
+    {
+      "type": "steps",
+      "id": "como-se-usa",
+      "kicker": "Uso",
+      "title": "De la pasta a la placa soldada",
+      "items": [
+        {
+          "title": "Carga el perfil",
+          "text": "Hasta 4 escalones de temperatura y meseta, desde HotPanel o HotPlate Studio."
+        },
+        {
+          "title": "Programa la espera",
+          "text": "`00:00` arranca de inmediato; puedes dejarlo hasta 12 horas."
+        },
+        {
+          "title": "Pulsa RUN",
+          "text": "HotPlate sube, sostiene cada meseta y muestra la fase y el tiempo en todo momento."
+        },
+        {
+          "title": "Aviso y enfriamiento",
+          "text": "Al terminar apaga el calor, pita y sopla aire hasta la temperatura mínima."
+        }
+      ]
+    },
+    {
+      "type": "specs",
+      "id": "hardware",
+      "nav": "Hardware",
+      "tone": "alt",
+      "kicker": "Ficha técnica",
+      "title": "Por dentro",
+      "lead": "Un microcontrolador de 16 KB hace todo a la vez: lee el sensor, decide la potencia, avanza el perfil, refresca la pantalla y atiende el USB, con un planificador cooperativo sin esperas bloqueantes.",
+      "groups": [
+        {
+          "title": "Electrónica",
+          "rows": [
+            [
+              "Microcontrolador",
+              "ATmega16 a 8 MHz"
+            ],
+            [
+              "Sensor",
+              "PT100 + MAX31865, lectura cada 1 s"
+            ],
+            [
+              "Potencia",
+              "2 resistencias PTC · MOC3021 + BT136 (SSR)"
+            ],
+            [
+              "Pantalla",
+              "ST7920 128×64"
+            ],
+            [
+              "Mando",
+              "Encoder rotatorio con pulsador"
+            ],
+            [
+              "Avisos y aire",
+              "Buzzer piezo · bomba de aire al final"
+            ]
+          ]
+        },
+        {
+          "title": "Firmware",
+          "rows": [
+            [
+              "Lenguaje",
+              "C bare-metal con avr-gcc"
+            ],
+            [
+              "Programas",
+              "HEAT y autoajuste PI"
+            ],
+            [
+              "Flash usada",
+              "16 382 de 16 384 B"
+            ],
+            [
+              "Memoria",
+              "EEPROM v8: perfil, límites y ganancias"
+            ],
+            [
+              "USB",
+              "UART 19200 8N1 · comandos AT y trama `$HP` a 1 Hz"
+            ],
+            [
+              "Pruebas",
+              "Tests en host + regresión con trazas reales"
+            ]
+          ]
+        },
+        {
+          "title": "Límites",
+          "rows": [
+            [
+              "Temperatura mínima",
+              "50–100 °C (50 por defecto)"
+            ],
+            [
+              "Corte de seguridad",
+              "40–260 °C (210 por defecto)"
+            ],
+            [
+              "Consigna máxima",
+              "250 °C"
+            ],
+            [
+              "Mesetas",
+              "30 s a 60 min"
+            ],
+            [
+              "Inicio programado",
+              "Hasta 12:00"
+            ]
+          ]
+        },
+        {
+          "title": "Abierto",
+          "rows": [
+            [
+              "PCB",
+              "KiCad: control + etapa de potencia, BOM y exports CNC"
+            ],
+            [
+              "Carcasa",
+              "Fusion 360 y 3MF para imprimir"
+            ],
+            [
+              "Software",
+              "MIT"
+            ],
+            [
+              "Hardware",
+              "CERN-OHL-P-2.0"
+            ],
+            [
+              "Documentación",
+              "CC BY 4.0"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "id": "usb",
+      "nav": "USB",
+      "kicker": "Automatización",
+      "title": "Todo lo que hace Studio, por el puerto serie",
+      "body": [
+        "Cinco verbos (`MODE`, `RUN`, `STOP`, `CFG`, `STAT`) y una trama de estado por segundo. Cualquier script que abra un puerto serie puede lanzar ciclos y registrar la curva.",
+        "Mientras hay sesión USB, HotPanel queda bloqueado y lo indica en pantalla."
+      ],
+      "actions": [
+        {
+          "label": "Ver el protocolo completo",
+          "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/usb-automation.md",
+          "variant": "link"
+        }
+      ],
+      "tabs": [
+        {
+          "label": "Lanzar HEAT",
+          "code": "# Una línea por comando; lo que sigue a # es explicación, no se envía.\nAT+MODE=1            # toma el control (HotPanel muestra USB)\nAT+CFG=R,0,150,120   # escalón 1: 150 °C, 120 s\nAT+CFG=R,1,165,90    # escalón 2: 165 °C, 90 s\nAT+CFG=R,2,175,60    # escalón 3: 175 °C, 60 s\nAT+CFG=H,0,1         # sin espera, aire al final\nAT+RUN=1             # arranca HEAT → OK"
+        },
+        {
+          "label": "Trama $HP",
+          "code": "$HP,T=119.6,P=1,A=5,SET=130,DLY=0,RUN=30,EL=311,DU=61,F=0,RI=3,FL=0\n\n# T    temperatura (°C)      A   fase: 5 = subida, 4 = meseta\n# SET  consigna (°C)         RUN tiempo restante de la fase (s)\n# EL   transcurrido (s)      DU  potencia del calentador (%)\n# RI   escalón en curso      FL  fallo 0/1"
+        },
+        {
+          "label": "Autoajuste",
+          "code": "AT+MODE=1\nAT+RUN=2,150,5,15,1200\n\n# 150 °C, 5 ciclos, histéresis ±1,5 °C, máximo 1200 s.\n# La trama $HP suma AP (fase), AC (ciclos), AK y AI (ganancias).\n# Al terminar, Kp y Ki se escriben solos en EEPROM."
+        }
+      ]
+    },
+    {
+      "type": "faq",
+      "id": "faq",
+      "kicker": "Preguntas",
+      "title": "Antes de construir uno",
+      "items": [
+        {
+          "q": "¿Sirve para soldadura sin plomo?",
+          "a": "El firmware acepta consignas de hasta 250 °C, pero las trazas publicadas llegan a 171,7 °C. El perfil documentado apunta a Sn63/Pb37, que funde a 183 °C. Para sin plomo (liquidus ≈ 217 °C) hay que medir primero si la placa alcanza esa temperatura con carga."
+        },
+        {
+          "q": "¿Necesito el computador para usarlo?",
+          "a": "No. Desde HotPanel editas las cuatro rampas y la espera, y lanzas el ciclo. HotPlate Studio hace falta para los límites, las bandas, el aire al final, las ganancias y el autoajuste; todo queda guardado en el equipo."
+        },
+        {
+          "q": "¿Qué pasa si el sensor falla?",
+          "a": "El calefactor y el aire se apagan y la fase pasa a fallo. Lo mismo ocurre si una lectura alcanza la temperatura máxima configurada (`ERROR:7`) o si una consigna resulta inalcanzable (`ERROR:9`)."
+        },
+        {
+          "q": "¿Puedo fabricar y modificar el mío?",
+          "a": "Sí. PCB en KiCad, carcasa en Fusion 360 / 3MF, firmware en C y Studio en Python, con licencias MIT, CERN-OHL-P-2.0 y CC BY 4.0. Trabaja con red eléctrica: hazlo bajo tu responsabilidad y solo si sabes lo que haces."
+        }
+      ]
+    },
+    {
+      "type": "cta",
+      "id": "empezar",
+      "title": "Hazlo tuyo",
+      "lead": "Planos, firmware, HotPlate Studio y cada traza de prueba están en el repositorio. Si construyes uno, cuéntame cómo te fue.",
+      "actions": [
+        {
+          "label": "Ir al repositorio",
+          "href": "https://github.com/krisskira/smd-soldering-hotplate",
+          "icon": "github"
+        },
+        {
+          "label": "Leer la historia",
+          "href": "https://krisskira.github.io/personal-landing-page/tutoriales/hotplate-reflow-smd",
+          "variant": "secondary",
+          "icon": "book"
+        }
+      ]
+    }
+  ]
+}

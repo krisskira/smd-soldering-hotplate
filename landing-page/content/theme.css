@@ -1,0 +1,44 @@
+/*
+ * HotPlate: paleta térmica. Naranja de la curva de temperatura, ámbar de las
+ * mesetas y rojo del aviso de fin (mismos tonos que el video demo).
+ */
+:root {
+  --font-heading: "Poppins", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-code: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --bg: #fffaf6;
+  --bg-alt: #fbf1ea;
+  --fg: #2a1d17;
+  --muted: #6b5a51;
+  --card: #ffffff;
+  --line: #ecdcd1;
+  --soft: #f6ebe3;
+
+  --accent: #d9481a;
+  --accent-2: #f5a524;
+  --accent-3: #e23b3b;
+  --on-accent: #ffffff;
+
+  --hero-bg: #140f0c;
+  --hero-fg: #fbf5ef;
+  --glow-1: rgba(255, 107, 61, 0.22);
+  --glow-2: rgba(245, 165, 36, 0.14);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0f0c0b;
+  --bg-alt: #161110;
+  --fg: #f5efe9;
+  --muted: #b5aba4;
+  --card: #1b1614;
+  --line: #352b27;
+  --soft: #251e1b;
+
+  --accent: #ff6b3d;
+  --on-accent: #1a0f0a;
+
+  --hero-bg: #0c0908;
+  color-scheme: dark;
+}
