@@ -48,3 +48,5 @@ AgentStores/
 # KiCad locks
 **/~*.lck
 **/*.lck
+
+*.temp
