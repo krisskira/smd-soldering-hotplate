@@ -205,6 +205,9 @@ class AppearanceView:
         preview.grid(row=0, column=2, sticky="nsew")
 
         def fit(e) -> None:
+            if getattr(grid, "_hp_w", None) == e.width:
+                return
+            grid._hp_w = e.width  # type: ignore[attr-defined]
             unit = (e.width - 11 * GAP) / 12.0
             grid.columnconfigure(0, minsize=int(7 * unit + 6 * GAP))
             grid.columnconfigure(1, minsize=GAP)
@@ -235,7 +238,11 @@ class AppearanceView:
 
     def _fit_form(self, form: tk.Frame, width: int) -> None:
         span = getattr(form, "_hp_label_span", 5)
-        form.columnconfigure(0, minsize=int(width * span / 12.0))
+        minsize = int(width * span / 12.0)
+        if getattr(form, "_hp_minsize", None) == minsize:
+            return
+        form._hp_minsize = minsize  # type: ignore[attr-defined]
+        form.columnconfigure(0, minsize=minsize)
 
     def _stack(
         self, form: tk.Frame, rows: list[Optional[Callable[[tk.Frame], None]]],

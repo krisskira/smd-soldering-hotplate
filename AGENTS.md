@@ -1,5 +1,5 @@
 <!-- SMI Soldering Hot Plate — keep under ~150 lines -->
-<!-- Last updated: 2026-09-29 -->
+<!-- Last updated: 2026-10-04 -->
 
 # SMI Soldering Hot Plate
 
@@ -12,7 +12,8 @@
 - PCB: KiCad (`hardware/pcb/`)
 - Datasheets: `hardware/datasheets/`
 - Mecánica 3D: `mechanical/`
-- HotPlate Studio: `host-ui/`
+- HotPlate Studio: `hotplate-studio/`
+- Diseño de esa app: `hotplate-studio/design/`
 
 ## Docs
 

@@ -308,11 +308,11 @@ La confirmación de guardado y de arranque es `OK` / `ERROR`. EEPROM se escribe 
 
 ## HotPlate Studio
 
-App de escritorio en [`host-ui/`](../../../host-ui/). Habla este contrato por puerto serie (sin simulador).
+App de escritorio en [`hotplate-studio/`](../../../hotplate-studio/). Habla este contrato por puerto serie (sin simulador). Cómo arrancarla y cómo está armada: [README](../../../hotplate-studio/README.md) y [arquitectura](../../../hotplate-studio/ARCHITECTURE.md).
 
 ```bash
-pip install -r host-ui/requirements.txt
-python host-ui/app.py
+pip install -r hotplate-studio/requirements.txt
+python hotplate-studio/app.py
 ```
 
 ---

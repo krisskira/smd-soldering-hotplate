@@ -113,12 +113,40 @@ function themeScript(site: Json) {
 })();`;
 }
 
+// Solo un id de contenedor válido llega al HTML: el valor va dentro de un <script>.
+function gtmId(site: Json) {
+  const id = String(site.gtm ?? '').trim();
+  return /^GTM-[A-Z0-9]+$/.test(id) ? id : '';
+}
+
+function gtmHead(site: Json) {
+  const id = gtmId(site);
+  if (!id) return '';
+  return `<!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','${id}');</script>
+    <!-- End Google Tag Manager -->`;
+}
+
+function gtmBody(site: Json) {
+  const id = gtmId(site);
+  if (!id) return '';
+  return `<!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${id}"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->`;
+}
+
 function headTags(site: Json, landing: Json, base: string) {
   const title = site.title || site.name;
   const canonical = base ? `${base}/` : undefined;
   const image = absolute(base, site.ogImage);
   const color = site.themeColor ?? {};
   const tags = [
+    gtmHead(site),
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(site.description)}" />`,
     site.keywords?.length ? `<meta name="keywords" content="${esc(site.keywords.join(', '))}" />` : '',
@@ -293,6 +321,7 @@ export function landingFiles({ siteUrl }: { siteUrl?: string } = {}): Plugin {
       return html
         .replaceAll('%LANG%', esc(site.lang || 'es'))
         .replace('<!-- landing:head -->', headTags(site, landing, base))
+        .replace('<!-- landing:body -->', gtmBody(site))
         .replace('<!-- landing:noscript -->', noscript(site, landing));
     },
     closeBundle() {

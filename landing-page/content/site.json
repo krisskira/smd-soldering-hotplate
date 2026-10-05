@@ -20,6 +20,7 @@
   "lang": "es-CO",
   "locale": "es_CO",
   "url": "https://krisskira.github.io/smd-soldering-hotplate",
+  "gtm": "GTM-TWN288N",
   "logo": "media/logo.svg",
   "favicon": "media/logo.svg",
   "ogImage": "media/og-cover.jpg",
@@ -32,10 +33,14 @@
   "nav": [],
   "author": {
     "name": "Cristian David Vergara Gómez",
-    "url": "https://www.linkedin.com/in/cristian-david-vergara-gomez/",
-    "email": "krisskira@gmail.com"
+    "url": "https://krisskira.com/",
+    "email": "krisskira@gmail.com",
+    "sameAs": [
+      "https://krisskira.github.io/krisskira/",
+      "https://www.linkedin.com/in/cristian-david-vergara-gomez/"
+    ]
   },
-  "maker": { "name": "Kriver Devices", "url": "https://krisskira.github.io/personal-landing-page/" },
+  "maker": { "name": "Kriver Devices", "url": "https://kriverdevice.krisskira.com/" },
   "schema": {
     "@type": "Product",
     "category": "Estación de soldadura SMD por reflow",
@@ -61,7 +66,7 @@
           { "label": "README", "href": "https://github.com/krisskira/smd-soldering-hotplate#readme" },
           { "label": "Control PI y autoajuste", "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/pid_control.md" },
           { "label": "Protocolo USB / AT", "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/usb-automation.md" },
-          { "label": "La historia del proyecto", "href": "https://krisskira.github.io/personal-landing-page/tutoriales/hotplate-reflow-smd" }
+          { "label": "La historia del proyecto", "href": "https://kriverdevice.krisskira.com/tutoriales/hotplate-reflow-smd" }
         ]
       }
     ]

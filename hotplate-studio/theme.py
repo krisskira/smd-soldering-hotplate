@@ -11,7 +11,7 @@ from constants import ROOT
 
 THEME_CACHE = ROOT / "ui_theme.json"
 
-# Tamaños en píxeles. Defaults = diseño de Stitch (hotplate-studio-design/stitch).
+# Tamaños en píxeles. Defaults = diseño de Stitch (hotplate-studio/design/stitch).
 DEFAULT_THEME: dict[str, Any] = {
     "size_unit": "px",
     "font_family": "",

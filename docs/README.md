@@ -31,7 +31,9 @@
 
 | Doc | Descripción |
 |-----|-------------|
-| [../host-ui/ARCHITECTURE.md](../host-ui/ARCHITECTURE.md) | Módulos de HotPlate Studio (`host-ui/`) |
+| [../hotplate-studio/README.md](../hotplate-studio/README.md) | Cómo arrancar HotPlate Studio |
+| [../hotplate-studio/ARCHITECTURE.md](../hotplate-studio/ARCHITECTURE.md) | Cómo está armada la app |
+| [../hotplate-studio/design/README.md](../hotplate-studio/design/README.md) | Pantallas de referencia (Stitch) |
 
 ## Hardware / mecánica
 

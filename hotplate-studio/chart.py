@@ -167,20 +167,6 @@ def _phase_spans(
 
 
 _EVENT_LIMIT = 300
-_PHASE_COLORS = (
-    "#0e6655",
-    "#1a5276",
-    "#6c3483",
-    "#b9770e",
-    "#1b4f72",
-    "#7b241c",
-)
-
-
-def _phase_color(name: str) -> str:
-    """Color estable por nombre (maquetas legacy de hotplate-studio-design/previews)."""
-    idx = sum(name.encode("utf-8")) % len(_PHASE_COLORS)
-    return _PHASE_COLORS[idx]
 
 
 # Stitch: texto SVG de 9 / 8.5 unidades en un lienzo 1000 → ~770 px (≈ 6.9 / 6.5 px).
@@ -442,6 +428,9 @@ class LiveChart:
         """Proporción 8/12 · 4/12 con 16 px de separación (grid-cols-12 gap-4)."""
         col = (width - 11 * 16) / 12.0
         left = int(round(8 * col + 7 * 16))
+        if getattr(self, "_split_left", None) == left:
+            return
+        self._split_left = left
         self._split.columnconfigure(0, weight=0, minsize=left, uniform="")
         self._split.columnconfigure(1, weight=1, uniform="")
 

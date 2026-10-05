@@ -24,7 +24,7 @@ Estación abierta de soldadura SMD por reflow. En lugar de calentar a ojo, ejecu
 ## Qué hay en el repositorio
 
 - [`firmware/avr/`](firmware/avr/) — firmware del ATmega16 a 8 MHz. El mapa de documentación y código empieza en [características](firmware/avr/doc/product_features.md), [flujos](firmware/avr/doc/program_flows.md) y [arquitectura](firmware/avr/doc/architecture.md).
-- [`host-ui/`](host-ui/) — HotPlate Studio (Python).
+- [`hotplate-studio/`](hotplate-studio/) — HotPlate Studio (Python). Las pantallas que sigue están en [`hotplate-studio/design/`](hotplate-studio/design/).
 - [`hardware/`](hardware/) — PCB en KiCad y hojas de datos.
 - [`mechanical/`](mechanical/) — carcasa, tapas y perilla en 3D.
 - [`landing-page/`](landing-page/) — el sitio público, React y TypeScript con Vite.
@@ -36,7 +36,7 @@ La flash son 16 KB. Mandan el control térmico, la seguridad y la UI aprobada. V
 ```bash
 cd firmware/avr && make clean && make && make size && make usb-host-test
 
-cd host-ui && pip install -r requirements.txt && python app.py
+cd hotplate-studio && pip install -r requirements.txt && python app.py
 
 cd landing-page && npm install && npm run dev
 ```

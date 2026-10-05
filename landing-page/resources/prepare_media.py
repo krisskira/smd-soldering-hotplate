@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Copia y optimiza en public/media/ las imágenes del repo que usa la landing.
 
-    ../.venv/bin/python resources/prepare_media.py
+    ../.venv/bin/python resources/prepare_media.py            # todas
+    ../.venv/bin/python resources/prepare_media.py studio-    # solo las que empiezan así
 
-Las fuentes siguen en su sitio (docs/, firmware/, hotplate-studio-design/):
+Las fuentes siguen en su sitio (docs/, firmware/, hotplate-studio/design/):
 si se regeneran allí, basta con volver a correr este script.
 """
 
 from pathlib import Path
 import shutil
+import sys
 
 from PIL import Image
 
@@ -17,7 +19,7 @@ REPO = LANDING.parent
 OUT = LANDING / "public/media"
 
 HOTPANEL = REPO / "firmware/avr/doc/img/hotpanel"
-STUDIO = REPO / "hotplate-studio-design/previews"
+STUDIO = REPO / "hotplate-studio/design/previews"
 
 # Capturas de HotPanel: pixel art, se copian en PNG sin tocar.
 COPY = {
@@ -56,14 +58,19 @@ def og_cover() -> None:
 
 
 def main() -> None:
+    prefixes = tuple(sys.argv[1:])
+    wanted = (lambda name: name.startswith(prefixes)) if prefixes else (lambda _name: True)
     OUT.mkdir(parents=True, exist_ok=True)
     for name, src in COPY.items():
-        shutil.copyfile(src, OUT / name)
-        print(OUT / name)
+        if wanted(name):
+            shutil.copyfile(src, OUT / name)
+            print(OUT / name)
     for name, src in WEBP.items():
-        Image.open(src).convert("RGB").save(OUT / name, "WEBP", quality=86, method=6)
-        print(OUT / name)
-    og_cover()
+        if wanted(name):
+            Image.open(src).convert("RGB").save(OUT / name, "WEBP", quality=86, method=6)
+            print(OUT / name)
+    if not prefixes:
+        og_cover()
 
 
 if __name__ == "__main__":

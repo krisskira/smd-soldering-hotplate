@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 def _app_dir() -> Path:
-    """Carpeta de datos: junto al binario compilado, o host-ui/ en código fuente."""
+    """Carpeta de datos: junto al binario compilado, o hotplate-studio/ en código fuente."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent

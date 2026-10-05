@@ -28,7 +28,7 @@ Si este archivo discrepa del **código**, manda el código y hay que corregir el
 **HotPlate** ejecuta un **Soldering Profile**: sube la temperatura de forma controlada, la mantiene en cada escalón el tiempo indicado y, al terminar, apaga el calefactor y avisa. Se puede operar de dos maneras, **nunca a la vez**:
 
 - **Modo manual**: desde **HotPanel**, la interfaz a bordo de HotPlate.
-- **Modo USB**: desde un PC mediante comandos AT por UART (normalmente con *HotPlate Studio*, en `host-ui/`). Mientras este modo está activo, HotPanel queda bloqueado.
+- **Modo USB**: desde un PC mediante comandos AT por UART (normalmente con *HotPlate Studio*, en `hotplate-studio/`). Mientras este modo está activo, HotPanel queda bloqueado.
 
 ### Hardware implicado
 

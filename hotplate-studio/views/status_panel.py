@@ -165,6 +165,9 @@ class HeatHud:
             # grid-cols-8 mientras quepa; si no, cada columna conserva su contenido.
             need = max(cell.winfo_reqwidth() for cell in cells) * len(cells)
             uniform = "hud" if e.width >= need else ""
+            if getattr(body, "_hp_uniform", None) == uniform:
+                return
+            body._hp_uniform = uniform  # type: ignore[attr-defined]
             for col in range(len(cells)):
                 body.columnconfigure(col, uniform=uniform)
 
@@ -431,6 +434,9 @@ class StatusPanel:
 
             def stack(e, prof=prof, safe=safe, pair=pair) -> None:
                 side = e.width >= 2 * max(prof.winfo_reqwidth(), safe.winfo_reqwidth()) + 8
+                if getattr(pair, "_hp_side", None) == side:
+                    return
+                pair._hp_side = side  # type: ignore[attr-defined]
                 prof.grid(row=0, column=0, columnspan=(1 if side else 2), sticky=tk.NSEW,
                           padx=((0, 4) if side else 0), pady=(0 if side else (0, 10)))
                 safe.grid(row=(0 if side else 1), column=(1 if side else 0),
@@ -440,6 +446,7 @@ class StatusPanel:
             pair.bind("<Configure>", stack, add="+")
             prof.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, 4))
             safe.grid(row=0, column=1, sticky=tk.NSEW, padx=(4, 0))
+            pair._hp_side = True  # type: ignore[attr-defined]
         else:
             for title in ("Perfil", "Seguridad"):
                 self._block(right, title, sections[title]).pack(fill=tk.X, pady=(0, 10))

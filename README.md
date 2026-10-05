@@ -24,7 +24,7 @@ An open SMD reflow station. Instead of heating by eye, it runs a **Soldering Pro
 ## What's in the repo
 
 - [`firmware/avr/`](firmware/avr/) — ATmega16 firmware at 8 MHz. The map of docs and code starts at [product features](firmware/avr/doc/product_features.md), [program flows](firmware/avr/doc/program_flows.md) and [architecture](firmware/avr/doc/architecture.md).
-- [`host-ui/`](host-ui/) — HotPlate Studio (Python).
+- [`hotplate-studio/`](hotplate-studio/) — HotPlate Studio (Python). The screens it follows are in [`hotplate-studio/design/`](hotplate-studio/design/).
 - [`hardware/`](hardware/) — KiCad board and datasheets.
 - [`mechanical/`](mechanical/) — 3D enclosure, covers and knob.
 - [`landing-page/`](landing-page/) — the public site, React and TypeScript on Vite.
@@ -36,7 +36,7 @@ Flash is 16 KB. Thermal control, safety and the approved UI come first. See the 
 ```bash
 cd firmware/avr && make clean && make && make size && make usb-host-test
 
-cd host-ui && pip install -r requirements.txt && python app.py
+cd hotplate-studio && pip install -r requirements.txt && python app.py
 
 cd landing-page && npm install && npm run dev
 ```

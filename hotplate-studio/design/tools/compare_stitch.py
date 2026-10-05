@@ -8,7 +8,7 @@ el puerto serie y guarda, por pantalla:
     <out>/ours_<nombre>.png   captura de la página completa (1280 px)
     <out>/cmp_<nombre>.png    captura | referencia de Stitch (reescalada a 1×)
 
-    python hotplate-studio-design/tools/compare_stitch.py [--out /tmp/hpcmp] [nombre ...]
+    python hotplate-studio/design/tools/compare_stitch.py [--out /tmp/hpcmp] [nombre ...]
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from PIL import Image, ImageGrab
 
 HERE = Path(__file__).resolve().parent
 DESIGN = HERE.parent
-ROOT = DESIGN.parent
+APP = DESIGN.parent
 STITCH = DESIGN / "stitch"
-sys.path.insert(0, str(ROOT / "host-ui"))
+sys.path.insert(0, str(APP))
 sys.path.insert(0, str(HERE))
 
 TMP = Path(tempfile.mkdtemp(prefix="hp-compare-"))
@@ -42,8 +42,8 @@ ramps_store.RAMPS_CACHE = constants.RAMPS_CACHE
 tune_store.TUNE_CACHE = constants.TUNE_CACHE
 theme.THEME_CACHE = TMP / "ui_theme.json"
 
+import demo_data as sim  # noqa: E402
 import protocol as proto  # noqa: E402
-import render_previews as sim  # noqa: E402
 import serial_link  # noqa: E402
 from serial_link import RxEvent  # noqa: E402
 from widgets import ui  # noqa: E402
@@ -64,6 +64,8 @@ def rx(win: MainWindow, line: str) -> None:
 def hp_line(hp: dict) -> str:
     keys = ("T", "P", "A", "SET", "DLY", "RUN", "EL", "DU", "F", "RI", "FL", "TL")
     vals = dict(hp, DLY=hp.get("DLY", 0))
+    if vals["T"] is None:
+        vals["T"] = "---"
     extra = [f"{k}={hp[k]}" for k in ("AP", "AC", "AK", "AI") if k in hp]
     return "$HP," + ",".join([f"{k}={vals[k]}" for k in keys] + extra)
 
@@ -89,17 +91,35 @@ def go_online(win: MainWindow) -> None:
     win.ctrl.refresh_chrome()
 
 
+def _load_heat(win: MainWindow, rows, hp: dict, *, running: bool) -> None:
+    st = win.state
+    st.clear_samples()
+    for row in rows:
+        st.append_sample(*row)
+    heat = win.ctrl.heat
+    heat.set_banner("")
+    heat.set_heat_running(running)
+    rx(win, hp_line(hp))
+    heat.chart.redraw(st.trace, None, y_max=heat.ramp_ymax())
+
+
 def demo_heat(win: MainWindow) -> None:
     rows, hps = sim.sim_heat(sim.PROFILE)
     cut = next(i for i, h in enumerate(hps) if h["A"] == 4 and h["RI"] == 3) + 40
-    st = win.state
-    st.clear_samples()
-    for row in rows[:cut]:
-        st.append_sample(*row)
-    heat = win.ctrl.heat
-    heat.set_heat_running(True)
-    rx(win, hp_line(hps[cut - 1]))
-    heat.chart.redraw(st.trace, None, y_max=heat.ramp_ymax())
+    _load_heat(win, rows[:cut], hps[cut - 1], running=True)
+
+
+def demo_heat_done(win: MainWindow) -> None:
+    rows, hps = sim.sim_heat(sim.PROFILE)
+    _load_heat(win, rows, dict(hps[-1], F=0), running=False)
+    rx(win, "ALARM:2")
+
+
+def demo_heat_fault(win: MainWindow) -> None:
+    rows, hps = sim.sim_heat(sim.PROFILE)
+    cut = next(i for i, h in enumerate(hps) if h["A"] == 5 and h["RI"] == 1) + 25
+    fault = dict(hps[cut - 1], A=9, T=None, DU=0, FL=1, RUN=0)
+    _load_heat(win, rows[:cut], fault, running=False)
 
 
 def demo_tune(win: MainWindow) -> None:
@@ -177,6 +197,10 @@ def capture(win: MainWindow) -> Image.Image:
             break
         offset = top + view_h
     canvas.yview_moveto(0)
+    # La barra flotante cae en el margen derecho (solo fondo) y no es parte de la página.
+    x0 = content.width - 12
+    for y in range(total):
+        content.paste(content.getpixel((x0 - 1, y)), (x0, y, content.width, y + 1))
     full = grab(win)
     head_h = canvas.winfo_rooty() - win.winfo_rooty()
     foot_h = full.height - head_h - view_h

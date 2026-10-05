@@ -1,7 +1,7 @@
 """Componentes visuales de HotPlate Studio: tarjetas, botones, chips y campos.
 
 Todo se dibuja con Tk puro para reproducir el diseño de Stitch
-(`hotplate-studio-design/stitch/`): esquinas redondeadas, bordes de 1 px y
+(`hotplate-studio/design/stitch/`): esquinas redondeadas, bordes de 1 px y
 fuentes en píxeles. Las medidas vienen de las clases Tailwind del HTML.
 """
 
@@ -595,7 +595,9 @@ class Line(tk.Frame):
         if self._fixed_width:
             return
         try:
-            tk.Frame.configure(self, width=self.label.winfo_reqwidth())
+            width = self.label.winfo_reqwidth()
+            if int(tk.Frame.cget(self, "width")) != width:
+                tk.Frame.configure(self, width=width)
         except tk.TclError:
             pass
 

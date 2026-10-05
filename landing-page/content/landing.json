@@ -203,8 +203,8 @@
             "src": "media/studio-heat.webp",
             "alt": "HotPlate Studio en la pestaña HEAT con el perfil, el estado y la curva en vivo",
             "frame": "plain",
-            "width": 1920,
-            "height": 1350
+            "width": 1280,
+            "height": 1141
           },
           "text": "Inicia o detiene el ciclo, edita el Soldering Profile y mira en vivo la temperatura contra la consigna, la potencia y cada cambio de fase. El registro se exporta a CSV."
         },
@@ -214,8 +214,8 @@
             "src": "media/studio-autotune.webp",
             "alt": "HotPlate Studio con el autoajuste terminado: 5 de 5 ciclos, Kp y Ki calculados",
             "frame": "plain",
-            "width": 1920,
-            "height": 1350
+            "width": 1280,
+            "height": 1494
           },
           "text": "Lanza el aprendizaje, sigue los ciclos de oscilación y lee las ganancias que HotPlate calculó y guardó."
         },
@@ -225,8 +225,8 @@
             "src": "media/studio-settings.webp",
             "alt": "HotPlate Studio en Ajustes: límites de temperatura, bandas de meseta, arranque y ganancias PI",
             "frame": "plain",
-            "width": 1920,
-            "height": 1350
+            "width": 1280,
+            "height": 980
           },
           "text": "Límites mínimo y máximo, bandas de entrada a meseta, espera de arranque, aire al enfriar y ganancias del PI."
         },
@@ -236,8 +236,8 @@
             "src": "media/studio-connection.webp",
             "alt": "HotPlate Studio en Conexión: puerto serie y consola",
             "frame": "plain",
-            "width": 1920,
-            "height": 1350
+            "width": 1280,
+            "height": 980
           },
           "text": "Elige el puerto, enlaza con HotPlate a 19200 baudios y pásalo a modo USB. Incluye una consola para ver cada trama."
         }
@@ -527,7 +527,7 @@
         },
         {
           "label": "Leer la historia",
-          "href": "https://krisskira.github.io/personal-landing-page/tutoriales/hotplate-reflow-smd",
+          "href": "https://kriverdevice.krisskira.com/tutoriales/hotplate-reflow-smd",
           "variant": "secondary",
           "icon": "book"
         }

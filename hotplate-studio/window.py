@@ -45,9 +45,13 @@ class MainWindow(tk.Tk):
         host = tk.Frame(self, bg=ui.BG, bd=0, highlightthickness=0)
         host.pack(fill=tk.BOTH, expand=True)
 
+        # Las páginas se apilan con el tamaño de la ventana y se cambia cuál va delante.
+        # Con pack_forget una página oculta mide lo que pide su contenido, y las vistas
+        # que se adaptan al ancho (Estado, HUD) oscilan sin fin al recibir $HP.
         self.pages: list[tk.Frame] = []
         for _ in range(5):
             page = tk.Frame(host, bg=ui.BG, bd=0, highlightthickness=0)
+            page.place(x=0, y=0, relwidth=1, relheight=1)
             self.pages.append(page)
         tab_conn, tab_heat, tab_tune, tab_set, tab_look = self.pages
 
@@ -56,6 +60,8 @@ class MainWindow(tk.Tk):
         settings = SettingsView(tab_set, self.ctrl)
         appearance = AppearanceView(tab_look, self.ctrl)
         tune = TuneView(tab_tune, self.ctrl)
+        # Medir antes de aplicar el tema: al revés, Tk tarda varias veces más en converger.
+        self.update_idletasks()
 
         self._current = -1
         self.select_page(0)
@@ -74,10 +80,6 @@ class MainWindow(tk.Tk):
     def select_page(self, index: int) -> None:
         if index == self._current:
             return
-        for i, page in enumerate(self.pages):
-            if i == index:
-                page.pack(fill=tk.BOTH, expand=True)
-            else:
-                page.pack_forget()
+        self.pages[index].tkraise()
         self._current = index
         self.header.set_current(index)

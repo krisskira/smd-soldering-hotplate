@@ -195,13 +195,16 @@ class HeatView:
 
         def place_notes(e) -> None:
             inline = e.width >= rules.winfo_reqwidth() + eeprom.winfo_reqwidth() + 12
-            rules.grid(row=0, column=0, sticky="w")
+            if getattr(notes, "_hp_inline", None) == inline:
+                return
+            notes._hp_inline = inline  # type: ignore[attr-defined]
             eeprom.grid(row=(0 if inline else 1), column=(1 if inline else 0),
                         sticky=("e" if inline else "w"))
 
         notes.columnconfigure(1, weight=1)
         rules.grid(row=0, column=0, sticky="w")
         eeprom.grid(row=0, column=1, sticky="e")
+        notes._hp_inline = True  # type: ignore[attr-defined]
         notes.bind("<Configure>", place_notes, add="+")
 
         for v in self.ramp_temp + self.ramp_hold + self.ramp_active:
