@@ -1,0 +1,28 @@
+1
+00:00:00,080 --> 00:00:04,120
+Del plano KiCad al cobre fresado.
+
+2
+00:00:04,280 --> 00:00:10,620
+Una fresa aísla las pistas en la placa.
+
+3
+00:00:10,780 --> 00:00:16,620
+El cobre sobrante se retira paso a paso.
+
+4
+00:00:16,780 --> 00:00:22,620
+La máquina recorre el contorno del plano.
+
+5
+00:00:22,780 --> 00:00:29,120
+El microscopio busca cortes y puentes.
+
+6
+00:00:29,280 --> 00:00:35,120
+Pads y pistas quedan en el cobre.
+
+7
+00:00:35,280 --> 00:00:41,120
+Control y potencia, en la misma placa.
+

@@ -1,0 +1,24 @@
+1
+00:00:00,080 --> 00:00:04,420
+Una app de escritorio para el ciclo.
+
+2
+00:00:04,580 --> 00:00:10,920
+Enlaza el puerto a 19200 y pasa a USB.
+
+3
+00:00:11,080 --> 00:00:17,920
+Edita hasta cuatro escalones y lanza HEAT.
+
+4
+00:00:18,080 --> 00:00:24,420
+Una orden AT a la vez, y espera el OK.
+
+5
+00:00:24,580 --> 00:00:30,920
+Lo de Ajustes se guarda en la EEPROM.
+
+6
+00:00:31,080 --> 00:00:36,420
+El perfil queda guardado en el equipo.
+

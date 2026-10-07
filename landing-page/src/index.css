@@ -129,6 +129,47 @@ body {
   image-rendering: pixelated;
 }
 
+/* La escena del hero se balancea en fases opuestas: el equipo y Studio se inclinan el uno hacia el otro. */
+@keyframes hero-sway-device {
+  0%,
+  100% {
+    transform: translate3d(0, 8px, 0) rotate(-1.7deg);
+  }
+  50% {
+    transform: translate3d(12px, -7px, 0) rotate(2.2deg);
+  }
+}
+
+@keyframes hero-sway-studio {
+  0%,
+  100% {
+    transform: translate3d(6px, -6px, 0) rotate(6.2deg);
+  }
+  50% {
+    transform: translate3d(-12px, 8px, 0) rotate(2.8deg);
+  }
+}
+
+.hero-sway-device {
+  transform: translate3d(0, 0, 0) rotate(-0.4deg);
+  transform-origin: 46% 92%;
+}
+
+.hero-sway-studio {
+  transform: translate3d(4px, 0, 0) rotate(5deg);
+  transform-origin: 72% 42%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-sway-device {
+    animation: hero-sway-device 8.5s ease-in-out infinite;
+  }
+
+  .hero-sway-studio {
+    animation: hero-sway-studio 8.5s ease-in-out infinite;
+  }
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(16px);

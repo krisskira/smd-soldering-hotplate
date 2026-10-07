@@ -1,0 +1,32 @@
+1
+00:00:00,080 --> 00:00:04,420
+C bare-metal en un ATmega16 a 8 MHz.
+
+2
+00:00:04,580 --> 00:00:09,220
+En reposo, el equipo espera el RUN.
+
+3
+00:00:09,380 --> 00:00:14,020
+La espera programada cuenta atrás.
+
+4
+00:00:14,180 --> 00:00:19,220
+En RUN persigue la consigna del paso.
+
+5
+00:00:19,380 --> 00:00:24,220
+La meseta sostiene el tiempo marcado.
+
+6
+00:00:24,380 --> 00:00:29,220
+Al terminar corta el calor y avisa.
+
+7
+00:00:29,380 --> 00:00:34,220
+En USB, Studio toma el mando.
+
+8
+00:00:34,380 --> 00:00:39,720
+Pantalla y control caben en el mismo chip.
+

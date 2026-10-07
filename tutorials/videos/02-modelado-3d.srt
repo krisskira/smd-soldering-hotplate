@@ -1,0 +1,24 @@
+1
+00:00:00,080 --> 00:00:04,120
+La carcasa se diseña antes de imprimir.
+
+2
+00:00:04,280 --> 00:00:11,120
+Frente, perilla y ventana para la LCD.
+
+3
+00:00:11,280 --> 00:00:17,120
+El lateral lleva el relieve de las pistas.
+
+4
+00:00:17,280 --> 00:00:23,120
+Cuatro postes separan la placa caliente.
+
+5
+00:00:23,280 --> 00:00:28,620
+La perilla se imprime aparte de la tapa.
+
+6
+00:00:28,780 --> 00:00:35,120
+Tapa, base y perilla salen de Fusion 360.
+

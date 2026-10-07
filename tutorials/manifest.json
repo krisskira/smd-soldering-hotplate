@@ -1,0 +1,70 @@
+{
+  "product": "HotPlate",
+  "locale": "es",
+  "audience": "kriver-device / tutoriales",
+  "format": {
+    "container": "mp4",
+    "video": "h264 1920x1080",
+    "audio": "aac 48 kHz, música CC0, sin voz",
+    "subtitles": "quemados en el mp4 y pista .srt"
+  },
+  "hero": {
+    "src": "referencias/hero-producto.jpg",
+    "landing": "landing-page/public/media/hero-producto.jpg",
+    "note": "Composición del equipo terminado a partir de las fotos, la LCD en RUN y HotPlate Studio."
+  },
+  "items": [
+    {
+      "slug": "promo",
+      "title": "HotPlate, de la PCB al ciclo",
+      "summary": "Pieza corta, sin voz, que recorre el equipo, la pantalla, Studio, el fresado y la carcasa.",
+      "video": "videos/promo.mp4",
+      "srt": "videos/promo.srt"
+    },
+    {
+      "slug": "pcb",
+      "title": "Fabricar la PCB",
+      "summary": "Fresado de aislamiento en cobre, revisión al microscopio y qué lleva la placa.",
+      "body": "01-pcb/tutorial.md",
+      "video": "videos/01-pcb.mp4",
+      "srt": "videos/01-pcb.srt",
+      "images": "referencias/01-pcb"
+    },
+    {
+      "slug": "modelado-3d",
+      "title": "Modelar e imprimir la carcasa",
+      "summary": "Fusion 360, postes, perilla y el equipo cerrado.",
+      "body": "02-modelado-3d/tutorial.md",
+      "video": "videos/02-modelado-3d.mp4",
+      "srt": "videos/02-modelado-3d.srt",
+      "images": "referencias/02-modelado"
+    },
+    {
+      "slug": "firmware",
+      "title": "El firmware en el ATmega16",
+      "summary": "Ciclo HEAT, estados de HotPanel y el PI predictivo.",
+      "body": "03-firmware/tutorial.md",
+      "video": "videos/03-firmware.mp4",
+      "srt": "videos/03-firmware.srt",
+      "images": "referencias/03-firmware"
+    },
+    {
+      "slug": "hotplate-studio",
+      "title": "HotPlate Studio",
+      "summary": "Aplicación de escritorio: una orden AT a la vez, curva a 1 Hz y EEPROM.",
+      "body": "04-hotplate-studio/tutorial.md",
+      "video": "videos/04-hotplate-studio.mp4",
+      "srt": "videos/04-hotplate-studio.srt",
+      "images": "referencias/04-studio"
+    },
+    {
+      "slug": "calibracion",
+      "title": "Calibrar con HotPlate Studio",
+      "summary": "Límites, bandas de meseta, autoajuste del PI y un ciclo HEAT de comprobación.",
+      "body": "05-calibracion/tutorial.md",
+      "video": "videos/05-calibracion.mp4",
+      "srt": "videos/05-calibracion.srt",
+      "images": "referencias/05-calibracion"
+    }
+  ]
+}

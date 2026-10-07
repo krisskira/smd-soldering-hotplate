@@ -1,0 +1,36 @@
+1
+00:00:00,080 --> 00:00:05,920
+Soldadura SMD, con perfil y control.
+
+2
+00:00:06,080 --> 00:00:11,420
+Fase, consigna y tiempo, en la LCD.
+
+3
+00:00:11,580 --> 00:00:17,420
+Studio dibuja la curva en vivo, a 1 Hz.
+
+4
+00:00:17,580 --> 00:00:22,920
+La PCB se fresa en cobre, en el taller.
+
+5
+00:00:23,080 --> 00:00:28,420
+Cada pista se revisa antes de armar.
+
+6
+00:00:28,580 --> 00:00:33,920
+La carcasa se modela en Fusion 360.
+
+7
+00:00:34,080 --> 00:00:39,420
+Límites, bandas de meseta y el PI.
+
+8
+00:00:39,580 --> 00:00:44,420
+Hardware, firmware y software, juntos.
+
+9
+00:00:44,580 --> 00:00:49,420
+HotPlate. Abierto y repetible.
+

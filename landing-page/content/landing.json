@@ -38,11 +38,11 @@
         }
       ],
       "media": {
-        "src": "media/hotpanel-ramp.png",
-        "alt": "HotPanel en la rampa 2: 163,2 °C, fase RUN, consigna 180 °C, 5 minutos 12 segundos transcurridos",
-        "frame": "lcd",
-        "width": 664,
-        "height": 344
+        "src": "media/hero-producto.jpg",
+        "alt": "HotPlate terminado sobre la mesa: placa de aluminio, carcasa impresa, pantalla en RUN a 163,2 °C y HotPlate Studio con la curva al fondo",
+        "frame": "plain",
+        "width": 1280,
+        "height": 720
       },
       "next": {
         "label": "Qué hace",

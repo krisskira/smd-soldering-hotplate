@@ -24,7 +24,7 @@
   "logo": "media/logo.svg",
   "favicon": "media/logo.svg",
   "ogImage": "media/og-cover.jpg",
-  "ogImageAlt": "HotPlate: ciclo HEAT real con HotPanel y la curva de temperatura",
+  "ogImageAlt": "HotPlate con la pantalla en RUN y HotPlate Studio mostrando la curva de temperatura",
   "icons": [],
   "defaultTheme": "dark",
   "themeColor": { "light": "#fffaf6", "dark": "#0c0908" },

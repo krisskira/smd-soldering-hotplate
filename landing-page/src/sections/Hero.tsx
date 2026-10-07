@@ -1,10 +1,16 @@
+import { useState } from 'react';
 import type { Section as PageSection } from '../types';
 import { ChevronDown } from 'lucide-react';
 import { Media } from '../components/Media';
 import { Actions, Rich } from '../components/ui';
+import { useI18n } from '../i18n/useI18n';
 import { focusRing, wrap } from '../lib/styles';
+import { HeroScene } from './HeroScene';
 
 export function Hero({ section }: { section: PageSection }) {
+  const { t } = useI18n();
+  const [version, setVersion] = useState<'scene' | 'photo'>('scene');
+
   return (
     <section id="top" aria-labelledby="hero-title" className="relative flex min-h-[100svh] flex-col overflow-hidden bg-hero pt-[72px] text-hero-fg">
       <div
@@ -57,8 +63,40 @@ export function Hero({ section }: { section: PageSection }) {
         </div>
 
         {section.media ? (
-          <div className="relative motion-safe:animate-[float_9s_ease-in-out_infinite]">
-            <Media media={section.media} priority />
+          <div>
+            {version === 'scene' ? (
+              <HeroScene />
+            ) : (
+              <div className="relative motion-safe:animate-[float_9s_ease-in-out_infinite]">
+                <Media media={section.media} priority />
+              </div>
+            )}
+            <div role="radiogroup" aria-label={t('hero.version')} className="mt-4 flex justify-center gap-2">
+              {(
+                [
+                  ['scene', t('hero.scene')],
+                  ['photo', t('hero.photo')],
+                ] as const
+              ).map(([id, label]) => {
+                const selected = version === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setVersion(id)}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${focusRing} ${
+                      selected
+                        ? 'border-accent bg-accent text-on-accent'
+                        : 'border-hero-fg/20 bg-hero-fg/5 text-hero-fg/75 hover:border-hero-fg/40 hover:text-hero-fg'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : null}
       </div>
