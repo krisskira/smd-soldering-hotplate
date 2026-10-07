@@ -3,11 +3,11 @@
   "name": "HotPlate",
   "shortName": "HotPlate",
   "badge": "open hardware",
-  "title": "HotPlate | Placa de reflow SMD con Soldering Profile y control PI",
-  "description": "HotPlate es una estación de soldadura SMD por reflow, abierta: ejecuta un perfil de temperatura por escalones con control PI predictivo, HotPanel a bordo y HotPlate Studio por USB.",
+  "title": "HotPlate | Estación de soldadura abierta y gratuita para componentes SMD",
+  "description": "HotPlate es una estación de soldadura de componentes SMD, gratis y de hardware y software abiertos. Perfil de 4 rampas, control PID predictivo con autoajuste, USB con comandos AT y la app HotPlate Studio para calibrarla.",
   "keywords": [
     "reflow SMD",
-    "hot plate",
+    "estación de soldadura",
     "placa calefactora",
     "soldering profile",
     "control PID",
@@ -29,7 +29,7 @@
   "defaultTheme": "dark",
   "themeColor": { "light": "#fffaf6", "dark": "#0c0908" },
   "repo": "https://github.com/krisskira/smd-soldering-hotplate",
-  "cta": { "label": "Ver el demo", "href": "#demo" },
+  "cta": { "label": "Apoyar", "href": "https://www.paypal.com/donate/?hosted_button_id=SBYR4CK2WEE9Q", "icon": "heart" },
   "nav": [],
   "author": {
     "name": "Cristian David Vergara Gómez",
@@ -37,7 +37,8 @@
     "email": "krisskira@gmail.com",
     "sameAs": [
       "https://krisskira.github.io/krisskira/",
-      "https://www.linkedin.com/in/cristian-david-vergara-gomez/"
+      "https://www.linkedin.com/in/cristian-david-vergara-gomez/",
+      "https://kriverdevice.krisskira.com/"
     ]
   },
   "maker": { "name": "Kriver Devices", "url": "https://kriverdevice.krisskira.com/" },
@@ -48,25 +49,27 @@
     "material": "Hardware y software abiertos (MIT · CERN-OHL-P-2.0 · CC BY 4.0)"
   },
   "footer": {
-    "text": "Hardware y software abiertos. Firmware y HotPlate Studio bajo **MIT**; placa y carcasa bajo **CERN-OHL-P-2.0**; documentación bajo **CC BY 4.0**. Úsalo bajo tu responsabilidad: trabaja con red eléctrica y temperaturas altas.",
+    "text": "Gratis y abierto. Firmware y HotPlate Studio bajo **MIT**, placa y carcasa bajo **CERN-OHL-P-2.0** y documentación bajo **CC BY 4.0**. Trabaja con red eléctrica y temperaturas altas, así que úsalo con cuidado.",
     "rights": "HotPlate",
     "columns": [
       {
         "title": "Producto",
         "links": [
-          { "label": "Características", "href": "#caracteristicas" },
-          { "label": "Demo", "href": "#demo" },
+          { "label": "Cómo funciona", "href": "#caracteristicas" },
           { "label": "HotPlate Studio", "href": "#studio" },
-          { "label": "Hardware", "href": "#hardware" }
+          { "label": "USB y comandos AT", "href": "#usb" },
+          { "label": "Hardware", "href": "#hardware" },
+          { "label": "La historia del proyecto", "href": "https://kriverdevice.krisskira.com/tutoriales/hotplate-reflow-smd" }
         ]
       },
       {
-        "title": "Documentación",
+        "title": "Desarrollador",
         "links": [
-          { "label": "README", "href": "https://github.com/krisskira/smd-soldering-hotplate#readme" },
-          { "label": "Control PI y autoajuste", "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/pid_control.md" },
-          { "label": "Protocolo USB / AT", "href": "https://github.com/krisskira/smd-soldering-hotplate/blob/main/firmware/avr/doc/usb-automation.md" },
-          { "label": "La historia del proyecto", "href": "https://kriverdevice.krisskira.com/tutoriales/hotplate-reflow-smd" }
+          { "label": "krisskira.com", "href": "https://krisskira.com/" },
+          { "label": "LinkedIn", "href": "https://www.linkedin.com/in/cristian-david-vergara-gomez/" },
+          { "label": "GitHub", "href": "https://krisskira.github.io/krisskira/" },
+          { "label": "Kriver Devices", "href": "https://kriverdevice.krisskira.com/" },
+          { "label": "WhatsApp", "href": "https://wa.me/573183919187" }
         ]
       }
     ]

@@ -1,5 +1,6 @@
 import type { Section as PageSection } from '../types';
 import { Check } from 'lucide-react';
+import { Carousel } from '../components/Carousel';
 import { Media } from '../components/Media';
 import { Actions, BrandBar, Paragraphs, Reveal, Rich, Section } from '../components/ui';
 
@@ -37,7 +38,7 @@ export function Split({ section }: { section: PageSection }) {
           <Actions actions={section.actions} className="mt-8" />
         </Reveal>
         <Reveal delay={120}>
-          <Media media={section.media} />
+          {section.items?.length ? <Carousel items={section.items} /> : <Media media={section.media} />}
         </Reveal>
       </div>
     </Section>

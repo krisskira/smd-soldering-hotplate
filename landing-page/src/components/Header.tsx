@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/useI18n';
 import { asset, isExternal } from '../lib/content';
 import { usePage } from '../lib/usePage';
 import { useTheme } from '../theme/context';
-import { GitHubIcon } from './Icon';
+import { GitHubIcon, Icon } from './Icon';
 import { focusRing, wrap } from '../lib/styles';
 
 function Logo({ overlay, site }: { overlay: boolean; site: Site }) {
@@ -67,6 +67,7 @@ export function Header() {
     };
   }, [open]);
 
+  const ctaTarget = site.cta && isExternal(site.cta.href) ? { target: '_blank', rel: 'noopener noreferrer' } : {};
   const iconButton = `inline-flex h-10 w-10 items-center justify-center rounded-full transition ${overlay ? 'text-hero-fg hover:bg-white/10' : 'text-fg hover:bg-soft'} ${focusRing}`;
 
   return (
@@ -105,8 +106,10 @@ export function Header() {
           {site.cta ? (
             <a
               href={site.cta.href}
-              className={`ml-2 hidden h-10 items-center rounded-full bg-accent px-5 font-display text-sm font-semibold text-on-accent transition hover:brightness-110 sm:inline-flex ${focusRing}`}
+              {...ctaTarget}
+              className={`ml-2 hidden h-10 items-center gap-2 rounded-full bg-accent px-5 font-display text-sm font-semibold text-on-accent transition hover:brightness-110 sm:inline-flex ${focusRing}`}
             >
+              {site.cta.icon ? <Icon name={site.cta.icon} size={16} /> : null}
               {site.cta.label}
             </a>
           ) : null}
@@ -143,9 +146,11 @@ export function Header() {
             {site.cta ? (
               <a
                 href={site.cta.href}
+                {...ctaTarget}
                 onClick={() => setOpen(false)}
-                className={`mt-6 flex h-12 items-center justify-center rounded-full bg-accent font-display font-semibold text-on-accent ${focusRing}`}
+                className={`mt-6 flex h-12 items-center justify-center gap-2 rounded-full bg-accent font-display font-semibold text-on-accent ${focusRing}`}
               >
+                {site.cta.icon ? <Icon name={site.cta.icon} size={18} /> : null}
                 {site.cta.label}
               </a>
             ) : null}

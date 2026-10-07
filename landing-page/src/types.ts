@@ -90,7 +90,7 @@ export type Site = {
   repo?: string;
   defaultTheme?: string;
   themeColor?: { light?: string; dark?: string };
-  cta?: NavLink;
+  cta?: NavLink & { icon?: string };
   nav?: NavLink[];
   author?: { name?: string; email?: string; url?: string };
   maker?: { name: string; url: string };

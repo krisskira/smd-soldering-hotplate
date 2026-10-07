@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { Section } from '../types';
+import { Author } from './Author';
 import { Code } from './Code';
 import { Cta } from './Cta';
 import { Faq } from './Faq';
@@ -26,5 +27,6 @@ export const sections: Record<string, ComponentType<{ section: Section }>> = {
   code: Code,
   faq: Faq,
   gallery: Gallery,
+  author: Author,
   cta: Cta,
 };

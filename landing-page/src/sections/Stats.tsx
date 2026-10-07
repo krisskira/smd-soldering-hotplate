@@ -1,6 +1,6 @@
 import type { Section as PageSection } from '../types';
 import { Media } from '../components/Media';
-import { Reveal, Rich, Section, SectionHeader } from '../components/ui';
+import { Actions, Reveal, Rich, Section, SectionHeader } from '../components/ui';
 
 export function Stats({ section }: { section: PageSection }) {
   return (
@@ -27,6 +27,7 @@ export function Stats({ section }: { section: PageSection }) {
           <Media media={section.media} />
         </Reveal>
       ) : null}
+      <Actions actions={section.actions} className="mt-10" />
     </Section>
   );
 }
