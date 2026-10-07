@@ -46,7 +46,8 @@
     "@type": "Product",
     "category": "Estación de soldadura SMD por reflow",
     "brand": { "@type": "Brand", "name": "Kriver Devices" },
-    "material": "Hardware y software abiertos (MIT · CERN-OHL-P-2.0 · CC BY 4.0)"
+    "material": "Hardware y software abiertos (MIT · CERN-OHL-P-2.0 · CC BY 4.0)",
+    "sameAs": "https://kriverdevice.krisskira.com/proyectos/hotplate-smd"
   },
   "footer": {
     "text": "Gratis y abierto. Firmware y HotPlate Studio bajo **MIT**, placa y carcasa bajo **CERN-OHL-P-2.0** y documentación bajo **CC BY 4.0**. Trabaja con red eléctrica y temperaturas altas, así que úsalo con cuidado.",
@@ -59,7 +60,7 @@
           { "label": "HotPlate Studio", "href": "#studio" },
           { "label": "USB y comandos AT", "href": "#usb" },
           { "label": "Hardware", "href": "#hardware" },
-          { "label": "La historia del proyecto", "href": "https://kriverdevice.krisskira.com/tutoriales/hotplate-reflow-smd" }
+          { "label": "Ficha en Kriver Devices", "href": "https://kriverdevice.krisskira.com/proyectos/hotplate-smd" }
         ]
       },
       {
