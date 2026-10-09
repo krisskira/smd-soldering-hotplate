@@ -140,6 +140,24 @@ function gtmBody(site: Json) {
     <!-- End Google Tag Manager (noscript) -->`;
 }
 
+function gtagId(site: Json) {
+  const id = String(site.gtag ?? '').trim();
+  return /^G-[A-Z0-9]+$/.test(id) ? id : '';
+}
+
+function gtagHead(site: Json) {
+  const id = gtagId(site);
+  if (!id) return '';
+  return `<!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', '${id}');
+    </script>`;
+}
+
 function headTags(site: Json, landing: Json, base: string) {
   const title = site.title || site.name;
   const canonical = base ? `${base}/` : undefined;
@@ -147,6 +165,7 @@ function headTags(site: Json, landing: Json, base: string) {
   const color = site.themeColor ?? {};
   const tags = [
     gtmHead(site),
+    gtagHead(site),
     `<title>${esc(title)}</title>`,
     `<meta name="description" content="${esc(site.description)}" />`,
     site.keywords?.length ? `<meta name="keywords" content="${esc(site.keywords.join(', '))}" />` : '',
